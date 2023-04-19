@@ -1,3 +1,3 @@
 #! /usr/bin/env bash
 
-./chat-gpt.ts "$*" | glow
+./chat-gpt.ts $* | glow

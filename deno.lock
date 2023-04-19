@@ -1,6 +1,8 @@
 {
   "version": "2",
   "remote": {
+    "https://deno.land/std@0.153.0/_util/assert.ts": "e94f2eb37cebd7f199952e242c77654e43333c1ac4c5c700e929ea3aa5489f74",
+    "https://deno.land/std@0.153.0/encoding/jsonc.ts": "5f8f76cdae084c690782bd6d87fd2be1134f8c481ce488039a7abf5682a24e14",
     "https://deno.land/std@0.182.0/_util/asserts.ts": "178dfc49a464aee693a7e285567b3d0b555dc805ff490505a8aae34f9cfb1462",
     "https://deno.land/std@0.182.0/_util/os.ts": "d932f56d41e4f6a6093d56044e29ce637f8dcc43c5a90af43504a889cf1775e3",
     "https://deno.land/std@0.182.0/collections/filter_values.ts": "5b9feaf17b9a6e5ffccdd36cf6f38fa4ffa94cff2602d381c2ad0c2a97929652",

@@ -2,10 +2,13 @@
 import { getInput } from "./utils/get-input.ts"
 import { ChatCompletionRequestMessage } from "npm:openai"
 import { getOpenAIApi } from "./utils/open-ai-api.ts"
+import { type JSONValue } from "https://deno.land/std@0.153.0/encoding/jsonc.ts"
 
 const input = await getInput()
-
 const openai = await getOpenAIApi(import.meta.url)
+function jsonMd(obj: JSONValue) {
+  return "\n```json\n" + JSON.stringify(obj, null, 2) + "\n```\n\n"
+}
 
 // TODO: Add a first argument that selects from a set of system messages
 // TODO: It doesn't seem to care too much about the system message, try adding a prelude to the prompt instead
@@ -20,7 +23,7 @@ const response = await openai.createChatCompletion({
   messages: [systemMsg, { role: "user", content: input }],
 }).catch((e) => {
   console.log("Request error:", e.response.status)
-  console.log("\n```json\n" + JSON.stringify(e.response.data, null, 2) + "\n```")
+  console.log(jsonMd(e.response.data))
   Deno.exit()
 })
 

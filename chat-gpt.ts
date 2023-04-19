@@ -42,7 +42,7 @@ const messages = args.r ? [...getHistory(), userMsg] : [systemMsg, userMsg]
 const openai = await getOpenAIApi(import.meta.url)
 
 const resp = await openai.createChatCompletion({
-  model: "gpt-3.5-turbo",
+  model: "gpt-4",
   messages,
 }).catch((e) => {
   console.log("Request error:", e.response.status)

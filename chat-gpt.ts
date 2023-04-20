@@ -4,19 +4,29 @@ import * as flags from "https://deno.land/std@0.184.0/flags/mod.ts"
 import * as z from "https://deno.land/x/zod@v3.21.4/mod.ts"
 import { Configuration, OpenAIApi } from "npm:openai"
 
-import { getStdin, jsonBlock } from "./utils/mod.ts"
+import { getStdin, jsonBlock, mdTable } from "./utils/mod.ts"
 
-const args = flags.parse(Deno.args, { boolean: ["r", "h"] })
+const args = flags.parse(Deno.args, {
+  boolean: ["help", "reply", "show"],
+  alias: { h: "help", r: "reply", s: "show" },
+})
 
-if (args.h) {
-  console.log(`-r to continue ongoing conversation. no flag to start a new conversation`)
+if (args.help) { // print help and exit
+  console.log(`
+# Usage
+
+ai [options] MESSAGE
+
+# Options
+`.trim())
+  console.log()
+  console.log(mdTable(["Flag", "Effect"], [
+    ["None", "Start a new conversation"],
+    ["-r, --reply", "Continue existing chat"],
+    ["-s, --show", "Show chat so far"],
+  ]))
   Deno.exit()
 }
-
-const Env = z.object({ OPENAI_API_KEY: z.string().min(1) })
-const envPath = new URL(".env", import.meta.url).pathname
-const env = Env.parse(await loadEnv({ envPath }))
-const openai = new OpenAIApi(new Configuration({ apiKey: env.OPENAI_API_KEY }))
 
 const Message = z.object({
   role: z.enum(["system", "user", "assistant"]),
@@ -25,11 +35,27 @@ const Message = z.object({
 
 const HISTORY_KEY = "history"
 
-function getHistory() {
+const history = (function getHistory() {
   const contents = localStorage.getItem(HISTORY_KEY)
   if (!contents) return null
   return z.array(Message).parse(JSON.parse(contents))
+})()
+
+if (args.show) { // print conversation so far and exit
+  if (history && history.length > 1) {
+    for (const msg of history.slice(1)) { // skip system prompt
+      console.log(`# ${msg.role}\n\n${msg.content}\n`)
+    }
+  } else {
+    console.log("no history found")
+  }
+  Deno.exit()
 }
+
+const Env = z.object({ OPENAI_API_KEY: z.string().min(1) })
+const envPath = new URL(import.meta.resolve("./.env")).pathname
+const env = Env.parse(await loadEnv({ envPath }))
+const openai = new OpenAIApi(new Configuration({ apiKey: env.OPENAI_API_KEY }))
 
 const directInput = args._.join(" ")
 const input = directInput === "-" ? await getStdin() : directInput
@@ -47,9 +73,7 @@ const systemMsg = {
 
 const userMsg = { role: "user", content: input } as const
 
-// r for reply
-const history = getHistory()
-const messages = args.r && history ? [...history, userMsg] : [systemMsg, userMsg]
+const messages = args.reply && history ? [...history, userMsg] : [systemMsg, userMsg]
 
 const resp = await openai.createChatCompletion({
   model: "gpt-4",

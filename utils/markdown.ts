@@ -25,6 +25,6 @@ export function mdTable(header: Row, rows: Row[]) {
   }
 
   const divider = makeRow(Array(header.length).fill("---"))
-  return [makeRow(header), divider , ...rows.map(makeRow)]
+  return [makeRow(header), divider, ...rows.map(makeRow)]
     .join("\n")
 }

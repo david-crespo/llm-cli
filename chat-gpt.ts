@@ -6,18 +6,16 @@ import { Configuration, OpenAIApi } from "npm:openai"
 
 import { getStdin, jsonBlock, mdTable } from "./utils/mod.ts"
 
-const args = flags.parse(Deno.args, {
-  boolean: ["help", "reply", "show"],
-  alias: { h: "help", r: "reply", s: "show" },
-})
-
-if (args.help) { // print help and exit
+function printHelp() {
   console.log(`
 # Usage
 
-ai [options] MESSAGE
+ai [options] MESSAGE 
 
 # Options
+
+Pass \`-\` as message to read from stdin.
+
 `.trim())
   console.log()
   console.log(mdTable(["Flag", "Effect"], [
@@ -25,7 +23,6 @@ ai [options] MESSAGE
     ["-r, --reply", "Continue existing chat"],
     ["-s, --show", "Show chat so far"],
   ]))
-  Deno.exit()
 }
 
 const Message = z.object({
@@ -33,60 +30,88 @@ const Message = z.object({
   content: z.string(),
 })
 
-const HISTORY_KEY = "history"
+type Message = z.infer<typeof Message>
 
-const history = (function getHistory() {
-  const contents = localStorage.getItem(HISTORY_KEY)
-  if (!contents) return null
-  return z.array(Message).parse(JSON.parse(contents))
-})()
-
-if (args.show) { // print conversation so far and exit
-  if (history && history.length > 1) {
-    for (const msg of history.slice(1)) { // skip system prompt
-      console.log(`# ${msg.role}\n\n${msg.content}\n`)
-    }
-  } else {
-    console.log("no history found")
-  }
-  Deno.exit()
+const History = {
+  read() {
+    const contents = localStorage.getItem("history")
+    if (!contents) return null
+    return z.array(Message).parse(JSON.parse(contents))
+  },
+  write(messages: Message[]) {
+    localStorage.setItem("history", JSON.stringify(messages))
+  },
 }
 
-const Env = z.object({ OPENAI_API_KEY: z.string().min(1) })
-const envPath = new URL(import.meta.resolve("./.env")).pathname
-const env = Env.parse(await loadEnv({ envPath }))
-const openai = new OpenAIApi(new Configuration({ apiKey: env.OPENAI_API_KEY }))
+function printChat(messages: Message[] | null) {
+  if (!messages || messages.length <= 1) {
+    console.log("no history found")
+    return
+  }
 
-const directInput = args._.join(" ")
-const input = directInput === "-" ? await getStdin() : directInput
+  for (const msg of messages.slice(1)) { // skip system prompt
+    console.log(`# ${msg.role}\n\n${msg.content}\n`)
+  }
+}
+
+async function getOpenAI() {
+  const Env = z.object({ OPENAI_API_KEY: z.string().min(1) })
+  const envPath = new URL(import.meta.resolve("./.env")).pathname
+  const env = Env.parse(await loadEnv({ envPath }))
+  return new OpenAIApi(new Configuration({ apiKey: env.OPENAI_API_KEY }))
+}
 
 // TODO: Add an argument that selects from a set of system messages
 const systemMsg = {
   role: "system",
   content: `
-    You are an experienced software developer.
+    You are an experienced software developer with a philosophical style.
     Your answers are precise, concise, and avoid jargon and filler.
-    Answer only the question as asked, do not give extra background.
+    Answer only the question as asked. Do not give extra background.
     Go right into the answer. Your answers should be in markdown format.
   `.trim(),
 } as const
 
-const userMsg = { role: "user", content: input } as const
+// === script starts here ===
 
-const messages = args.reply && history ? [...history, userMsg] : [systemMsg, userMsg]
-
-const resp = await openai.createChatCompletion({
-  model: "gpt-4",
-  messages,
-}).catch((e) => {
-  console.log("Request error:", e.response.status)
-  console.log(jsonBlock(e.response.data))
-  Deno.exit()
+const args = flags.parse(Deno.args, {
+  boolean: ["help", "reply", "show"],
+  alias: { h: "help", r: "reply", s: "show" },
 })
 
-const respMsg = resp.data.choices[0].message
+if (args.help) {
+  printHelp()
+  Deno.exit()
+}
 
-if (respMsg) {
-  localStorage.setItem(HISTORY_KEY, JSON.stringify([...messages, respMsg]))
-  console.log(respMsg.content)
+const history = History.read()
+
+if (args.show) {
+  printChat(history)
+  Deno.exit()
+}
+
+const directInput = args._[0]
+if (!directInput) {
+  printHelp()
+  Deno.exit()
+}
+
+const messages: Message[] = args.reply && history || [systemMsg]
+
+const input = directInput === "-" ? await getStdin() : directInput.toString()
+messages.push({ role: "user", content: input })
+
+const openai = await getOpenAI()
+
+try {
+  const resp = await openai.createChatCompletion({ model: "gpt-4", messages })
+  const respMsg = resp.data.choices[0].message
+  if (respMsg) {
+    History.write([...messages, respMsg])
+    console.log(respMsg.content)
+  }
+} catch (e) {
+  console.log("Request error:", e.response.status)
+  console.log(jsonBlock(e.response.data))
 }

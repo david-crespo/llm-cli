@@ -60,8 +60,7 @@ function printChat(messages: Message[] | null) {
   }
 }
 
-/** Read from `Deno.args[i]`, but `-` makes it readAll from stdin */
-export async function getStdin() {
+async function getStdin() {
   return new TextDecoder().decode(await readAll(Deno.stdin)).trim()
 }
 

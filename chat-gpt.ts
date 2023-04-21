@@ -22,6 +22,7 @@ Pass \`-\` as message to read from stdin.
     ["None", "Start a new conversation"],
     ["-r, --reply", "Continue existing chat"],
     ["-s, --show", "Show chat so far"],
+    ["-a, --append", "Read from stdin and append that to MESSAGE"],
   ]))
 }
 
@@ -65,18 +66,20 @@ async function getOpenAI() {
 const systemMsg = {
   role: "system",
   content: `
-    You are an experienced software developer with a philosophical style.
-    Your answers are precise, concise, and avoid jargon and filler.
+    You are an experienced software developer.
+    Your answers are precise and avoid jargon and filler.
     Answer only the question as asked. Do not give extra background.
     Go right into the answer. Your answers should be in markdown format.
   `.trim(),
 } as const
 
+const docPrelude = "\n\nAnswer with reference to this document:\n\n"
+
 // === script starts here ===
 
 const args = flags.parse(Deno.args, {
-  boolean: ["help", "reply", "show"],
-  alias: { h: "help", r: "reply", s: "show" },
+  boolean: ["help", "reply", "show", "append"],
+  alias: { h: "help", r: "reply", s: "show", a: "append" },
 })
 
 if (args.help) {
@@ -99,7 +102,11 @@ if (!directInput) {
 
 const messages: Message[] = args.reply && history || [systemMsg]
 
-const input = directInput === "-" ? await getStdin() : directInput.toString()
+// in append mode, take direct input and a piped document and jam them together
+const input = args.append
+  ? directInput + docPrelude + (await getStdin())
+  : (directInput === "-" ? await getStdin() : directInput.toString())
+
 messages.push({ role: "user", content: input })
 
 const openai = await getOpenAI()

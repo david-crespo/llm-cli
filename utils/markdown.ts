@@ -1,10 +1,4 @@
-type JSONValue =
-  | { [key: string]: JSONValue }
-  | JSONValue[]
-  | string
-  | number
-  | boolean
-  | null
+import { type JSONValue } from "https://deno.land/std@0.184.0/jsonc/mod.ts"
 
 export function codeBlock(contents: string, lang = "") {
   return `\`\`\`${lang}

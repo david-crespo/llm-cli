@@ -1,4 +1,4 @@
-#! /usr/bin/env -S deno run --allow-env --allow-read --allow-net --allow-write
+#! /usr/bin/env -S deno run --allow-env --allow-read --allow-net
 import { load as loadEnv } from "https://deno.land/std@0.184.0/dotenv/mod.ts"
 import * as flags from "https://deno.land/std@0.184.0/flags/mod.ts"
 import * as z from "https://deno.land/x/zod@v3.21.4/mod.ts"

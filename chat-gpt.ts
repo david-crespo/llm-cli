@@ -1,13 +1,18 @@
 #! /usr/bin/env -S deno run --allow-env --allow-read --allow-net
 import { load as loadEnv } from "https://deno.land/std@0.184.0/dotenv/mod.ts"
 import * as flags from "https://deno.land/std@0.184.0/flags/mod.ts"
+import { readAll } from "https://deno.land/std@0.184.0/streams/read_all.ts"
+import { type JSONValue } from "https://deno.land/std@0.184.0/jsonc/mod.ts"
 import * as z from "https://deno.land/x/zod@v3.21.4/mod.ts"
 import { Configuration, OpenAIApi } from "npm:openai"
 
-import { getStdin, jsonBlock, mdTable } from "./utils/mod.ts"
+// This program outputs Markdown, so to make it look really good, pipe it
+// through something like Glow
 
-function printHelp() {
-  console.log(`
+const codeBlock = (contents: string, lang = "") => `\`\`\`${lang}\n${contents}\n\`\`\`\n`
+const jsonBlock = (obj: JSONValue) => codeBlock(JSON.stringify(obj, null, 2), "json")
+
+const HELP = `
 # Usage
 
 ai [options] MESSAGE 
@@ -16,15 +21,13 @@ ai [options] MESSAGE
 
 Pass \`-\` as message to read from stdin.
 
-`.trim())
-  console.log()
-  console.log(mdTable(["Flag", "Effect"], [
-    ["None", "Start a new conversation"],
-    ["-r, --reply", "Continue existing chat"],
-    ["-s, --show", "Show chat so far"],
-    ["-a, --append", "Read from stdin and append that to MESSAGE"],
-  ]))
-}
+| Flag | Effect |
+| --- | --- |
+| None | Start a new chat |
+| -r, --reply | Continue existing chat |
+| -s, --show | Show chat so far |
+| -a, --append | Read from stdin and append to MESSAGE |
+`
 
 const Message = z.object({
   role: z.enum(["system", "user", "assistant"]),
@@ -55,6 +58,11 @@ function printChat(messages: Message[] | null) {
   }
 }
 
+/** Read from `Deno.args[i]`, but `-` makes it readAll from stdin */
+export async function getStdin() {
+  return new TextDecoder().decode(await readAll(Deno.stdin)).trim()
+}
+
 async function getOpenAI() {
   const Env = z.object({ OPENAI_API_KEY: z.string().min(1) })
   const envPath = new URL(import.meta.resolve("./.env")).pathname
@@ -83,7 +91,7 @@ const args = flags.parse(Deno.args, {
 })
 
 if (args.help) {
-  printHelp()
+  console.log(HELP)
   Deno.exit()
 }
 
@@ -96,7 +104,7 @@ if (args.show) {
 
 const directInput = args._[0]
 if (!directInput) {
-  printHelp()
+  console.log(HELP)
   Deno.exit()
 }
 

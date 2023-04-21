@@ -6,6 +6,8 @@ import { type JSONValue } from "https://deno.land/std@0.184.0/jsonc/mod.ts"
 import * as z from "https://deno.land/x/zod@v3.21.4/mod.ts"
 import { Configuration, OpenAIApi } from "npm:openai"
 
+// SETUP: put OPENAI_API_KEY in a .env file in the same directory as this script
+
 // This program outputs Markdown, so to make it look really good, pipe it
 // through something like Glow
 

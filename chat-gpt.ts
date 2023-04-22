@@ -60,9 +60,7 @@ function printChat(messages: Message[] | null) {
   }
 }
 
-async function getStdin() {
-  return new TextDecoder().decode(await readAll(Deno.stdin)).trim()
-}
+const getStdin = async () => new TextDecoder().decode(await readAll(Deno.stdin)).trim()
 
 async function getOpenAI() {
   const Env = z.object({ OPENAI_API_KEY: z.string().min(1) })

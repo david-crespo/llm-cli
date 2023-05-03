@@ -29,6 +29,8 @@ Pass \`-\` as message to read from stdin.
 | -r, --reply | Continue existing chat |
 | -s, --show | Show chat so far |
 | -a, --append | Read from stdin and append to MESSAGE |
+| -p, --persona [str] | Override default persona in system prompt |
+| -t, --turbo | Use gpt-3.5-turbo instead of gpt-4 |
 `
 
 const Message = z.object({
@@ -69,24 +71,14 @@ async function getOpenAI() {
   return new OpenAIApi(new Configuration({ apiKey: env.OPENAI_API_KEY }))
 }
 
-// TODO: Add an argument that selects from a set of system messages
-const systemMsg = {
-  role: "system",
-  content: `
-    You are an experienced software developer.
-    Your answers are precise and avoid jargon and filler.
-    Answer only the question as asked. Do not give extra background.
-    Go right into the answer. Your answers should be in markdown format.
-  `.trim(),
-} as const
-
 const docPrelude = "\n\nAnswer with reference to this document:\n\n"
 
 // === script starts here ===
 
 const args = flags.parse(Deno.args, {
-  boolean: ["help", "reply", "show", "append"],
-  alias: { h: "help", r: "reply", s: "show", a: "append" },
+  boolean: ["help", "reply", "show", "append", "turbo"],
+  string: ["persona"],
+  alias: { h: "help", r: "reply", s: "show", a: "append", p: "persona", t: "turbo" },
 })
 
 if (args.help) {
@@ -107,6 +99,16 @@ if (!directInput) {
   Deno.exit()
 }
 
+const systemMsg = {
+  role: "system",
+  content: `
+    You are a ${args.persona || "experienced software developer"}.
+    Your answers are precise and avoid jargon and filler.
+    Answer only the question as asked. Do not give extra background.
+    Go right into the answer. Your answers should be in markdown format.
+  `.trim(),
+} as const
+
 const messages: Message[] = args.reply && history || [systemMsg]
 
 // in append mode, take direct input and a piped document and jam them together
@@ -119,7 +121,8 @@ messages.push({ role: "user", content: input })
 const openai = await getOpenAI()
 
 try {
-  const resp = await openai.createChatCompletion({ model: "gpt-4", messages })
+  const model = args.turbo ? "gpt-3.5-turbo" : "gpt-4"
+  const resp = await openai.createChatCompletion({ model, messages })
   const respMsg = resp.data.choices[0].message
   if (respMsg) {
     History.write([...messages, respMsg])

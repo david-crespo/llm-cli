@@ -99,14 +99,13 @@ if (!directInput) {
   Deno.exit()
 }
 
+const persona = args.persona ||
+  "experienced software engineer speaking to an experienced software engineer"
+
 const systemMsg = {
   role: "system",
-  content: `
-    You are a ${args.persona || "experienced software developer"}.
-    Your answers are precise and avoid jargon and filler.
-    Answer only the question as asked. Do not give extra background.
-    Go right into the answer. Your answers should be in markdown format.
-  `.trim(),
+  content: `You are a ${persona}. Your answers are precise and avoid jargon and filler.
+    Answer only the question as asked. Your answers should be in markdown format.`,
 } as const
 
 const messages: Message[] = args.reply && history || [systemMsg]

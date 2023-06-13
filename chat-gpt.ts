@@ -128,6 +128,14 @@ try {
     console.log(respMsg.content)
   }
 } catch (e) {
-  console.log("Request error:", e.response.status)
-  console.log(jsonBlock(e.response.data))
+  if (e.response?.status) {
+    console.log("Request error:", e.response.status)
+  }
+  if (e.response?.data) {
+    console.log(jsonBlock(e.response.data))
+  }
+
+  if (!("response" in e)) {
+    console.log(e)
+  }
 }

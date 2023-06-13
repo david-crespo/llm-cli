@@ -3,8 +3,11 @@ import { load as loadEnv } from "https://deno.land/std@0.184.0/dotenv/mod.ts"
 import * as flags from "https://deno.land/std@0.184.0/flags/mod.ts"
 import { readAll } from "https://deno.land/std@0.184.0/streams/read_all.ts"
 import { type JSONValue } from "https://deno.land/std@0.184.0/jsonc/mod.ts"
-import * as z from "https://deno.land/x/zod@v3.21.4/mod.ts"
-import { Configuration, OpenAIApi } from "npm:openai"
+import {
+  type ChatCompletionResponseMessage as Message,
+  Configuration,
+  OpenAIApi,
+} from "npm:openai@^3.3.0"
 
 // SETUP: put OPENAI_API_KEY in a .env file in the same directory as this script
 
@@ -33,18 +36,11 @@ Pass \`-\` as message to read from stdin.
 | -t, --turbo | Use gpt-3.5-turbo instead of gpt-4 |
 `
 
-const Message = z.object({
-  role: z.enum(["system", "user", "assistant"]),
-  content: z.string(),
-})
-
-type Message = z.infer<typeof Message>
-
 const History = {
   read() {
     const contents = localStorage.getItem("history")
     if (!contents) return null
-    return z.array(Message).parse(JSON.parse(contents))
+    return JSON.parse(contents)
   },
   write(messages: Message[]) {
     localStorage.setItem("history", JSON.stringify(messages))
@@ -65,9 +61,9 @@ function printChat(messages: Message[] | null) {
 const getStdin = async () => new TextDecoder().decode(await readAll(Deno.stdin)).trim()
 
 async function getOpenAI() {
-  const Env = z.object({ OPENAI_API_KEY: z.string().min(1) })
   const envPath = new URL(import.meta.resolve("./.env")).pathname
-  const env = Env.parse(await loadEnv({ envPath }))
+  const env = await loadEnv({ envPath })
+  if (!env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not found in .env")
   return new OpenAIApi(new Configuration({ apiKey: env.OPENAI_API_KEY }))
 }
 
@@ -120,7 +116,7 @@ messages.push({ role: "user", content: input })
 const openai = await getOpenAI()
 
 try {
-  const model = args.turbo ? "gpt-3.5-turbo" : "gpt-4"
+  const model = args.turbo ? "gpt-3.5-turbo-0613" : "gpt-4-0613"
   const resp = await openai.createChatCompletion({ model, messages })
   const respMsg = resp.data.choices[0].message
   if (respMsg) {
@@ -128,14 +124,7 @@ try {
     console.log(respMsg.content)
   }
 } catch (e) {
-  if (e.response?.status) {
-    console.log("Request error:", e.response.status)
-  }
-  if (e.response?.data) {
-    console.log(jsonBlock(e.response.data))
-  }
-
-  if (!("response" in e)) {
-    console.log(e)
-  }
+  if (e.response?.status) console.log("Request error:", e.response.status)
+  if (e.response?.data) console.log(jsonBlock(e.response.data))
+  if (!("response" in e)) console.log(e)
 }

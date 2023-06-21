@@ -67,8 +67,6 @@ async function getOpenAI() {
   return new OpenAIApi(new Configuration({ apiKey: env.OPENAI_API_KEY }))
 }
 
-const docPrelude = "\n\nAnswer with reference to this document:\n\n"
-
 // === script starts here ===
 
 const args = flags.parse(Deno.args, {
@@ -108,7 +106,7 @@ const messages: Message[] = args.reply && history || [systemMsg]
 
 // in append mode, take direct input and a piped document and jam them together
 const input = args.append
-  ? directInput + docPrelude + (await getStdin())
+  ? directInput + "\n\n" + (await getStdin())
   : (directInput === "-" ? await getStdin() : directInput.toString())
 
 messages.push({ role: "user", content: input })

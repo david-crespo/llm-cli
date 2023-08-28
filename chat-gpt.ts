@@ -1,13 +1,11 @@
 #! /usr/bin/env -S deno run --allow-env --allow-read --allow-net
-import { load as loadEnv } from "https://deno.land/std@0.184.0/dotenv/mod.ts"
+import "https://deno.land/std@0.200.0/dotenv/load.ts"
 import * as flags from "https://deno.land/std@0.184.0/flags/mod.ts"
 import { readAll } from "https://deno.land/std@0.184.0/streams/read_all.ts"
 import { type JSONValue } from "https://deno.land/std@0.184.0/jsonc/mod.ts"
-import {
-  type ChatCompletionResponseMessage as Message,
-  Configuration,
-  OpenAIApi,
-} from "npm:openai@^3.3.0"
+import OpenAI from "npm:openai@^4.3.0"
+
+type Message = OpenAI.Chat.Completions.ChatCompletionMessage
 
 // SETUP: put OPENAI_API_KEY in a .env file in the same directory as this script
 
@@ -60,13 +58,6 @@ function printChat(messages: Message[] | null) {
 
 const getStdin = async () => new TextDecoder().decode(await readAll(Deno.stdin)).trim()
 
-async function getOpenAI() {
-  const envPath = new URL(import.meta.resolve("./.env")).pathname
-  const env = await loadEnv({ envPath })
-  if (!env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not found in .env")
-  return new OpenAIApi(new Configuration({ apiKey: env.OPENAI_API_KEY }))
-}
-
 // === script starts here ===
 
 const args = flags.parse(Deno.args, {
@@ -111,12 +102,12 @@ const input = args.append
 
 messages.push({ role: "user", content: input })
 
-const openai = await getOpenAI()
+const openai = new OpenAI({ apiKey: Deno.env.get("OPENAI_API_KEY") })
 
 try {
   const model = args.turbo ? "gpt-3.5-turbo" : "gpt-4"
-  const resp = await openai.createChatCompletion({ model, messages })
-  const respMsg = resp.data.choices[0].message
+  const resp = await openai.chat.completions.create({ model, messages })
+  const respMsg = resp.choices[0].message
   if (respMsg) {
     History.write([...messages, respMsg])
     console.log(respMsg.content)

@@ -114,7 +114,7 @@ messages.push({ role: "user", content: input })
 const openai = await getOpenAI()
 
 try {
-  const model = args.turbo ? "gpt-3.5-turbo" : "gpt-4"
+  const model = args.turbo ? "gpt-3.5-turbo-1106" : "gpt-4-1106-preview"
   const resp = await openai.chat.completions.create({ model, messages })
   const respMsg = resp.choices[0].message
   if (respMsg) {

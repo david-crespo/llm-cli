@@ -1,5 +1,4 @@
 #! /usr/bin/env -S deno run --allow-env --allow-read --allow-net
-import { load as loadEnv } from "https://deno.land/std@0.200.0/dotenv/mod.ts"
 import * as flags from "https://deno.land/std@0.184.0/flags/mod.ts"
 import { readAll } from "https://deno.land/std@0.184.0/streams/read_all.ts"
 import { type JSONValue } from "https://deno.land/std@0.184.0/jsonc/mod.ts"
@@ -11,15 +10,6 @@ type Message = OpenAI.Chat.Completions.ChatCompletionMessage
 
 // This program outputs Markdown, so to make it look really good, pipe it
 // through something like Glow
-
-async function getOpenAI() {
-  // needed to resolve .env path as being in the same directory as the script
-  // no matter where it's called from
-  const envPath = new URL(import.meta.resolve("./.env")).pathname
-  const env = await loadEnv({ envPath })
-  if (!env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not found in .env")
-  return new OpenAI({ apiKey: env.OPENAI_API_KEY })
-}
 
 const codeBlock = (contents: string, lang = "") => `\`\`\`${lang}\n${contents}\n\`\`\`\n`
 const jsonBlock = (obj: JSONValue) => codeBlock(JSON.stringify(obj, null, 2), "json")
@@ -111,7 +101,7 @@ const input = args.append
 
 messages.push({ role: "user", content: input })
 
-const openai = await getOpenAI()
+const openai = new OpenAI()
 
 try {
   const model = args.turbo ? "gpt-3.5-turbo-1106" : "gpt-4-1106-preview"

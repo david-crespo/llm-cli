@@ -4,7 +4,10 @@ import { readAll } from "https://deno.land/std@0.184.0/streams/read_all.ts"
 import { type JSONValue } from "https://deno.land/std@0.184.0/jsonc/mod.ts"
 import OpenAI from "https://deno.land/x/openai@v4.16.1/mod.ts"
 
-type Message = OpenAI.Chat.Completions.ChatCompletionMessage
+type Message = {
+  role: "user" | "assistant" | "system"
+  content: string | null
+}
 
 // SETUP: put OPENAI_API_KEY in a .env file in the same directory as this script
 

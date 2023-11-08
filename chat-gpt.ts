@@ -3,7 +3,7 @@ import { load as loadEnv } from "https://deno.land/std@0.200.0/dotenv/mod.ts"
 import * as flags from "https://deno.land/std@0.184.0/flags/mod.ts"
 import { readAll } from "https://deno.land/std@0.184.0/streams/read_all.ts"
 import { type JSONValue } from "https://deno.land/std@0.184.0/jsonc/mod.ts"
-import OpenAI from "npm:openai@^4.3.0"
+import OpenAI from "https://deno.land/x/openai@v4.16.1/mod.ts"
 
 type Message = OpenAI.Chat.Completions.ChatCompletionMessage
 

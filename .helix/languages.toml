@@ -5,8 +5,7 @@ injection-regex = "^(ts|typescript)$"
 file-types = ["ts"]
 shebangs = ["deno", "node"]
 roots = ["deno.json", "package.json", "tsconfig.json"]
-config = { enable = true, lint = true, unstable = true }
-language-server = { command = "deno", args = ["lsp"], language-id = "typescript" }
+language-servers = ["deno-lsp"]
 indent = { tab-width = 2, unit = "  " }
 formatter = { command = "deno", args = ["fmt", "-"] }
 auto-format = true

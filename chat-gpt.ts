@@ -2,7 +2,7 @@
 import * as flags from "https://deno.land/std@0.184.0/flags/mod.ts"
 import { readAll } from "https://deno.land/std@0.184.0/streams/read_all.ts"
 import { type JSONValue } from "https://deno.land/std@0.184.0/jsonc/mod.ts"
-import OpenAI from "https://deno.land/x/openai@v4.16.1/mod.ts"
+import OpenAI from "https://deno.land/x/openai@v4.25.0/mod.ts"
 
 type Message = {
   role: "user" | "assistant" | "system"
@@ -91,7 +91,7 @@ const persona = args.persona ||
 
 const systemMsg = {
   role: "system",
-  content: `You are a ${persona}. Your answers are precise and avoid jargon and filler.
+  content: `You are a ${persona}. Your answers are precise and avoid filler.
     Answer only the question as asked. Your answers should be in markdown format.`,
 } as const
 

@@ -2,7 +2,7 @@
 import * as flags from "https://deno.land/std@0.184.0/flags/mod.ts"
 import { readAll } from "https://deno.land/std@0.184.0/streams/read_all.ts"
 import { type JSONValue } from "https://deno.land/std@0.184.0/jsonc/mod.ts"
-import OpenAI from "https://deno.land/x/openai@v4.25.0/mod.ts"
+import OpenAI from "https://deno.land/x/openai@v4.16.1/mod.ts"
 
 type Message = {
   role: "user" | "assistant" | "system"
@@ -107,7 +107,7 @@ messages.push({ role: "user", content: input })
 const openai = new OpenAI()
 
 try {
-  const model = args.turbo ? "gpt-3.5-turbo-1106" : "gpt-4-1106-preview"
+  const model = args.turbo ? "gpt-3.5-turbo-1106" : "gpt-4-turbo-preview"
   const resp = await openai.chat.completions.create({ model, messages })
   const respMsg = resp.choices[0].message
   if (respMsg) {

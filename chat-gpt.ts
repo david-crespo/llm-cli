@@ -4,9 +4,51 @@ import { readAll } from "https://deno.land/std@0.184.0/streams/read_all.ts"
 import { type JSONValue } from "https://deno.land/std@0.184.0/jsonc/mod.ts"
 import OpenAI from "https://deno.land/x/openai@v4.16.1/mod.ts"
 
-type Message = {
+// considered annotating each response with the model that generated it, but
+// let's first see if requiring them all to be the same model is tolerable
+
+type Chat = {
+  // For now we don't allow model or system prompt to be changed in the middle
+  // of a chat. Otherwise we'd have to annotate each message with both.
+  model: string
+  systemPrompt: string | null
+  messages: {
+    role: "user" | "assistant"
+    content: string
+  }[]
+  // making this a string means we don't have to think about parsing
+  createdAt: string
+}
+
+// send message to the API and return the response
+type CreateMessage = (chat: Chat, input: string, turbo: boolean) => Promise<string>
+
+// --------------------------------
+
+type GptMessage = {
   role: "user" | "assistant" | "system"
-  content: string | null
+  content: string
+}
+
+const gptCreateMessage: CreateMessage = async function (chat, input, turbo) {
+  const openai = new OpenAI()
+  const model = turbo ? "gpt-3.5-turbo-1106" : "gpt-4-turbo-preview"
+  const systemMsg = chat.systemPrompt
+    ? [{ role: "system" as const, content: chat.systemPrompt }]
+    : []
+  const messages: GptMessage[] = [
+    ...systemMsg,
+    ...chat.messages,
+    { role: "user", content: input },
+  ]
+  if (chat.systemPrompt) {
+    messages.unshift({ role: "system" as const, content: chat.systemPrompt })
+  }
+
+  const resp = await openai.chat.completions.create({ model, messages })
+  const respStr = resp.choices[0].message?.content
+  if (!respStr) throw new Error("No response found")
+  return respStr
 }
 
 // SETUP: put OPENAI_API_KEY in a .env file in the same directory as this script
@@ -37,25 +79,14 @@ Pass \`-\` as message to read from stdin.
 `
 
 const History = {
-  read() {
-    const contents = localStorage.getItem("history")
+  read(): Chat | null {
+    const contents = localStorage.getItem("history2")
     if (!contents) return null
     return JSON.parse(contents)
   },
-  write(messages: Message[]) {
-    localStorage.setItem("history", JSON.stringify(messages))
+  write(chat: Chat) {
+    localStorage.setItem("history2", JSON.stringify(chat))
   },
-}
-
-function printChat(messages: Message[] | null) {
-  if (!messages || messages.length <= 1) {
-    console.log("no history found")
-    return
-  }
-
-  for (const msg of messages.slice(1)) { // skip system prompt
-    console.log(`# ${msg.role}\n\n${msg.content}\n`)
-  }
 }
 
 const getStdin = async () => new TextDecoder().decode(await readAll(Deno.stdin)).trim()
@@ -76,7 +107,16 @@ if (args.help) {
 const history = History.read()
 
 if (args.show) {
-  printChat(history)
+  if (history) {
+    console.log(`**Model:** ${history.model}\n`)
+    console.log(`**Chat started:** ${history.createdAt}\n`)
+    console.log(`**System prompt:** ${history.systemPrompt}`)
+    for (const msg of history.messages) { // skip system prompt
+      console.log(`# ${msg.role}\n\n${msg.content}\n`)
+    }
+  } else {
+    console.log("No history found")
+  }
   Deno.exit()
 }
 
@@ -89,31 +129,29 @@ if (!directInput) {
 const persona = args.persona ||
   "experienced software engineer speaking to an experienced software engineer"
 
-const systemMsg = {
-  role: "system",
-  content: `You are a ${persona}. Your answers are precise and avoid filler.
-    Answer only the question as asked. Your answers should be in markdown format.`,
-} as const
+const systemPrompt =
+  `You are a ${persona}. Your answers are precise and avoid filler. Answer only the question as asked. Your answers should be in markdown format.`
 
-const messages: Message[] = args.reply && history || [systemMsg]
+// if replying, use history as current chat, otherwise start new.
+// if there is no history, ignore reply flag
+const chat: Chat = args.reply && history ? history : {
+  createdAt: new Date().toLocaleString(),
+  model: args.turbo ? "gpt-3.5-turbo-1106" : "gpt-4-turbo-preview",
+  systemPrompt,
+  messages: [],
+}
 
 // in append mode, take direct input and a piped document and jam them together
 const input = args.append
   ? directInput + "\n\n" + (await getStdin())
   : (directInput === "-" ? await getStdin() : directInput.toString())
 
-messages.push({ role: "user", content: input })
-
-const openai = new OpenAI()
-
 try {
-  const model = args.turbo ? "gpt-3.5-turbo-1106" : "gpt-4-turbo-preview"
-  const resp = await openai.chat.completions.create({ model, messages })
-  const respMsg = resp.choices[0].message
-  if (respMsg) {
-    History.write([...messages, respMsg])
-    console.log(respMsg.content)
-  }
+  const respMsg = await gptCreateMessage(chat, input, args.turbo)
+  chat.messages.push({ role: "user", content: input })
+  chat.messages.push({ role: "assistant", content: respMsg })
+  History.write(chat)
+  console.log(respMsg)
 } catch (e) {
   if (e.response?.status) console.log("Request error:", e.response.status)
   if (e.response?.data) console.log(jsonBlock(e.response.data))

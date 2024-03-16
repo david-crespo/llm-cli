@@ -29,15 +29,6 @@ type CreateMessage = (
   turbo: boolean,
 ) => Promise<AssistantMessage>
 
-const msgsForApi = (
-  messages: ChatMessage[],
-  input: string,
-) => [
-  // need to take the model key out of AssistantMessage or OpenAI gets mad
-  ...messages.map((m) => ({ role: m.role, content: m.content })),
-  { role: "user" as const, content: input },
-]
-
 // --------------------------------
 
 const gptCreateMessage: CreateMessage = async function (chat, input, turbo) {
@@ -46,7 +37,11 @@ const gptCreateMessage: CreateMessage = async function (chat, input, turbo) {
   const systemMsg = chat.systemPrompt
     ? [{ role: "system" as const, content: chat.systemPrompt }]
     : []
-  const messages = [...systemMsg, ...msgsForApi(chat.messages, input)]
+  const messages = [
+    ...systemMsg,
+    ...chat.messages.map((m) => ({ role: m.role, content: m.content })),
+    { role: "user" as const, content: input },
+  ]
   const resp = await openai.chat.completions.create({ model, messages })
   const content = resp.choices[0].message?.content
   if (!content) throw new Error("No response found")
@@ -64,7 +59,10 @@ const claudeCreateMessage: CreateMessage = async function (chat, input, turbo) {
   const response = await anthropic.messages.create({
     max_tokens: 1024,
     system: chat.systemPrompt,
-    messages: msgsForApi(chat.messages, input),
+    messages: [
+      ...chat.messages.map((m) => ({ role: m.role, content: m.content })),
+      { role: "user" as const, content: input },
+    ],
     model,
   })
   const content = response.content[0].text

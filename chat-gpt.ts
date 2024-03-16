@@ -2,7 +2,7 @@
 import * as flags from "https://deno.land/std@0.184.0/flags/mod.ts"
 import { readAll } from "https://deno.land/std@0.184.0/streams/read_all.ts"
 import { type JSONValue } from "https://deno.land/std@0.184.0/jsonc/mod.ts"
-import OpenAI from "https://deno.land/x/openai@v4.16.1/mod.ts"
+import OpenAI from "https://deno.land/x/openai@v4.29.1/mod.ts"
 import "https://deno.land/std@0.219.0/dotenv/load.ts"
 import Anthropic from "npm:@anthropic-ai/sdk@0.18.0"
 

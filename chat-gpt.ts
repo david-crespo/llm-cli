@@ -1,15 +1,18 @@
 #! /usr/bin/env -S deno run --allow-env --allow-read --allow-net
+
+import * as path from "https://deno.land/std@0.220.1/path/mod.ts"
 import { parseArgs } from "https://deno.land/std@0.220.1/cli/parse_args.ts"
 import { readAll } from "https://deno.land/std@0.184.0/streams/read_all.ts"
 import { type JSONValue } from "https://deno.land/std@0.184.0/jsonc/mod.ts"
 import OpenAI from "https://deno.land/x/openai@v4.29.1/mod.ts"
-import "https://deno.land/std@0.219.0/dotenv/load.ts"
+import { loadSync } from "https://deno.land/std@0.220.1/dotenv/mod.ts"
 import Anthropic from "npm:@anthropic-ai/sdk@0.18.0"
 
-// const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") })
-// const anthropic = new Anthropic()
-// console.log(anthropic.apiKey)
-// Deno.exit()
+function loadEnv() {
+  const scriptPath = path.dirname(import.meta.url)
+  const envPath = path.join(path.fromFileUrl(scriptPath), ".env")
+  return loadSync({ envPath, export: true })
+}
 
 // SETUP: put OPENAI_API_KEY in a .env file in the same directory as this script
 
@@ -165,6 +168,8 @@ function resolveModel(modelArg: string | undefined): string {
 }
 
 // === script starts here ===
+
+loadEnv()
 
 const args = parseArgs(Deno.args, {
   boolean: ["help", "reply", "show", "append"],

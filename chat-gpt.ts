@@ -1,4 +1,4 @@
-#! /usr/bin/env -S deno run --allow-env --allow-read --allow-net
+#! /usr/bin/env -S deno run --allow-env --allow-read --allow-net --allow-run=gh
 
 import * as path from "https://deno.land/std@0.220.1/path/mod.ts"
 import { parseArgs } from "https://deno.land/std@0.220.1/cli/parse_args.ts"
@@ -7,6 +7,7 @@ import { type JSONValue } from "https://deno.land/std@0.184.0/jsonc/mod.ts"
 import OpenAI from "https://deno.land/x/openai@v4.29.1/mod.ts"
 import { loadSync } from "https://deno.land/std@0.220.1/dotenv/mod.ts"
 import Anthropic from "npm:@anthropic-ai/sdk@0.18.0"
+import $ from "https://deno.land/x/dax@0.39.2/mod.ts"
 
 function loadEnv() {
   const scriptPath = path.dirname(import.meta.url)
@@ -107,6 +108,7 @@ Pass \`-\` as message to read from stdin.
 | --- | --- |
 | None | Start a new chat |
 | -a, --append | Read from stdin and append to MESSAGE |
+| -g, --gist [title] | Save conversation to gist with gh CLI |
 | -m, --model [str] | Select model by substring, e.g., 'opus' |
 | -p, --persona [str] | Override persona in system prompt |
 | -r, --reply | Continue existing chat |
@@ -131,14 +133,16 @@ const History = {
   },
 }
 
-function printChat(chat: Chat) {
-  console.log(`**Chat started:** ${chat.createdAt}\n`)
-  console.log(`**System prompt:** ${chat.systemPrompt}`)
+function historyToMd(chat: Chat): string {
+  let output = ""
+  output += `**Chat started:** ${chat.createdAt}\n`
+  output += `**System prompt:** ${chat.systemPrompt}`
   for (const msg of chat.messages) { // skip system prompt
     const model = msg.role === "assistant" ? ` (${msg.model})` : ""
-    console.log(`# ${msg.role}${model}\n\n`)
-    console.log(`${msg.content}\n`)
+    output += `# ${msg.role}${model}\n\n`
+    output += `${msg.content}\n`
   }
+  return output
 }
 
 const getStdin = async () => new TextDecoder().decode(await readAll(Deno.stdin)).trim()
@@ -173,9 +177,10 @@ loadEnv()
 
 const args = parseArgs(Deno.args, {
   boolean: ["help", "reply", "show", "append"],
-  string: ["persona", "model"],
+  string: ["persona", "model", "gist"],
   alias: {
     a: "append",
+    g: "gist",
     h: "help",
     m: "model",
     p: "persona",
@@ -193,7 +198,20 @@ const history = History.read()
 
 if (args.show) {
   if (history) {
-    printChat(history)
+    console.log(historyToMd(history))
+  } else {
+    console.log("No history found")
+  }
+  Deno.exit()
+}
+
+if (args.gist !== undefined) {
+  if (!$.commandExistsSync("gh")) {
+    console.log("❌ Error: Gist feature requires gh CLI")
+  } else if (history) {
+    const md = historyToMd(history)
+    const filename = args.gist ? `LLM chat - ${args.gist}.md` : "LLM chat.md"
+    await $`echo ${md} | gh gist create -f ${filename}`
   } else {
     console.log("No history found")
   }

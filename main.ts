@@ -98,23 +98,23 @@ const jsonBlock = (obj: JSONValue) => codeBlock(JSON.stringify(obj, null, 2), "j
 const HELP = `
 # Usage
 
-ai [options] MESSAGE 
+\`\`\`
+ai [options] INPUT
+\`\`\`
 
-# Options
+INPUT is required. Pass '-' as INPUT to read from stdin.
 
-Pass \`-\` as message to read from stdin.
-
-| Flag | Effect |
-| --- | --- |
-| None | Start a new chat |
-| -a, --append | Read from stdin and append to MESSAGE |
-| -g, --gist [title] | Save conversation to gist with gh CLI |
-| -m, --model [str] | Select model by substring, e.g., 'opus' |
-| -p, --persona [str] | Override persona in system prompt |
-| -r, --reply | Continue existing chat |
-| -s, --show | Show chat so far |
+\`\`\`
+-a, --append            Read from stdin and append to INPUT
+-g, --gist [title]      Save chat to GitHub Gist with gh CLI
+-m, --model <str>       Select model by substring, e.g., 'opus'
+-p, --persona <str>     Override persona in system prompt
+-r, --reply             Continue existing chat
+-s, --show              Show chat so far
+\`\`\`
 
 # Models
+
 ${
   allModels
     .map((m, i) => `* ${m} ${i === 0 ? "(default)" : ""}`)

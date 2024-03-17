@@ -23,6 +23,8 @@ type AssistantMessage = { role: "assistant"; model: string; content: string }
 type UserMessage = { role: "user"; content: string }
 type ChatMessage = UserMessage | AssistantMessage
 
+const isAssistant = (m: ChatMessage): m is AssistantMessage => m.role === "assistant"
+
 type Chat = {
   // For now we don't allow system prompt to be changed in the middle
   // of a chat. Otherwise we'd have to annotate each message with it.
@@ -193,7 +195,13 @@ if (args.show) {
   Deno.exit()
 }
 
-const model = resolveModel(args.model)
+// undefined if there is no history
+const lastModel = history?.messages.findLast(isAssistant)?.model
+
+// -r uses same model as last response if there is one and no model is specified
+const model = args.reply && lastModel && args.model === undefined
+  ? lastModel
+  : resolveModel(args.model)
 
 const directInput = args._[0]
 if (!directInput) {

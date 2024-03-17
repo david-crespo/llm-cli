@@ -134,13 +134,12 @@ const History = {
 }
 
 function historyToMd(chat: Chat): string {
-  let output = ""
-  output += `**Chat started:** ${chat.createdAt}\n`
-  output += `**System prompt:** ${chat.systemPrompt}`
+  let output = `**Chat started:** ${chat.createdAt}\n\n`
+  output += `**System prompt:** ${chat.systemPrompt}\n\n`
   for (const msg of chat.messages) { // skip system prompt
     const model = msg.role === "assistant" ? ` (${msg.model})` : ""
     output += `# ${msg.role}${model}\n\n`
-    output += `${msg.content}\n`
+    output += `${msg.content}\n\n`
   }
   return output
 }
@@ -259,7 +258,7 @@ try {
   chat.messages.push({ role: "user", content: input })
   chat.messages.push(assistantMsg)
   History.write(chat)
-  console.log(`# assistant (${model})`)
+  console.log(`# assistant (${model})\n`)
   console.log(assistantMsg.content)
 } catch (e) {
   // TODO: update error handling for claude?

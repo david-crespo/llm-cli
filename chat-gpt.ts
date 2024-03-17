@@ -6,6 +6,11 @@ import OpenAI from "https://deno.land/x/openai@v4.29.1/mod.ts"
 import "https://deno.land/std@0.219.0/dotenv/load.ts"
 import Anthropic from "npm:@anthropic-ai/sdk@0.18.0"
 
+// const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") })
+// const anthropic = new Anthropic()
+// console.log(anthropic.apiKey)
+// Deno.exit()
+
 // SETUP: put OPENAI_API_KEY in a .env file in the same directory as this script
 
 // This program outputs Markdown, so to make it look really good, pipe it
@@ -31,14 +36,15 @@ type Chat = {
 type CreateMessage = (
   chat: Chat,
   input: string,
-  turbo: boolean,
+  model: string,
 ) => Promise<AssistantMessage>
 
 // --------------------------------
 
-const gptCreateMessage: CreateMessage = async function (chat, input, turbo) {
+const gptModels = ["gpt-4-turbo-preview", "gpt-3.5-turbo"]
+
+const gptCreateMessage: CreateMessage = async (chat, input, model) => {
   const openai = new OpenAI()
-  const model = turbo ? "gpt-3.5-turbo-1106" : "gpt-4-turbo-preview"
   const systemMsg = chat.systemPrompt
     ? [{ role: "system" as const, content: chat.systemPrompt }]
     : []
@@ -55,9 +61,14 @@ const gptCreateMessage: CreateMessage = async function (chat, input, turbo) {
 
 // --------------------------------
 
-const claudeCreateMessage: CreateMessage = async function (chat, input, turbo) {
+const claudeModels = [
+  "claude-3-opus-20240229",
+  "claude-3-sonnet-20240229",
+  "claude-3-haiku-20240307",
+]
+
+const claudeCreateMessage: CreateMessage = async (chat, input, model) => {
   const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") })
-  const model = turbo ? "claude-3-sonnet-20240229" : "claude-3-opus-20240229"
   const response = await anthropic.messages.create({
     model,
     system: chat.systemPrompt,
@@ -72,6 +83,8 @@ const claudeCreateMessage: CreateMessage = async function (chat, input, turbo) {
 }
 
 // --------------------------------
+
+const allModels = [...claudeModels, ...gptModels]
 
 const codeBlock = (contents: string, lang = "") => `\`\`\`${lang}\n${contents}\n\`\`\`\n`
 const jsonBlock = (obj: JSONValue) => codeBlock(JSON.stringify(obj, null, 2), "json")
@@ -88,12 +101,18 @@ Pass \`-\` as message to read from stdin.
 | Flag | Effect |
 | --- | --- |
 | None | Start a new chat |
-| -c, --claude | Use Claude instead of GPT |
+| -a, --append | Read from stdin and append to MESSAGE |
+| -m, --model [str] | Select model by substring, e.g., 'opus' |
+| -p, --persona [str] | Override persona in system prompt |
 | -r, --reply | Continue existing chat |
 | -s, --show | Show chat so far |
-| -a, --append | Read from stdin and append to MESSAGE |
-| -p, --persona [str] | Override default persona in system prompt |
-| -t, --turbo | Use a faster, cheaper model |
+
+# Models
+${
+  allModels
+    .map((m, i) => `* ${m} ${i === 0 ? "(default)" : ""}`)
+    .join("\n")
+}
 `
 
 const History = {
@@ -119,19 +138,42 @@ function printChat(chat: Chat) {
 
 const getStdin = async () => new TextDecoder().decode(await readAll(Deno.stdin)).trim()
 
+/** Errors and exits if it doesn't resolve to one model */
+function resolveModel(modelArg: string | undefined): string {
+  if (modelArg === undefined) return allModels[0] // default opus
+  if (modelArg.trim() === "") {
+    console.log("Error: -m/--model flag requires an argument.")
+    console.log(HELP)
+    Deno.exit()
+  }
+
+  const matches = allModels.filter((m) => m.includes(modelArg.toLowerCase()))
+  if (matches.length === 1) return matches[0]
+
+  const error = matches.length === 0
+    ? `'${modelArg}' doesn't match any model.`
+    : `'${modelArg}' matches more than one model.`
+  const bullets = allModels
+    .map((m, i) =>
+      `* ${matches.includes(m) ? `**${m}**` : m} ${i === 0 ? "(default)" : ""}`
+    )
+    .join("\n")
+  console.log(`${error}\n\n${bullets}`)
+  Deno.exit()
+}
+
 // === script starts here ===
 
 const args = parseArgs(Deno.args, {
-  boolean: ["help", "claude", "reply", "show", "append", "turbo"],
-  string: ["persona"],
+  boolean: ["help", "reply", "show", "append"],
+  string: ["persona", "model"],
   alias: {
+    a: "append",
     h: "help",
-    c: "claude",
+    m: "model",
+    p: "persona",
     r: "reply",
     s: "show",
-    a: "append",
-    p: "persona",
-    t: "turbo",
   },
 })
 
@@ -151,8 +193,11 @@ if (args.show) {
   Deno.exit()
 }
 
+const model = resolveModel(args.model)
+
 const directInput = args._[0]
 if (!directInput) {
+  console.log("Error: MESSAGE required. Pass '-' to read from stdin only.")
   console.log(HELP)
   Deno.exit()
 }
@@ -171,22 +216,24 @@ const chat: Chat = args.reply && history ? history : {
   messages: [],
 }
 
+const createMessage = claudeModels.includes(model) ? claudeCreateMessage : gptCreateMessage
+
 // in append mode, take direct input and a piped document and jam them together
 const input = args.append
   ? directInput + "\n\n" + (await getStdin())
   : (directInput === "-" ? await getStdin() : directInput.toString())
 
-const createMessage = args.claude ? claudeCreateMessage : gptCreateMessage
-
 try {
-  const assistantMsg = await createMessage(chat, input, args.turbo)
+  const assistantMsg = await createMessage(chat, input, model)
   chat.messages.push({ role: "user", content: input })
   chat.messages.push(assistantMsg)
   History.write(chat)
+  console.log(`# assistant (${model})`)
   console.log(assistantMsg.content)
 } catch (e) {
   // TODO: update error handling for claude?
   if (e.response?.status) console.log("Request error:", e.response.status)
   if (e.response?.data) console.log(jsonBlock(e.response.data))
-  if (!("response" in e)) console.log(e)
+  if (e.response?.error) console.log(jsonBlock(e.response.error))
+  if (!("response" in e)) console.log(codeBlock(e))
 }

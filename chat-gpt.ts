@@ -1,10 +1,15 @@
 #! /usr/bin/env -S deno run --allow-env --allow-read --allow-net
-import * as flags from "https://deno.land/std@0.184.0/flags/mod.ts"
+import { parseArgs } from "https://deno.land/std@0.220.1/cli/parse_args.ts"
 import { readAll } from "https://deno.land/std@0.184.0/streams/read_all.ts"
 import { type JSONValue } from "https://deno.land/std@0.184.0/jsonc/mod.ts"
 import OpenAI from "https://deno.land/x/openai@v4.29.1/mod.ts"
 import "https://deno.land/std@0.219.0/dotenv/load.ts"
 import Anthropic from "npm:@anthropic-ai/sdk@0.18.0"
+
+// SETUP: put OPENAI_API_KEY in a .env file in the same directory as this script
+
+// This program outputs Markdown, so to make it look really good, pipe it
+// through something like Glow
 
 // considered annotating each response with the model that generated it, but
 // let's first see if requiring them all to be the same model is tolerable
@@ -51,30 +56,22 @@ const gptCreateMessage: CreateMessage = async function (chat, input, turbo) {
 // --------------------------------
 
 const claudeCreateMessage: CreateMessage = async function (chat, input, turbo) {
-  const anthropic = new Anthropic({
-    apiKey: Deno.env.get("ANTHROPIC_API_KEY"),
-  })
-
+  const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") })
   const model = turbo ? "claude-3-sonnet-20240229" : "claude-3-opus-20240229"
   const response = await anthropic.messages.create({
-    max_tokens: 1024,
+    model,
     system: chat.systemPrompt,
     messages: [
       ...chat.messages.map((m) => ({ role: m.role, content: m.content })),
       { role: "user" as const, content: input },
     ],
-    model,
+    max_tokens: 1024,
   })
   const content = response.content[0].text
   return { role: "assistant", model, content }
 }
 
 // --------------------------------
-
-// SETUP: put OPENAI_API_KEY in a .env file in the same directory as this script
-
-// This program outputs Markdown, so to make it look really good, pipe it
-// through something like Glow
 
 const codeBlock = (contents: string, lang = "") => `\`\`\`${lang}\n${contents}\n\`\`\`\n`
 const jsonBlock = (obj: JSONValue) => codeBlock(JSON.stringify(obj, null, 2), "json")
@@ -124,7 +121,7 @@ const getStdin = async () => new TextDecoder().decode(await readAll(Deno.stdin))
 
 // === script starts here ===
 
-const args = flags.parse(Deno.args, {
+const args = parseArgs(Deno.args, {
   boolean: ["help", "claude", "reply", "show", "append", "turbo"],
   string: ["persona"],
   alias: {

@@ -1,6 +1,6 @@
 # llm-cli
 
-A simple CLI powered by Deno for chatting with LLMs.
+A simple but full-featured CLI powered by Deno for chatting with LLMs. Under 300 lines of TypeScript in a single file.
 
 Thanks to [Justin Bennett](https://github.com/zephraph) for the
 [script](https://github.com/zephraph/deno.run/blob/0972d0cd3d8f050cb11c3a6d1c1c201608d100a9/chat-gpt.ts)
@@ -35,7 +35,7 @@ https://gist.github.com/david-crespo/a2bf06be5db310db967b2e35f6140da2
 
 ### Limitations
 
-No vision, no streaming responses (yet).
+No vision, no streaming responses (yet). No history of previous chats; only the current conversation is stored.
 
 ## Setup
 

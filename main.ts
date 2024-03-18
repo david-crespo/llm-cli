@@ -2,7 +2,7 @@
 
 import { dirname, fromFileUrl, join } from "https://deno.land/std@0.220.1/path/mod.ts"
 import { parseArgs } from "https://deno.land/std@0.220.1/cli/parse_args.ts"
-import { readAll } from "https://deno.land/std@0.184.0/streams/read_all.ts"
+import { readAll } from "https://deno.land/std@0.220.1/io/read_all.ts"
 import OpenAI from "https://deno.land/x/openai@v4.29.1/mod.ts"
 import { loadSync as loadEnv } from "https://deno.land/std@0.220.1/dotenv/mod.ts"
 import Anthropic from "npm:@anthropic-ai/sdk@0.18.0"

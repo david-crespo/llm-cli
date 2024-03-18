@@ -48,7 +48,6 @@ type CreateMessage = (
 const gptModels = ["gpt-4-turbo-preview", "gpt-3.5-turbo"]
 
 const gptCreateMessage: CreateMessage = async (chat, input, model) => {
-  const openai = new OpenAI()
   const systemMsg = chat.systemPrompt
     ? [{ role: "system" as const, content: chat.systemPrompt }]
     : []
@@ -57,7 +56,7 @@ const gptCreateMessage: CreateMessage = async (chat, input, model) => {
     ...chat.messages.map((m) => ({ role: m.role, content: m.content })),
     { role: "user" as const, content: input },
   ]
-  const resp = await openai.chat.completions.create({ model, messages })
+  const resp = await new OpenAI().chat.completions.create({ model, messages })
   const content = resp.choices[0].message?.content
   if (!content) throw new Error("No response found")
   return { role: "assistant", model, content }
@@ -72,8 +71,7 @@ const claudeModels = [
 ]
 
 const claudeCreateMessage: CreateMessage = async (chat, input, model) => {
-  const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") })
-  const response = await anthropic.messages.create({
+  const response = await new Anthropic().messages.create({
     model,
     system: chat.systemPrompt,
     messages: [

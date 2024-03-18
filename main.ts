@@ -9,19 +9,17 @@ import { loadSync } from "https://deno.land/std@0.220.1/dotenv/mod.ts"
 import Anthropic from "npm:@anthropic-ai/sdk@0.18.0"
 import $ from "https://deno.land/x/dax@0.39.2/mod.ts"
 
+/**
+ * Load .env file sitting next to script. This rigmarole is necessary because
+ * the default behavior of dotenv is to look for .env in the current working
+ * directory the script is being run from. Don't error if file doesn't exist
+ * because you can also set the env vars any old way and it'll just work.
+ */
 function loadEnv() {
   const scriptPath = path.dirname(import.meta.url)
   const envPath = path.join(path.fromFileUrl(scriptPath), ".env")
-  return loadSync({ envPath, export: true })
+  loadSync({ envPath, export: true })
 }
-
-// SETUP: put OPENAI_API_KEY in a .env file in the same directory as this script
-
-// This program outputs Markdown, so to make it look really good, pipe it
-// through something like Glow
-
-// considered annotating each response with the model that generated it, but
-// let's first see if requiring them all to be the same model is tolerable
 
 type AssistantMessage = { role: "assistant"; model: string; content: string }
 type UserMessage = { role: "user"; content: string }
@@ -205,8 +203,8 @@ if (args.show) {
 }
 
 if (args.gist !== undefined) {
-  if (!$.commandExistsSync("gh")) {
-    console.log("❌ Error: Gist feature requires gh CLI")
+  if (!$.commandExistsSync("ghi")) {
+    console.log("❌ Gist create requires `gh` CLI (https://cli.github.com/)")
   } else if (history) {
     const md = historyToMd(history)
     const filename = args.gist ? `LLM chat - ${args.gist}.md` : "LLM chat.md"

@@ -2,6 +2,15 @@
 
 A simple CLI powered by Deno for chatting with LLMs.
 
+Thanks to [Justin Bennett](https://github.com/zephraph) for the
+[script](https://github.com/zephraph/deno.run/blob/0972d0cd3d8f050cb11c3a6d1c1c201608d100a9/chat-gpt.ts)
+that inspired this as well as the idea of piping markdown output to
+[`glow`](https://github.com/charmbracelet/glow).
+
+<img width="553" src="https://github.com/david-crespo/llm-cli/assets/3612203/9e5a16a5-877a-4797-b394-73608413740b" />
+
+## Features
+
 - Supports GPT and Claude
 - Beautiful output powered by markdown
 - Read input from stdin
@@ -9,11 +18,6 @@ A simple CLI powered by Deno for chatting with LLMs.
 - Upload chat to GitHub Gist for sharing or permanent storage
 
 Limitations: no vision, no streaming responses (yet).
-
-Thanks to [Justin Bennett](https://github.com/zephraph) for the
-[script](https://github.com/zephraph/deno.run/blob/0972d0cd3d8f050cb11c3a6d1c1c201608d100a9/chat-gpt.ts)
-that inspired this as well as the idea of piping markdown output to
-[`glow`](https://github.com/charmbracelet/glow).
 
 ## Setup
 

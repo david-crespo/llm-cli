@@ -38,7 +38,7 @@ work.
 - [`gh`](https://cli.github.com/) (GitHub CLI, optional)
   - Only needed if you want to upload chats as GitHub gists
   - You'll need to be logged in with it
-    ([`gh auth login`](https://cli.github.com/manual/gh_auth_login)).
+    ([`gh auth login`](https://cli.github.com/manual/gh_auth_login))
 
 ### Installation
 

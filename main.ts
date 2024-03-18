@@ -12,21 +12,39 @@ const HELP = `
 # Usage
 
 \`\`\`
-ai [options] [MESSAGE]
+ai [OPTIONS] [MESSAGE]
+ai <COMMAND> [ARGS...]
 \`\`\`
 
-Input from either MESSAGE or stdin is required unless using
-\`--show\` or \`--gist\`. If both MESSAGE and stdin are present
-stdin will be appended to MESSAGE.
+Input from either MESSAGE or stdin is required unless using a 
+command. If both are present, stdin will be appended to MESSAGE.
+
+# Options
 
 \`\`\`
 -r, --reply             Continue existing chat
--s, --show              Show chat so far
 -m, --model <str>       Select model by substring, e.g., 'opus'
--g, --gist [title]      Save chat to GitHub Gist with gh CLI
 -p, --persona <str>     Override persona in system prompt
---system                Override system prompt (ignore persona)
---clear                 Delete current chat from localStorage
+--system <str>          Override system prompt (ignore persona)
+\`\`\`
+
+# Commands
+
+\`\`\`
+show                    Show chat so far
+gist [title]            Save chat to GitHub Gist with gh CLI
+clear                   Delete current chat from localStorage
+\`\`\`
+
+# Examples
+
+\`\`\`sh
+ai 'What is the capital of France?'
+cat main.ts | ai 'what is this?'
+echo 'what are you?' | ai
+ai -r 'elaborate on that'
+ai -m gpt-4 'What are generic types?'
+ai gist 'Generic types'
 \`\`\`
 `
 
@@ -149,12 +167,12 @@ function chatToMd(chat: Chat): string {
 // Key functionality
 // --------------------------------
 
-async function uploadGist(gistArg: string, history: Chat) {
+async function uploadGist(title: string, history: Chat) {
   if (!$.commandExistsSync("gh")) {
     exitWithError("Creating a gist requires the `gh` CLI (https://cli.github.com/)")
   }
   const md = chatToMd(history)
-  const filename = gistArg ? `LLM chat - ${gistArg}.md` : "LLM chat.md"
+  const filename = title ? `LLM chat - ${title}.md` : "LLM chat.md"
   await $`echo ${md} | gh gist create -f ${filename}`
 }
 
@@ -186,14 +204,14 @@ const envPath = join(fromFileUrl(dirname(import.meta.url)), ".env")
 loadEnv({ envPath, export: true })
 
 const args = parseArgs(Deno.args, {
-  boolean: ["help", "reply", "show", "clear"],
-  string: ["persona", "model", "gist", "system"],
-  alias: { g: "gist", h: "help", m: "model", p: "persona", r: "reply", s: "show" },
+  boolean: ["help", "reply"],
+  string: ["persona", "model", "system"],
+  alias: { h: "help", m: "model", p: "persona", r: "reply" },
 })
 
 if (args.help) printHelpAndExit()
 
-if (args.clear) {
+if (args._.length === 1 && args._[0] === "clear") {
   History.clear()
   console.log("Deleted chat from localStorage")
   Deno.exit()
@@ -201,7 +219,7 @@ if (args.clear) {
 
 const prevChat = History.read()
 
-if (args.show) {
+if (args._.length === 1 && args._[0] === "show") {
   if (!prevChat) exitWithError("No chat in progress")
   console.log(chatToMd(prevChat))
   Deno.exit()
@@ -209,9 +227,10 @@ if (args.show) {
 
 // check against undefined because -g with no arg gives empty string,
 // and we still want to upload the gist in that case
-if (args.gist !== undefined) {
+if (args._[0] === "gist") {
   if (!prevChat) exitWithError("No chat in progress")
-  uploadGist(args.gist, prevChat)
+  const title = args._.slice(1).join(" ")
+  await uploadGist(title, prevChat)
   Deno.exit()
 }
 

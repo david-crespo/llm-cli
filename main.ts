@@ -1,25 +1,13 @@
 #! /usr/bin/env -S deno run --allow-env --allow-read --allow-net --allow-run=gh
 
-import * as path from "https://deno.land/std@0.220.1/path/mod.ts"
+import { dirname, fromFileUrl, join } from "https://deno.land/std@0.220.1/path/mod.ts"
 import { parseArgs } from "https://deno.land/std@0.220.1/cli/parse_args.ts"
 import { readAll } from "https://deno.land/std@0.184.0/streams/read_all.ts"
 import { type JSONValue } from "https://deno.land/std@0.184.0/jsonc/mod.ts"
 import OpenAI from "https://deno.land/x/openai@v4.29.1/mod.ts"
-import { loadSync } from "https://deno.land/std@0.220.1/dotenv/mod.ts"
+import { loadSync as loadEnv } from "https://deno.land/std@0.220.1/dotenv/mod.ts"
 import Anthropic from "npm:@anthropic-ai/sdk@0.18.0"
 import $ from "https://deno.land/x/dax@0.39.2/mod.ts"
-
-/**
- * Load .env file sitting next to script. This rigmarole is necessary because
- * the default behavior of dotenv is to look for .env in the current working
- * directory the script is being run from. Don't error if file doesn't exist
- * because you can also set the env vars any old way and it'll just work.
- */
-function loadEnv() {
-  const scriptPath = path.dirname(import.meta.url)
-  const envPath = path.join(path.fromFileUrl(scriptPath), ".env")
-  loadSync({ envPath, export: true })
-}
 
 type AssistantMessage = { role: "assistant"; model: string; content: string }
 type UserMessage = { role: "user"; content: string }
@@ -87,6 +75,9 @@ const claudeCreateMessage: CreateMessage = async (chat, input, model) => {
 // --------------------------------
 
 const allModels = [...claudeModels, ...gptModels]
+const defaultModel = allModels[0]
+
+const modelBullet = (m: string) => `* ${m} ${m === defaultModel ? "(default)" : ""}`
 
 const codeBlock = (contents: string, lang = "") => `\`\`\`${lang}\n${contents}\n\`\`\`\n`
 const jsonBlock = (obj: JSONValue) => codeBlock(JSON.stringify(obj, null, 2), "json")
@@ -111,11 +102,7 @@ INPUT is required. Pass '-' as INPUT to read from stdin.
 
 # Models
 
-${
-  allModels
-    .map((m, i) => `* ${m} ${i === 0 ? "(default)" : ""}`)
-    .join("\n")
-}
+${allModels.map(modelBullet).join("\n")}
 `
 
 const History = {
@@ -144,7 +131,7 @@ const getStdin = async () => new TextDecoder().decode(await readAll(Deno.stdin))
 
 /** Errors and exits if it doesn't resolve to one model */
 function resolveModel(modelArg: string | undefined): string {
-  if (modelArg === undefined) return allModels[0] // default opus
+  if (modelArg === undefined) return defaultModel
   if (modelArg.trim() === "") {
     console.log("Error: -m/--model flag requires an argument.")
     console.log(HELP)
@@ -155,20 +142,20 @@ function resolveModel(modelArg: string | undefined): string {
   if (matches.length === 1) return matches[0]
 
   const error = matches.length === 0
-    ? `'${modelArg}' doesn't match any model.`
+    ? `'${modelArg}' doesn't match any model. All models:`
     : `'${modelArg}' matches more than one model.`
-  const bullets = allModels
-    .map((m, i) =>
-      `* ${matches.includes(m) ? `**${m}**` : m} ${i === 0 ? "(default)" : ""}`
-    )
-    .join("\n")
-  console.log(`${error}\n\n${bullets}`)
+  console.log(`${error}\n\n${allModels.map(modelBullet).join("\n")}`)
   Deno.exit()
 }
 
 // === script starts here ===
 
-loadEnv()
+// Load .env file sitting next to script. This rigmarole is necessary because
+// the default behavior of dotenv is to look for .env in the current working
+// directory the script is being run from. Don't error if file doesn't exist
+// because you can also set the env vars any old way and it'll just work.
+const envPath = join(fromFileUrl(dirname(import.meta.url)), ".env")
+loadEnv({ envPath, export: true })
 
 const args = parseArgs(Deno.args, {
   boolean: ["help", "reply", "show", "append"],
@@ -192,11 +179,7 @@ if (args.help) {
 const history = History.read()
 
 if (args.show) {
-  if (history) {
-    console.log(historyToMd(history))
-  } else {
-    console.log("No history found")
-  }
+  console.log(history ? historyToMd(history) : "No history found")
   Deno.exit()
 }
 
@@ -221,7 +204,7 @@ const model = args.reply && lastModel && args.model === undefined
   ? lastModel
   : resolveModel(args.model)
 
-const directInput = args._[0]
+const directInput = args._.join(" ")
 if (!directInput) {
   console.log("Error: MESSAGE required. Pass '-' to read from stdin only.")
   console.log(HELP)

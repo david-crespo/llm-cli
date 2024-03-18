@@ -1,4 +1,4 @@
-# LLM CLI
+# llm-cli
 
 A simple CLI powered by Deno for chatting with LLMs.
 

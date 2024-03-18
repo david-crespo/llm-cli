@@ -12,18 +12,19 @@ const HELP = `
 # Usage
 
 \`\`\`
-ai [options] INPUT
+ai [options] [MESSAGE]
 \`\`\`
 
-INPUT is required. Pass '-' as INPUT to read from stdin.
+Input from either MESSAGE or stdin is required unless using
+\`--show\` or \`--gist\`. If both MESSAGE and stdin are present
+stdin will be appended to MESSAGE.
 
 \`\`\`
--a, --append            Read from stdin and append to INPUT
--g, --gist [title]      Save chat to GitHub Gist with gh CLI
--m, --model <str>       Select model by substring, e.g., 'opus'
--p, --persona <str>     Override persona in system prompt
 -r, --reply             Continue existing chat
 -s, --show              Show chat so far
+-m, --model <str>       Select model by substring, e.g., 'opus'
+-g, --gist [title]      Save chat to GitHub Gist with gh CLI
+-p, --persona <str>     Override persona in system prompt
 --system                Override system prompt (ignore persona)
 --clear                 Delete current chat from localStorage
 \`\`\`
@@ -185,17 +186,9 @@ const envPath = join(fromFileUrl(dirname(import.meta.url)), ".env")
 loadEnv({ envPath, export: true })
 
 const args = parseArgs(Deno.args, {
-  boolean: ["help", "reply", "show", "append", "clear"],
+  boolean: ["help", "reply", "show", "clear"],
   string: ["persona", "model", "gist", "system"],
-  alias: {
-    a: "append",
-    g: "gist",
-    h: "help",
-    m: "model",
-    p: "persona",
-    r: "reply",
-    s: "show",
-  },
+  alias: { g: "gist", h: "help", m: "model", p: "persona", r: "reply", s: "show" },
 })
 
 if (args.help) printHelpAndExit()
@@ -226,13 +219,10 @@ if (args.gist !== undefined) {
 const prevModel = prevChat?.messages.findLast(isAssistant)?.model
 const model = args.reply && prevModel && !args.model ? prevModel : resolveModel(args.model)
 
-const directInput = args._.join(" ")
-if (!directInput) printHelpAndExit()
-
-// in append mode, take direct input and a piped document and jam them together
-const input = args.append
-  ? directInput + "\n\n" + (await getStdin())
-  : (directInput === "-" ? await getStdin() : directInput.toString())
+const msgArg = args._.join(" ")
+const stdin = Deno.stdin.isTerminal() ? null : await getStdin()
+if (!msgArg && !stdin) printHelpAndExit()
+const input = [msgArg, stdin].filter(Boolean).join("\n\n")
 
 const persona = args.persona || "experienced software engineer"
 

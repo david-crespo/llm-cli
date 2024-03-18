@@ -29,6 +29,8 @@ https://github.com/david-crespo/llm-cli/assets/3612203/31cfa0cb-3efc-4171-88f7-7
 
 ### Upload chat to GitHub Gist for sharing or permanent storage
 
+https://gist.github.com/david-crespo/a2bf06be5db310db967b2e35f6140da2
+
 <img width="583" alt="image" src="https://github.com/david-crespo/llm-cli/assets/3612203/a45e1041-ae5b-498f-abea-e9166c4d0112">
 
 ### Limitations

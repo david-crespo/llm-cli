@@ -11,13 +11,25 @@ https://github.com/david-crespo/llm-cli/assets/3612203/31cfa0cb-3efc-4171-88f7-7
 
 ## Features
 
-- Supports GPT and Claude
-- Beautiful output powered by markdown
-- Read input from stdin
-- Continue chat with replies
-- Upload chat to GitHub Gist for sharing or permanent storage
+### Supports GPT and Claude
 
-Limitations: no vision, no streaming responses (yet).
+<img width="604" src="https://github.com/david-crespo/llm-cli/assets/3612203/a91c35de-8b5a-4fa9-9d11-32f0c4aa86a0" />
+
+### Beautiful output powered by markdown
+
+<img width="632" src="https://github.com/david-crespo/llm-cli/assets/3612203/2574b335-6aeb-4e35-916e-dc0467bfbfb2" />
+
+### Continue chat with replies
+
+<img width="537" src="https://github.com/david-crespo/llm-cli/assets/3612203/535e1c48-95be-46aa-891d-3254ddc87bc8" />
+
+### Read input from stdin
+
+### Upload chat to GitHub Gist for sharing or permanent storage
+
+### Limitations
+
+No vision, no streaming responses (yet).
 
 ## Setup
 

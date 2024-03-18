@@ -13,19 +13,23 @@ https://github.com/david-crespo/llm-cli/assets/3612203/31cfa0cb-3efc-4171-88f7-7
 
 ### Supports GPT and Claude
 
-<img width="604" src="https://github.com/david-crespo/llm-cli/assets/3612203/a91c35de-8b5a-4fa9-9d11-32f0c4aa86a0" />
+<img width="604" alt="image" src="https://github.com/david-crespo/llm-cli/assets/3612203/a91c35de-8b5a-4fa9-9d11-32f0c4aa86a0" />
 
 ### Beautiful output powered by markdown
 
-<img width="632" src="https://github.com/david-crespo/llm-cli/assets/3612203/2574b335-6aeb-4e35-916e-dc0467bfbfb2" />
+<img width="632" alt="image" src="https://github.com/david-crespo/llm-cli/assets/3612203/2574b335-6aeb-4e35-916e-dc0467bfbfb2" />
 
 ### Continue chat with replies
 
-<img width="537" src="https://github.com/david-crespo/llm-cli/assets/3612203/535e1c48-95be-46aa-891d-3254ddc87bc8" />
+<img width="537" alt="image" src="https://github.com/david-crespo/llm-cli/assets/3612203/535e1c48-95be-46aa-891d-3254ddc87bc8" />
 
 ### Read input from stdin
 
+<img width="620" alt="image" src="https://github.com/david-crespo/llm-cli/assets/3612203/c5dc783c-b754-454a-9765-9363624fda80">
+
 ### Upload chat to GitHub Gist for sharing or permanent storage
+
+<img width="583" alt="image" src="https://github.com/david-crespo/llm-cli/assets/3612203/a45e1041-ae5b-498f-abea-e9166c4d0112">
 
 ### Limitations
 

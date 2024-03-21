@@ -52,7 +52,15 @@ ai gist 'Generic types'
 // Core data model
 // --------------------------------
 
-type AssistantMessage = { role: "assistant"; model: string; content: string }
+type AssistantMessage = {
+  role: "assistant"
+  model: Model
+  content: string
+  input_tokens: number
+  output_tokens: number
+  stop_reason: string
+  cost: number
+}
 type UserMessage = { role: "user"; content: string }
 type ChatMessage = UserMessage | AssistantMessage
 
@@ -87,18 +95,41 @@ const allModels = [
   "claude-3-haiku-20240307",
   "gpt-4-turbo-preview",
   "gpt-3.5-turbo",
-]
+] as const
 const defaultModel = allModels[0]
+
+type Model = typeof allModels[number]
+
+// these are per token to keep it simple
+const prices: Record<Model, { input: number; output: number }> = {
+  "claude-3-opus-20240229": { input: .015 / 1000, output: .075 / 1000 },
+  "claude-3-sonnet-20240229": { input: 0.003 / 1000, output: .015 / 1000 },
+  "claude-3-haiku-20240307": { input: .00025 / 1000, output: .00125 / 1000 },
+  "gpt-4-turbo-preview": { input: .01 / 1000, output: .03 / 1000 },
+  "gpt-3.5-turbo": { input: .0005 / 1000, output: 0.0015 / 1000 },
+}
+
+function getCost(model: Model, input_tokens: number, output_tokens: number) {
+  const { input, output } = prices[model]
+  return (input * input_tokens) + (output * output_tokens)
+}
 
 // --------------------------------
 // API Adapters
 // --------------------------------
 
+type ModelResponse = {
+  content: string
+  input_tokens: number
+  output_tokens: number
+  stop_reason: string
+}
+
 type CreateMessage = (
   chat: Chat,
   input: string,
   model: string,
-) => Promise<AssistantMessage>
+) => Promise<ModelResponse>
 
 const gptCreateMessage: CreateMessage = async (chat, input, model) => {
   const systemMsg = chat.systemPrompt
@@ -109,10 +140,15 @@ const gptCreateMessage: CreateMessage = async (chat, input, model) => {
     ...chat.messages.map((m) => ({ role: m.role, content: m.content })),
     { role: "user" as const, content: input },
   ]
-  const resp = await new OpenAI().chat.completions.create({ model, messages })
-  const content = resp.choices[0].message?.content
+  const response = await new OpenAI().chat.completions.create({ model, messages })
+  const content = response.choices[0].message?.content
   if (!content) throw new Error("No response found")
-  return { role: "assistant", model, content }
+  return {
+    content,
+    input_tokens: response.usage?.prompt_tokens || 0,
+    output_tokens: response.usage?.completion_tokens || 0,
+    stop_reason: response.choices[0].finish_reason,
+  }
 }
 
 const claudeCreateMessage: CreateMessage = async (chat, input, model) => {
@@ -125,8 +161,12 @@ const claudeCreateMessage: CreateMessage = async (chat, input, model) => {
     ],
     max_tokens: 2048,
   })
-  const content = response.content[0].text
-  return { role: "assistant", model, content }
+  return {
+    content: response.content[0].text,
+    input_tokens: response.usage.input_tokens,
+    output_tokens: response.usage.output_tokens,
+    stop_reason: response.stop_reason!, // always non-null in non-streaming mode
+  }
 }
 
 // --------------------------------
@@ -152,13 +192,35 @@ const jsonBlock = (obj: unknown) => codeBlock(JSON.stringify(obj, null, 2), "jso
 const modelBullet = (m: string) => `* ${m} ${m === defaultModel ? "(default)" : ""}`
 const modelsMd = "# Models\n\n" + allModels.map(modelBullet).join("\n")
 
+const moneyFmt = Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 4,
+})
+
+function messageToMd(msg: ChatMessage) {
+  let output = `# ${msg.role}`
+  if (msg.role === "assistant") output += ` (${msg.model})`
+  output += "\n\n"
+
+  if (msg.role === "assistant") {
+    output += `**Cost:** ${moneyFmt.format(msg.cost)}`
+    output += ` | **Tokens:** ${msg.input_tokens} -> ${msg.output_tokens}`
+    if (["max_tokens", "length"].includes(msg.stop_reason)) {
+      output += ` | **Stop reason:** ${msg.stop_reason}`
+    }
+    output += "\n\n"
+  }
+
+  output += `${msg.content}\n\n`
+  return output
+}
+
 function chatToMd(chat: Chat): string {
   let output = `**Chat started:** ${chat.createdAt}\n\n`
   output += `**System prompt:** ${chat.systemPrompt}\n\n`
   for (const msg of chat.messages) { // skip system prompt
-    const model = msg.role === "assistant" ? ` (${msg.model})` : ""
-    output += `# ${msg.role}${model}\n\n`
-    output += `${msg.content}\n\n`
+    output += messageToMd(msg)
   }
   return output
 }
@@ -177,7 +239,7 @@ async function uploadGist(title: string, history: Chat) {
 }
 
 /** Errors and exits if it doesn't resolve to one model */
-function resolveModel(modelArg: string | undefined): string {
+function resolveModel(modelArg: string | undefined): Model {
   if (modelArg === undefined) return defaultModel
   if (modelArg.trim() === "") {
     exitWithError(`\`-m/--model\` flag requires an argument\n\n${modelsMd}`)
@@ -258,10 +320,16 @@ const chat: Chat = args.reply && prevChat ? prevChat : {
 const createMessage = model.startsWith("claude") ? claudeCreateMessage : gptCreateMessage
 
 try {
-  const assistantMsg = await createMessage(chat, input, model)
+  const response = await createMessage(chat, input, model)
+  const assistantMsg = {
+    role: "assistant" as const,
+    model,
+    ...response,
+    cost: getCost(model, response.input_tokens, response.output_tokens),
+  }
   chat.messages.push({ role: "user", content: input }, assistantMsg)
   History.write(chat)
-  console.log(`# assistant (${model})\n\n${assistantMsg.content}`)
+  console.log(messageToMd(assistantMsg))
 } catch (e) {
   if (e.response?.status) console.log("Request error:", e.response.status)
   if (e.response?.data) console.log(jsonBlock(e.response.data))

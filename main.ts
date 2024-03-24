@@ -281,14 +281,14 @@ if (args._.length === 1 && args._[0] === "clear") {
 
 const prevChat = History.read()
 
+// check for no other args because a prompt could start with "show", and we
+// still want to treat that as a prompt
 if (args._.length === 1 && args._[0] === "show") {
   if (!prevChat) exitWithError("No chat in progress")
   console.log(chatToMd(prevChat))
   Deno.exit()
 }
 
-// check against undefined because -g with no arg gives empty string,
-// and we still want to upload the gist in that case
 if (args._[0] === "gist") {
   if (!prevChat) exitWithError("No chat in progress")
   const title = args._.slice(1).join(" ")

@@ -96,7 +96,7 @@ const allModels = [
   "gpt-4-turbo-preview",
   "gpt-3.5-turbo",
 ] as const
-const defaultModel = allModels[0]
+const defaultModel = "gpt-4-turbo-preview"
 
 type Model = typeof allModels[number]
 
@@ -189,7 +189,7 @@ function exitWithError(msg: string): never {
 const codeBlock = (contents: string, lang = "") => `\`\`\`${lang}\n${contents}\n\`\`\`\n`
 const jsonBlock = (obj: unknown) => codeBlock(JSON.stringify(obj, null, 2), "json")
 
-const modelBullet = (m: string) => `* ${m} ${m === defaultModel ? "(default)" : ""}`
+const modelBullet = (m: string) => `* ${m} ${m === defaultModel ? "(⭐ default)" : ""}`
 const modelsMd = "# Models\n\n" + allModels.map(modelBullet).join("\n")
 
 const moneyFmt = Intl.NumberFormat("en-US", {

@@ -303,7 +303,7 @@ const model = args.reply && prevModel && !args.model ? prevModel : resolveModel(
 const msgArg = args._.join(" ")
 const stdin = Deno.stdin.isTerminal() ? null : await getStdin()
 if (!msgArg && !stdin) printHelpAndExit()
-const input = [msgArg, stdin].filter(Boolean).join("\n\n")
+const input = [stdin, msgArg].filter(Boolean).join("\n\n")
 
 const persona = args.persona || "experienced software engineer"
 

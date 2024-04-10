@@ -70,7 +70,7 @@ function ai() {
 }
 ```
 
-The `"$@:` means pipe all command-line arguments to `ai` straight to `main.ts`.
+The `"$@:"` means pipe all command-line arguments to `ai` straight to `main.ts`.
 
 You'll need to `chmod +x` the script in order to be able to execute it directly like above.
 Otherwise, you could run it with `deno run path/to/main.ts`, but that is less convenient

@@ -93,10 +93,10 @@ const allModels = [
   "claude-3-opus-20240229",
   "claude-3-sonnet-20240229",
   "claude-3-haiku-20240307",
-  "gpt-4-turbo-preview",
+  "gpt-4-turbo",
   "gpt-3.5-turbo",
 ] as const
-const defaultModel = "gpt-4-turbo-preview"
+const defaultModel = "gpt-4-turbo"
 
 type Model = typeof allModels[number]
 
@@ -105,7 +105,7 @@ const prices: Record<Model, { input: number; output: number }> = {
   "claude-3-opus-20240229": { input: .015 / 1000, output: .075 / 1000 },
   "claude-3-sonnet-20240229": { input: 0.003 / 1000, output: .015 / 1000 },
   "claude-3-haiku-20240307": { input: .00025 / 1000, output: .00125 / 1000 },
-  "gpt-4-turbo-preview": { input: .01 / 1000, output: .03 / 1000 },
+  "gpt-4-turbo": { input: .01 / 1000, output: .03 / 1000 },
   "gpt-3.5-turbo": { input: .0005 / 1000, output: 0.0015 / 1000 },
 }
 

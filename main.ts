@@ -195,7 +195,7 @@ const modelsMd = "# Models\n\n" + allModels.map(modelBullet).join("\n")
 const moneyFmt = Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
-  maximumFractionDigits: 4,
+  maximumFractionDigits: 5,
 })
 
 function messageToMd(msg: ChatMessage) {

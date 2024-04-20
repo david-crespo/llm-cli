@@ -22,18 +22,18 @@ command. If both are present, stdin will be appended to MESSAGE.
 # Options
 
 \`\`\`
--r, --reply             Continue existing chat
--m, --model <str>       Select model by substring, e.g., 'opus'
--p, --persona <str>     Override persona in system prompt
---system <str>          Override system prompt (ignore persona)
+-r, --reply            Continue existing chat
+-m, --model <str>      Select model by substring, e.g., 'opus'
+-p, --persona <str>    Override persona in system prompt
+--system <str>         Override system prompt (ignore persona)
 \`\`\`
 
 # Commands
 
 \`\`\`
-show                    Show chat so far
-gist [title]            Save chat to GitHub Gist with gh CLI
-clear                   Delete current chat from localStorage
+show [N]               Show chat so far (last N messages, or all)
+gist [title]           Save chat to GitHub Gist with gh CLI
+clear                  Delete current chat from localStorage
 \`\`\`
 
 # Examples
@@ -216,10 +216,10 @@ function messageToMd(msg: ChatMessage) {
   return output
 }
 
-function chatToMd(chat: Chat): string {
+function chatToMd(chat: Chat, lastN: number = 0): string {
   let output = `**Chat started:** ${chat.createdAt}\n\n`
   output += `**System prompt:** ${chat.systemPrompt}\n\n`
-  for (const msg of chat.messages) { // skip system prompt
+  for (const msg of chat.messages.slice(-lastN)) {
     output += messageToMd(msg)
   }
   return output
@@ -273,7 +273,9 @@ const args = parseArgs(Deno.args, {
 
 if (args.help) printHelpAndExit()
 
-if (args._.length === 1 && args._[0] === "clear") {
+const [cmd, arg] = args._
+
+if (cmd === "clear" && arg === undefined) {
   History.clear()
   console.log("Deleted chat from localStorage")
   Deno.exit()
@@ -283,13 +285,14 @@ const prevChat = History.read()
 
 // check for no other args because a prompt could start with "show", and we
 // still want to treat that as a prompt
-if (args._.length === 1 && args._[0] === "show") {
+if (cmd === "show" && (typeof arg === "undefined" || typeof arg === "number")) {
   if (!prevChat) exitWithError("No chat in progress")
-  console.log(chatToMd(prevChat))
+  console.log(chatToMd(prevChat, arg))
   Deno.exit()
 }
 
-if (args._[0] === "gist") {
+// TODO: gist should take a number arg like show
+if (cmd === "gist") {
   if (!prevChat) exitWithError("No chat in progress")
   const title = args._.slice(1).join(" ")
   await uploadGist(title, prevChat)

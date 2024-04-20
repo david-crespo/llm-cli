@@ -253,6 +253,36 @@ function resolveModel(modelArg: string | undefined): Model {
 }
 
 // --------------------------------
+// CLI structure
+// --------------------------------
+
+type Command =
+  | { cmd: "clear" }
+  | { cmd: "show"; n: number | undefined }
+  | { cmd: "gist"; title: string | undefined }
+  | { cmd: "message"; content: string }
+
+function parseCmd(posArgs: (string | number)[]): Command {
+  const [cmd, ...rest] = posArgs
+
+  if (cmd == "clear" && rest.length === 0) {
+    return { cmd: "clear" }
+  } else if (cmd === "gist") {
+    // a message would never start with gist
+    return { cmd: "gist", title: rest.join(" ") || undefined }
+  } else if (cmd === "show" && rest.length <= 1) {
+    const arg = rest.at(0)
+    if (typeof arg === "undefined" || typeof arg === "number") {
+      return { cmd: "show", n: arg }
+    }
+    // otherwise this is just a message that starts with "show"
+  }
+
+  // otherwise, assume it's all one big chat message
+  return { cmd: "message", content: posArgs.join(" ") }
+}
+
+// --------------------------------
 // Actually do the thing
 // --------------------------------
 
@@ -271,9 +301,9 @@ const args = parseArgs(Deno.args, {
 
 if (args.help) printHelpAndExit()
 
-const [cmd, arg] = args._
+const cmd = parseCmd(args._)
 
-if (cmd === "clear" && arg === undefined) {
+if (cmd.cmd === "clear") {
   History.clear()
   console.log("Deleted chat from localStorage")
   Deno.exit()
@@ -283,14 +313,14 @@ const prevChat = History.read()
 
 // check for no other args because a prompt could start with "show", and we
 // still want to treat that as a prompt
-if (cmd === "show" && (typeof arg === "undefined" || typeof arg === "number")) {
+if (cmd.cmd === "show") {
   if (!prevChat) exitWithError("No chat in progress")
-  console.log(chatToMd(prevChat, arg))
+  console.log(chatToMd(prevChat, cmd.n))
   Deno.exit()
 }
 
 // TODO: gist should take a number arg like show
-if (cmd === "gist") {
+if (cmd.cmd === "gist") {
   if (!prevChat) exitWithError("No chat in progress")
   const title = args._.slice(1).join(" ")
   await uploadGist(title, prevChat)
@@ -301,10 +331,9 @@ if (cmd === "gist") {
 const prevModel = prevChat?.messages.findLast(isAssistant)?.model
 const model = args.reply && prevModel && !args.model ? prevModel : resolveModel(args.model)
 
-const msgArg = args._.join(" ")
 const stdin = Deno.stdin.isTerminal() ? null : await getStdin()
-if (!msgArg && !stdin) printHelpAndExit()
-const input = [stdin, msgArg].filter(Boolean).join("\n\n")
+if (!cmd.content && !stdin) printHelpAndExit()
+const input = [stdin, cmd.content].filter(Boolean).join("\n\n")
 
 const persona = args.persona || "experienced software engineer"
 

@@ -196,9 +196,13 @@ const moneyFmt = Intl.NumberFormat("en-US", {
   maximumFractionDigits: 5,
 })
 
-function messageToMd(msg: ChatMessage, msgNum: number, msgCount: number) {
-  let output = `# ${msg.role} (${msgNum}/${msgCount})`
-  output += "\n\n"
+// split from message content because we only want this in show or gist mode
+function messageHeaderMd(msg: ChatMessage, msgNum: number, msgCount: number) {
+  return `# ${msg.role} (${msgNum}/${msgCount})\n\n`
+}
+
+function messageContentMd(msg: ChatMessage) {
+  let output = ""
 
   if (msg.role === "assistant") {
     output += "`" + msg.model + "`"
@@ -220,7 +224,8 @@ function chatToMd(chat: Chat, lastN: number = 0): string {
   const msgCount = chat.messages.length
   chat.messages.forEach((msg, i) => {
     if (!lastN || i >= msgCount - lastN) {
-      output += messageToMd(msg, i + 1, msgCount)
+      output += messageHeaderMd(msg, i + 1, msgCount)
+      output += messageContentMd(msg)
     }
   })
   return output
@@ -362,8 +367,7 @@ try {
   }
   chat.messages.push({ role: "user", content: input }, assistantMsg)
   History.write(chat)
-  const msgCount = chat.messages.length
-  console.log(messageToMd(assistantMsg, msgCount, msgCount))
+  console.log(messageContentMd(assistantMsg))
 } catch (e) {
   if (e.response?.status) console.log("Request error:", e.response.status)
   if (e.response?.data) console.log(jsonBlock(e.response.data))

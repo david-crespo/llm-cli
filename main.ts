@@ -91,14 +91,14 @@ const History = {
 }
 
 const allModels = [
+  "gpt-4-turbo",
   "claude-3-opus-20240229",
   "claude-3-sonnet-20240229",
   "claude-3-haiku-20240307",
-  "gpt-4-turbo",
 ] as const
-const defaultModel = "gpt-4-turbo"
 
 type Model = typeof allModels[number]
+const defaultModel: Model = "claude-3-opus-20240229"
 
 // these are per token to keep it simple
 const prices: Record<Model, { input: number; output: number }> = {
@@ -351,7 +351,7 @@ const input = [stdin, cmd.content].filter(Boolean).join("\n\n")
 const persona = args.persona || "experienced software engineer"
 
 const systemPrompt = args.system ||
-  `You are a ${persona}. Your answers are precise and avoid filler. Answer only the question as asked. Your answers should be in markdown format.`
+  `You are a ${persona}. Your answers are precise and use as few words as possible to convey the point. Answer only the question as asked. When asked for code, only output code (do not explain) unless otherwise specified. Your answers must be in markdown format.`
 
 // if replying, use history as current chat, otherwise start new.
 const chat: Chat = args.reply && prevChat ? prevChat : {

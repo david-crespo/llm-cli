@@ -198,11 +198,11 @@ const moneyFmt = Intl.NumberFormat("en-US", {
 
 function messageToMd(msg: ChatMessage) {
   let output = `# ${msg.role}`
-  if (msg.role === "assistant") output += ` (${msg.model})`
   output += "\n\n"
 
   if (msg.role === "assistant") {
-    output += `**Cost:** ${moneyFmt.format(msg.cost)}`
+    output += "`" + msg.model + "`"
+    output += ` | **Cost:** ${moneyFmt.format(msg.cost)}`
     output += ` | **Tokens:** ${msg.input_tokens} -> ${msg.output_tokens}`
     if (["max_tokens", "length"].includes(msg.stop_reason)) {
       output += ` | **Stop reason:** ${msg.stop_reason}`

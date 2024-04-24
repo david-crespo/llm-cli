@@ -196,8 +196,8 @@ const moneyFmt = Intl.NumberFormat("en-US", {
   maximumFractionDigits: 5,
 })
 
-function messageToMd(msg: ChatMessage) {
-  let output = `# ${msg.role}`
+function messageToMd(msg: ChatMessage, msgNum: number, msgCount: number) {
+  let output = `# ${msg.role} (${msgNum}/${msgCount})`
   output += "\n\n"
 
   if (msg.role === "assistant") {
@@ -217,9 +217,12 @@ function messageToMd(msg: ChatMessage) {
 function chatToMd(chat: Chat, lastN: number = 0): string {
   let output = `**Chat started:** ${chat.createdAt}\n\n`
   output += `**System prompt:** ${chat.systemPrompt}\n\n`
-  for (const msg of chat.messages.slice(-lastN)) {
-    output += messageToMd(msg)
-  }
+  const msgCount = chat.messages.length
+  chat.messages.forEach((msg, i) => {
+    if (!lastN || i >= msgCount - lastN) {
+      output += messageToMd(msg, i + 1, msgCount)
+    }
+  })
   return output
 }
 
@@ -359,7 +362,8 @@ try {
   }
   chat.messages.push({ role: "user", content: input }, assistantMsg)
   History.write(chat)
-  console.log(messageToMd(assistantMsg))
+  const msgCount = chat.messages.length
+  console.log(messageToMd(assistantMsg, msgCount, msgCount))
 } catch (e) {
   if (e.response?.status) console.log("Request error:", e.response.status)
   if (e.response?.data) console.log(jsonBlock(e.response.data))

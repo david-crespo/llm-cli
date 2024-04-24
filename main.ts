@@ -60,6 +60,7 @@ type AssistantMessage = {
   output_tokens: number
   stop_reason: string
   cost: number
+  timeMs: number
 }
 type UserMessage = { role: "user"; content: string }
 type ChatMessage = UserMessage | AssistantMessage
@@ -201,16 +202,20 @@ function messageHeaderMd(msg: ChatMessage, msgNum: number, msgCount: number) {
   return `# ${msg.role} (${msgNum}/${msgCount})\n\n`
 }
 
+const timeFmt = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 })
+
 function messageContentMd(msg: ChatMessage) {
   let output = ""
 
   if (msg.role === "assistant") {
-    output += "`" + msg.model + "`"
-    output += ` | **Cost:** ${moneyFmt.format(msg.cost)}`
+    const showStopReason = ["max_tokens", "length"].includes(msg.stop_reason)
+
+    output += `\`${msg.model}\``
+    output += ` | ${timeFmt.format(msg.timeMs / 1000)} s`
+    output += ` | ${moneyFmt.format(msg.cost)}`
     output += ` | **Tokens:** ${msg.input_tokens} -> ${msg.output_tokens}`
-    if (["max_tokens", "length"].includes(msg.stop_reason)) {
-      output += ` | **Stop reason:** ${msg.stop_reason}`
-    }
+    if (showStopReason) output += ` | **Stop reason:** ${msg.stop_reason}`
+
     output += "\n\n"
   }
 
@@ -358,12 +363,15 @@ const chat: Chat = args.reply && prevChat ? prevChat : {
 const createMessage = model.startsWith("claude") ? claudeCreateMessage : gptCreateMessage
 
 try {
+  const startTime = performance.now()
   const response = await createMessage(chat, input, model)
+  const timeMs = performance.now() - startTime
   const assistantMsg = {
     role: "assistant" as const,
     model,
     ...response,
     cost: getCost(model, response.input_tokens, response.output_tokens),
+    timeMs,
   }
   chat.messages.push({ role: "user", content: input }, assistantMsg)
   History.write(chat)

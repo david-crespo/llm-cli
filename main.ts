@@ -31,7 +31,7 @@ command. If both are present, stdin will be appended to MESSAGE.
 # Commands
 
 \`\`\`
-show [N]               Show chat so far (last N messages, or all)
+show [N or "all"]      Show chat so far (last N, default 1)
 gist [title]           Save chat to GitHub Gist with gh CLI
 clear                  Delete current chat from localStorage
 \`\`\`
@@ -285,8 +285,10 @@ function parseCmd(posArgs: (string | number)[]): Command {
     return { cmd: "gist", title: rest.join(" ") || undefined }
   } else if (cmd === "show" && rest.length <= 1) {
     const arg = rest.at(0)
+    if (arg === "all") return { cmd: "show", n: undefined }
+
     if (typeof arg === "undefined" || typeof arg === "number") {
-      return { cmd: "show", n: arg }
+      return { cmd: "show", n: arg || 1 } // default with no arg is 1
     }
     // otherwise this is just a message that starts with "show"
   }

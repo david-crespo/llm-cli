@@ -41,10 +41,7 @@ No vision, no streaming responses (yet). No history of previous chats; only the 
 
 ### API keys
 
-You will need OpenAI and/or Anthropic API keys. The script expects these to be in the usual
-`OPENAI_API_KEY` and `ANTHROPIC_API_KEY` env vars. You can set the env vars any way you
-want, or you can put the keys in an `.env` file next to `main.ts` and things should just
-work.
+You will need OpenAI and/or Anthropic API keys. The script expects these to be in the usual `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` env vars.
 
 ### Dependencies
 

@@ -1,10 +1,8 @@
 #! /usr/bin/env -S deno run --allow-env --allow-read --allow-net --allow-run=gh
 
-import { dirname, fromFileUrl, join } from "https://deno.land/std@0.220.1/path/mod.ts"
 import { parseArgs } from "https://deno.land/std@0.220.1/cli/parse_args.ts"
 import { readAll } from "https://deno.land/std@0.220.1/io/read_all.ts"
 import OpenAI from "https://deno.land/x/openai@v4.29.1/mod.ts"
-import { loadSync as loadEnv } from "https://deno.land/std@0.220.1/dotenv/mod.ts"
 import Anthropic from "npm:@anthropic-ai/sdk@0.18.0"
 import $ from "https://deno.land/x/dax@0.39.2/mod.ts"
 
@@ -300,13 +298,6 @@ function parseCmd(posArgs: (string | number)[]): Command {
 // --------------------------------
 // Actually do the thing
 // --------------------------------
-
-// Load .env file sitting next to script. This rigmarole is necessary because
-// the default behavior of dotenv is to look for .env in the current working
-// directory the script is being run from. Don't error if file doesn't exist
-// because you can also set the env vars any old way and it'll just work.
-const envPath = join(fromFileUrl(dirname(import.meta.url)), ".env")
-loadEnv({ envPath, export: true })
 
 const args = parseArgs(Deno.args, {
   boolean: ["help", "reply"],

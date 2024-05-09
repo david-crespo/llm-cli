@@ -35,7 +35,8 @@ https://gist.github.com/david-crespo/a2bf06be5db310db967b2e35f6140da2
 
 ### Limitations
 
-No vision, no streaming responses (yet). No history of previous chats; only the current conversation is stored.
+No vision, no streaming responses (yet). No history of previous chats unless you
+upload a gist; only the current conversation is stored locally.
 
 ## Setup
 
@@ -46,14 +47,12 @@ You will need OpenAI and/or Anthropic API keys. The script expects these to be i
 ### Dependencies
 
 - [Deno](https://docs.deno.com/runtime/manual) (essential)
-- [`glow`](https://github.com/charmbracelet/glow) (terminal markdown renderer, nearly
-  essential)
-  - You can do without `glow` if you like reading raw markdown or you have some other tool
-    for rendering markdown in the terminal
+- [`glow`](https://github.com/charmbracelet/glow) (terminal markdown renderer)
+  - You can do without `glow` if you like reading raw markdown or you pipe
+    output to some other tool for rendering markdown in the terminal
 - [`gh`](https://cli.github.com/) (GitHub CLI, optional)
   - Only needed if you want to upload chats as GitHub gists
-  - You'll need to be logged in with it
-    ([`gh auth login`](https://cli.github.com/manual/gh_auth_login))
+  - You'll need to be logged in ([`gh auth login`](https://cli.github.com/manual/gh_auth_login))
 
 ### Installation
 
@@ -63,7 +62,8 @@ run the script and pipe the output to `glow`. The way I do this is with this fun
 
 ```bash
 function ai() {
-  ~/repos/llm-cli/main.ts "$@" | glow
+  source ~/path/to/.env
+  ~/repos/llm-cli/main.ts "$@"
 }
 ```
 

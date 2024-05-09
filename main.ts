@@ -1,10 +1,10 @@
-#! /usr/bin/env -S deno run --allow-env --allow-read --allow-net --allow-run=gh
+#! /usr/bin/env -S deno run --allow-env --allow-read --allow-net --allow-run=gh,glow
 
 import { parseArgs } from "https://deno.land/std@0.220.1/cli/parse_args.ts"
 import { readAll } from "https://deno.land/std@0.220.1/io/read_all.ts"
 import OpenAI from "https://deno.land/x/openai@v4.29.1/mod.ts"
 import Anthropic from "npm:@anthropic-ai/sdk@0.18.0"
-import $ from "https://deno.land/x/dax@0.39.2/mod.ts"
+import $ from "jsr:@david/dax@0.41.0"
 
 const HELP = `
 # Usage
@@ -16,6 +16,10 @@ ai <COMMAND> [ARGS...]
 
 Input from either MESSAGE or stdin is required unless using a 
 command. If both are present, stdin will be appended to MESSAGE.
+
+By default, this script will attempt to render output with glow,
+but if glow is not present or output is being piped, it will print
+the raw output to stdout.
 
 # Options
 
@@ -172,15 +176,23 @@ const claudeCreateMessage: CreateMessage = async (chat, input, model) => {
 
 const getStdin = async () => new TextDecoder().decode(await readAll(Deno.stdin)).trim()
 
-// returning never tells the calling code that this function exits
-function printHelpAndExit(): never {
-  console.log(HELP + "\n" + modelsMd)
-  Deno.exit()
+const RENDERER = "glow"
+
+async function renderMd(md: string) {
+  if ($.commandExistsSync(RENDERER) && Deno.stdout.isTerminal()) {
+    await $`${RENDERER}`.stdinText(md)
+  } else {
+    console.log(md)
+  }
 }
 
-function exitWithError(msg: string): never {
-  console.log(`⚠️  ${msg}`)
-  Deno.exit(1)
+// returning never tells the calling code that this function exits
+async function printHelp() {
+  await renderMd(HELP + "\n" + modelsMd)
+}
+
+async function printError(msg: string) {
+  await renderMd(`⚠️  ${msg}`)
 }
 
 const codeBlock = (contents: string, lang = "") => `\`\`\`${lang}\n${contents}\n\`\`\`\n`
@@ -240,7 +252,8 @@ function chatToMd(chat: Chat, lastN: number = 0): string {
 
 async function uploadGist(title: string, history: Chat) {
   if (!$.commandExistsSync("gh")) {
-    exitWithError("Creating a gist requires the `gh` CLI (https://cli.github.com/)")
+    await printError("Creating a gist requires the `gh` CLI (https://cli.github.com/)")
+    Deno.exit(1)
   }
   const md = chatToMd(history)
   const filename = title ? `LLM chat - ${title}.md` : "LLM chat.md"
@@ -248,19 +261,24 @@ async function uploadGist(title: string, history: Chat) {
 }
 
 /** Errors and exits if it doesn't resolve to one model */
-function resolveModel(modelArg: string | undefined): Model {
+async function resolveModel(modelArg: string | undefined): Promise<Model> {
   if (modelArg === undefined) return defaultModel
   if (modelArg.trim() === "") {
-    exitWithError(`\`-m/--model\` flag requires an argument\n\n${modelsMd}`)
+    await printError(`\`-m/--model\` flag requires an argument\n\n${modelsMd}`)
+    Deno.exit(1)
   }
 
   const matches = allModels.filter((m) => m.includes(modelArg.toLowerCase()))
-  if (matches.length === 1) return matches[0]
 
-  const error = matches.length === 0
-    ? `'${modelArg}' isn't a substring of any model name.`
-    : `'${modelArg}' is a substring of more than one model name.`
-  exitWithError(`${error}\n\n${modelsMd}`)
+  if (matches.length !== 1) {
+    const error = matches.length === 0
+      ? `'${modelArg}' isn't a substring of any model name.`
+      : `'${modelArg}' is a substring of more than one model name.`
+    await printError(`${error}\n\n${modelsMd}`)
+    Deno.exit(1)
+  }
+
+  return matches[0]
 }
 
 // --------------------------------
@@ -305,7 +323,10 @@ const args = parseArgs(Deno.args, {
   alias: { h: "help", m: "model", p: "persona", r: "reply" },
 })
 
-if (args.help) printHelpAndExit()
+if (args.help) {
+  await printHelp()
+  Deno.exit()
+}
 
 const cmd = parseCmd(args._)
 
@@ -320,14 +341,20 @@ const prevChat = History.read()
 // check for no other args because a prompt could start with "show", and we
 // still want to treat that as a prompt
 if (cmd.cmd === "show") {
-  if (!prevChat) exitWithError("No chat in progress")
-  console.log(chatToMd(prevChat, cmd.n))
+  if (!prevChat) {
+    await printError("No chat in progress")
+    Deno.exit(1)
+  }
+  await renderMd(chatToMd(prevChat, cmd.n))
   Deno.exit()
 }
 
 // TODO: gist should take a number arg like show
 if (cmd.cmd === "gist") {
-  if (!prevChat) exitWithError("No chat in progress")
+  if (!prevChat) {
+    await printError("No chat in progress")
+    Deno.exit(1)
+  }
   const title = args._.slice(1).join(" ")
   await uploadGist(title, prevChat)
   Deno.exit()
@@ -335,10 +362,15 @@ if (cmd.cmd === "gist") {
 
 // -r uses same model as last response if there is one and no model is specified
 const prevModel = prevChat?.messages.findLast(isAssistant)?.model
-const model = args.reply && prevModel && !args.model ? prevModel : resolveModel(args.model)
+const model = args.reply && prevModel && !args.model
+  ? prevModel
+  : await resolveModel(args.model)
 
 const stdin = Deno.stdin.isTerminal() ? null : await getStdin()
-if (!cmd.content && !stdin) printHelpAndExit()
+if (!cmd.content && !stdin) {
+  await printHelp()
+  Deno.exit()
+}
 const input = [stdin, cmd.content].filter(Boolean).join("\n\n")
 
 const persona = args.persona || "experienced software engineer"
@@ -368,7 +400,7 @@ try {
   }
   chat.messages.push({ role: "user", content: input }, assistantMsg)
   History.write(chat)
-  console.log(messageContentMd(assistantMsg))
+  await renderMd(messageContentMd(assistantMsg))
 } catch (e) {
   if (e.response?.status) console.log("Request error:", e.response.status)
   if (e.response?.data) console.log(jsonBlock(e.response.data))

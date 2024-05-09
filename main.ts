@@ -389,7 +389,9 @@ const createMessage = model.startsWith("claude") ? claudeCreateMessage : gptCrea
 
 try {
   const startTime = performance.now()
+  const pb = $.progress("Thinking...")
   const response = await createMessage(chat, input, model)
+  pb.finish()
   const timeMs = performance.now() - startTime
   const assistantMsg = {
     role: "assistant" as const,

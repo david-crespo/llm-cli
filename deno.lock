@@ -14,6 +14,7 @@
       "jsr:@std/path@^0.221.0": "jsr:@std/path@0.221.0",
       "jsr:@std/streams@0.221.0": "jsr:@std/streams@0.221.0",
       "npm:@anthropic-ai/sdk@0.18.0": "npm:@anthropic-ai/sdk@0.18.0",
+      "npm:@google/generative-ai@0.11.1": "npm:@google/generative-ai@0.11.1",
       "npm:openai@4.45.0": "npm:openai@4.45.0"
     },
     "jsr": {
@@ -81,6 +82,10 @@
           "node-fetch": "node-fetch@2.7.0",
           "web-streams-polyfill": "web-streams-polyfill@3.3.3"
         }
+      },
+      "@google/generative-ai@0.11.1": {
+        "integrity": "sha512-ZiUiJJbl55TXcvu73+Kf/bUhzcRTH/bsGBeYZ9ULqU0imXg3POcd+NVYM9j+TGq4MA73UYwHPmJHwmy+QZEzyQ==",
+        "dependencies": {}
       },
       "@types/node-fetch@2.6.11": {
         "integrity": "sha512-24xFj9R5+rfQJLRyM56qh+wnVSYhyXC2tkoBndtY0U+vubqNsYXGjufB2nn8Q6gt0LrARwL6UBtMCSVCwl4B1g==",

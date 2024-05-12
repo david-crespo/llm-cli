@@ -4,6 +4,7 @@ import { parseArgs } from "https://deno.land/std@0.220.1/cli/parse_args.ts"
 import { readAll } from "https://deno.land/std@0.220.1/io/read_all.ts"
 import OpenAI from "npm:openai@4.45.0"
 import Anthropic from "npm:@anthropic-ai/sdk@0.18.0"
+import { GoogleGenerativeAI } from "npm:@google/generative-ai@0.11.1"
 import $ from "jsr:@david/dax@0.41.0"
 
 const HELP = `
@@ -97,6 +98,7 @@ const allModels = [
   "claude-3-opus-20240229",
   "claude-3-sonnet-20240229",
   "claude-3-haiku-20240307",
+  "gemini-1.5-pro-latest",
 ] as const
 
 type Model = typeof allModels[number]
@@ -108,6 +110,7 @@ const prices: Record<Model, { input: number; output: number }> = {
   "claude-3-sonnet-20240229": { input: 0.003 / 1000, output: .015 / 1000 },
   "claude-3-haiku-20240307": { input: .00025 / 1000, output: .00125 / 1000 },
   "gpt-4-turbo": { input: .01 / 1000, output: .03 / 1000 },
+  "gemini-1.5-pro-latest": { input: .007 / 1000, output: .021 / 1000 },
 }
 
 function getCost(model: Model, input_tokens: number, output_tokens: number) {
@@ -170,6 +173,28 @@ const claudeCreateMessage: CreateMessage = async (chat, input, model) => {
   }
 }
 
+const geminiCreateMessage: CreateMessage = async (chat, input, model) => {
+  const key = Deno.env.get("GEMINI_API_KEY")
+  if (!key) throw Error("GEMINI_API_KEY missing")
+  const result = await new GoogleGenerativeAI(key).getGenerativeModel({
+    model,
+    systemInstruction: chat.systemPrompt,
+  }).startChat({
+    history: chat.messages.map((msg) => ({
+      // gemini uses model instead of assistant
+      role: msg.role === "assistant" ? "model" : "user",
+      parts: [{ text: msg.content }],
+    })),
+  }).sendMessage(input)
+
+  return {
+    content: result.response.text(),
+    input_tokens: result.response.usageMetadata!.promptTokenCount,
+    output_tokens: result.response.usageMetadata!.candidatesTokenCount,
+    stop_reason: result.response.candidates?.[0].finishReason || "",
+  }
+}
+
 // --------------------------------
 // Utilities
 // --------------------------------
@@ -218,7 +243,8 @@ function messageContentMd(msg: ChatMessage) {
   let output = ""
 
   if (msg.role === "assistant") {
-    const showStopReason = ["max_tokens", "length"].includes(msg.stop_reason)
+    // only show stop reason if it's not a natural stop
+    const showStopReason = !["stop", "end_turn"].includes(msg.stop_reason.toLowerCase())
 
     output += `\`${msg.model}\``
     output += ` | ${timeFmt.format(msg.timeMs / 1000)} s`
@@ -385,7 +411,11 @@ const chat: Chat = args.reply && prevChat ? prevChat : {
   messages: [],
 }
 
-const createMessage = model.startsWith("claude") ? claudeCreateMessage : gptCreateMessage
+const createMessage = model.startsWith("claude")
+  ? claudeCreateMessage
+  : model.startsWith("gemini")
+  ? geminiCreateMessage
+  : gptCreateMessage
 
 try {
   const startTime = performance.now()

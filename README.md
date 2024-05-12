@@ -42,7 +42,11 @@ upload a gist; only the current conversation is stored locally.
 
 ### API keys
 
-You will need OpenAI and/or Anthropic API keys. The script expects these to be in the usual `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` env vars.
+Set any or all of these, depending on which models you want to use.
+
+* `OPENAI_API_KEY`
+* `ANTHROPIC_API_KEY`
+* `GEMINI_API_KEY`
 
 ### Dependencies
 

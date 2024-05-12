@@ -2,7 +2,7 @@
 
 import { parseArgs } from "https://deno.land/std@0.220.1/cli/parse_args.ts"
 import { readAll } from "https://deno.land/std@0.220.1/io/read_all.ts"
-import OpenAI from "https://deno.land/x/openai@v4.29.1/mod.ts"
+import OpenAI from "npm:openai@4.45.0"
 import Anthropic from "npm:@anthropic-ai/sdk@0.18.0"
 import $ from "jsr:@david/dax@0.41.0"
 

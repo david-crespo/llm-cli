@@ -94,25 +94,28 @@ const History = {
 }
 
 const allModels = [
-  "gpt-4-turbo",
   "gpt-4o",
   "claude-3-opus-20240229",
   "claude-3-sonnet-20240229",
   "claude-3-haiku-20240307",
   "gemini-1.5-pro-latest",
+  "gemini-1.5-flash-latest",
 ] as const
 
 type Model = typeof allModels[number]
 const defaultModel: Model = "gpt-4o"
 
+const M = 1_000_000
+
 // these are per token to keep it simple
 const prices: Record<Model, { input: number; output: number }> = {
-  "claude-3-opus-20240229": { input: .015 / 1000, output: .075 / 1000 },
-  "claude-3-sonnet-20240229": { input: 0.003 / 1000, output: .015 / 1000 },
-  "claude-3-haiku-20240307": { input: .00025 / 1000, output: .00125 / 1000 },
-  "gpt-4-turbo": { input: .01 / 1000, output: .03 / 1000 },
-  "gpt-4o": { input: .005 / 1000, output: .015 / 1000 },
-  "gemini-1.5-pro-latest": { input: .007 / 1000, output: .021 / 1000 },
+  "claude-3-opus-20240229": { input: 15 / M, output: 75 / M },
+  "claude-3-sonnet-20240229": { input: 3 / M, output: 15 / M },
+  "claude-3-haiku-20240307": { input: .25 / M, output: 1.25 / M },
+  "gpt-4o": { input: 5 / M, output: 15 / M },
+  // TODO: gemini models have double pricing above 128k
+  "gemini-1.5-pro-latest": { input: 3.5 / M, output: 10.5 / M },
+  "gemini-1.5-flash-latest": { input: 0.35 / M, output: 0.53 / M },
 }
 
 function getCost(model: Model, input_tokens: number, output_tokens: number) {

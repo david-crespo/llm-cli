@@ -42,11 +42,17 @@ upload a gist; only the current conversation is stored locally.
 
 ### API keys
 
-Set any or all of these, depending on which models you want to use.
+Set any or all of these, depending on which models you want to use. It is often
+convenient to put them in a `.env` file like below and call `source .env`.
 
-* `OPENAI_API_KEY`
-* `ANTHROPIC_API_KEY`
-* `GEMINI_API_KEY`
+```sh
+export OPENAI_API_KEY=abc-123
+export ANTHROPIC_API_KEY=def-456
+export GEMINI_API_KEY=ghi-789
+```
+
+The script does not automatically pick up a `.env` file; the variables need to
+be set in the environment.
 
 ### Dependencies
 

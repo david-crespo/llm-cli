@@ -113,14 +113,18 @@ const prices: Record<Model, { input: number; output: number }> = {
   "claude-3-sonnet-20240229": { input: 3 / M, output: 15 / M },
   "claude-3-haiku-20240307": { input: .25 / M, output: 1.25 / M },
   "gpt-4o": { input: 5 / M, output: 15 / M },
-  // TODO: gemini models have double pricing above 128k
   "gemini-1.5-pro-latest": { input: 3.5 / M, output: 10.5 / M },
   "gemini-1.5-flash-latest": { input: 0.35 / M, output: 0.53 / M },
 }
 
 function getCost(model: Model, input_tokens: number, output_tokens: number) {
   const { input, output } = prices[model]
-  return (input * input_tokens) + (output * output_tokens)
+  const cost = (input * input_tokens) + (output * output_tokens)
+
+  // Gemini models have double pricing over 128k https://ai.google.dev/pricing
+  if (model.includes("gemini") && input_tokens > 128_000) return 2 * cost
+
+  return cost
 }
 
 // --------------------------------

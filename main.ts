@@ -408,10 +408,10 @@ if (!cmd.content && !stdin) {
 }
 const input = [stdin, cmd.content].filter(Boolean).join("\n\n")
 
-const persona = args.persona || "experienced software engineer"
+const persona = args.persona || "an experienced software engineer"
 
 const systemPrompt = args.system ||
-  `You are a ${persona}. Your answers are precise. Answer only the question as asked. When asked for code, only output code (do not explain) unless otherwise specified. Your answers must be in markdown format.`
+  `You are ${persona}. Your answers are precise. Answer only the question as asked. If the answer is a simple yes or no, include a little explanation if it would be helpful. When asked for code, only output code: do not explain unless asked to. Your answers must be in markdown format.`
 
 // if replying, use history as current chat, otherwise start new.
 const chat: Chat = args.reply && prevChat ? prevChat : {

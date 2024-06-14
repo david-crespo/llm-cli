@@ -172,7 +172,7 @@ const claudeCreateMessage: CreateMessage = async (chat, input, model) => {
       ...chat.messages.map((m) => ({ role: m.role, content: m.content })),
       { role: "user" as const, content: input },
     ],
-    max_tokens: 2048,
+    max_tokens: 4096,
   })
   return {
     content: response.content[0].text,

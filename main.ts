@@ -3,7 +3,7 @@
 import { parseArgs } from "https://deno.land/std@0.220.1/cli/parse_args.ts"
 import { readAll } from "https://deno.land/std@0.220.1/io/read_all.ts"
 import OpenAI from "npm:openai@4.45.0"
-import Anthropic from "npm:@anthropic-ai/sdk@0.18.0"
+import Anthropic from "npm:@anthropic-ai/sdk@0.24.0"
 import { GoogleGenerativeAI } from "npm:@google/generative-ai@0.11.1"
 import $ from "jsr:@david/dax@0.41.0"
 
@@ -96,21 +96,21 @@ const History = {
 const allModels = [
   "gpt-4o",
   "claude-3-opus-20240229",
-  "claude-3-sonnet-20240229",
+  "claude-3-5-sonnet-20240620",
   "claude-3-haiku-20240307",
   "gemini-1.5-pro-latest",
   "gemini-1.5-flash-latest",
 ] as const
 
 type Model = typeof allModels[number]
-const defaultModel: Model = "gpt-4o"
+const defaultModel: Model = "claude-3-5-sonnet-20240620"
 
 const M = 1_000_000
 
 // these are per token to keep it simple
 const prices: Record<Model, { input: number; output: number }> = {
   "claude-3-opus-20240229": { input: 15 / M, output: 75 / M },
-  "claude-3-sonnet-20240229": { input: 3 / M, output: 15 / M },
+  "claude-3-5-sonnet-20240620": { input: 3 / M, output: 15 / M },
   "claude-3-haiku-20240307": { input: .25 / M, output: 1.25 / M },
   "gpt-4o": { input: 5 / M, output: 15 / M },
   "gemini-1.5-pro-latest": { input: 3.5 / M, output: 10.5 / M },
@@ -174,8 +174,10 @@ const claudeCreateMessage: CreateMessage = async (chat, input, model) => {
     ],
     max_tokens: 4096,
   })
+  const respMsg = response.content[0]
   return {
-    content: response.content[0].text,
+    // we're not doing tool use yet, so the response will always be text
+    content: respMsg.type === "text" ? respMsg.text : JSON.stringify(respMsg),
     input_tokens: response.usage.input_tokens,
     output_tokens: response.usage.output_tokens,
     stop_reason: response.stop_reason!, // always non-null in non-streaming mode

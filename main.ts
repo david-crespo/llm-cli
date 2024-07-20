@@ -93,11 +93,20 @@ const History = {
   },
 }
 
+/**
+ * The order of this list matters: preferred models go first.
+ *
+ * We pick a model by finding the first one containing the specified string.
+ * But the same string can be in multiple model names. For example, "mini" is
+ * in both gpt-4o-mini and the gemini models. By putting gpt-4o-mini earlier, we
+ * ensure "mini" matches that. By putting gpt-4o first, we ensure "4o" matches
+ * that.
+ */
 const allModels = [
   "gpt-4o",
   "gpt-4o-mini",
-  "claude-3-opus-20240229",
   "claude-3-5-sonnet-20240620",
+  "claude-3-opus-20240229",
   "claude-3-haiku-20240307",
   "gemini-1.5-pro-latest",
   "gemini-1.5-flash-latest",
@@ -299,7 +308,7 @@ async function uploadGist(title: string, history: Chat) {
   await $`echo ${md} | gh gist create -f ${filename}`
 }
 
-/** Errors and exits if it doesn't resolve to one model */
+/** Errors and exits if it can't resolve to a model */
 async function resolveModel(modelArg: string | undefined): Promise<Model> {
   if (modelArg === undefined) return defaultModel
   if (modelArg.trim() === "") {
@@ -307,17 +316,16 @@ async function resolveModel(modelArg: string | undefined): Promise<Model> {
     Deno.exit(1)
   }
 
-  const matches = allModels.filter((m) => m.includes(modelArg.toLowerCase()))
+  // Find the first model containing the arg as a substring. See comment at
+  // allModels definition about ordering.
+  const match = allModels.find((m) => m.includes(modelArg.toLowerCase()))
 
-  if (matches.length !== 1) {
-    const error = matches.length === 0
-      ? `'${modelArg}' isn't a substring of any model name.`
-      : `'${modelArg}' is a substring of more than one model name.`
-    await printError(`${error}\n\n${modelsMd}`)
+  if (!match) {
+    await printError(`'${modelArg}' isn't a substring of any model name.\n\n${modelsMd}`)
     Deno.exit(1)
   }
 
-  return matches[0]
+  return match
 }
 
 // --------------------------------
@@ -432,9 +440,9 @@ const createMessage = model.startsWith("claude")
   ? geminiCreateMessage
   : gptCreateMessage
 
+const pb = $.progress("Thinking...")
 try {
   const startTime = performance.now()
-  const pb = $.progress("Thinking...")
   const response = await createMessage(chat, input, model)
   pb.finish()
   const timeMs = performance.now() - startTime
@@ -449,6 +457,7 @@ try {
   History.write(chat)
   await renderMd(messageContentMd(assistantMsg))
 } catch (e) {
+  pb.finish() // otherwise it hangs around
   if (e.response?.status) console.log("Request error:", e.response.status)
   if (e.response?.data) console.log(jsonBlock(e.response.data))
   if (e.response?.error) console.log(jsonBlock(e.response.error))

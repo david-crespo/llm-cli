@@ -108,6 +108,7 @@ const allModels = [
   "claude-3-5-sonnet-20240620",
   "claude-3-opus-20240229",
   "claude-3-haiku-20240307",
+  "gemini-1.5-pro-exp-0801",
   "gemini-1.5-pro-latest",
   "gemini-1.5-flash-latest",
 ] as const
@@ -124,6 +125,7 @@ const prices: Record<Model, { input: number; output: number }> = {
   "claude-3-haiku-20240307": { input: .25 / M, output: 1.25 / M },
   "gpt-4o": { input: 5 / M, output: 15 / M },
   "gpt-4o-mini": { input: .15 / M, output: .6 / M },
+  "gemini-1.5-pro-exp-0801": { input: 3.5 / M, output: 10.5 / M },
   "gemini-1.5-pro-latest": { input: 3.5 / M, output: 10.5 / M },
   "gemini-1.5-flash-latest": { input: 0.35 / M, output: 0.53 / M },
 }

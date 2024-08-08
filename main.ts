@@ -127,7 +127,7 @@ const prices: Record<Model, { input: number; output: number }> = {
   "gpt-4o-mini": { input: .15 / M, output: .6 / M },
   "gemini-1.5-pro-exp-0801": { input: 3.5 / M, output: 10.5 / M },
   "gemini-1.5-pro-latest": { input: 3.5 / M, output: 10.5 / M },
-  "gemini-1.5-flash-latest": { input: 0.35 / M, output: 0.53 / M },
+  "gemini-1.5-flash-latest": { input: .075 / M, output: .3 / M },
 }
 
 function getCost(model: Model, input_tokens: number, output_tokens: number) {

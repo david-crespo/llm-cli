@@ -114,7 +114,7 @@ const allModels = [
 ] as const
 
 type Model = typeof allModels[number]
-const defaultModel: Model = "claude-3-5-sonnet-20240620"
+const defaultModel: Model = "gpt-4o-2024-08-06"
 
 const M = 1_000_000
 

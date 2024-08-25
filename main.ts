@@ -29,6 +29,7 @@ the raw output to stdout.
 -m, --model <str>      Select model by substring, e.g., 'opus'
 -p, --persona <str>    Override persona in system prompt
 --system <str>         Override system prompt (ignore persona)
+--hide-meta            Don't print metadata line
 \`\`\`
 
 # Commands
@@ -263,10 +264,10 @@ function messageHeaderMd(msg: ChatMessage, msgNum: number, msgCount: number) {
 
 const timeFmt = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 })
 
-function messageContentMd(msg: ChatMessage) {
+function messageContentMd(msg: ChatMessage, showMeta = true) {
   let output = ""
 
-  if (msg.role === "assistant") {
+  if (msg.role === "assistant" && showMeta) {
     // only show stop reason if it's not a natural stop
     const showStopReason = !["stop", "end_turn"].includes(msg.stop_reason.toLowerCase())
 
@@ -367,7 +368,7 @@ function parseCmd(posArgs: (string | number)[]): Command {
 // --------------------------------
 
 const args = parseArgs(Deno.args, {
-  boolean: ["help", "reply"],
+  boolean: ["help", "reply", "hide-meta"],
   string: ["persona", "model", "system"],
   alias: { h: "help", m: "model", p: "persona", r: "reply" },
 })
@@ -442,11 +443,13 @@ const createMessage = model.startsWith("claude")
   ? geminiCreateMessage
   : gptCreateMessage
 
-const pb = $.progress("Thinking...")
+// don't want progress spinner when piping output
+const pb = Deno.stdout.isTerminal() ? $.progress("Thinking...") : null
+
 try {
   const startTime = performance.now()
   const response = await createMessage(chat, input, model)
-  pb.finish()
+  if (pb) pb.finish()
   const timeMs = performance.now() - startTime
   const assistantMsg = {
     role: "assistant" as const,
@@ -457,9 +460,9 @@ try {
   }
   chat.messages.push({ role: "user", content: input }, assistantMsg)
   History.write(chat)
-  await renderMd(messageContentMd(assistantMsg))
+  await renderMd(messageContentMd(assistantMsg, !args["hide-meta"]))
 } catch (e) {
-  pb.finish() // otherwise it hangs around
+  if (pb) pb.finish() // otherwise it hangs around
   if (e.response?.status) console.log("Request error:", e.response.status)
   if (e.response?.data) console.log(jsonBlock(e.response.data))
   if (e.response?.error) console.log(jsonBlock(e.response.error))

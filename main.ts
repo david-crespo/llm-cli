@@ -29,7 +29,7 @@ the raw output to stdout.
 -m, --model <str>      Select model by substring, e.g., 'opus'
 -p, --persona <str>    Override persona in system prompt
 --system <str>         Override system prompt (ignore persona)
---hide-meta            Don't print metadata line
+--raw                  Print LLM text directly (no metadata)
 \`\`\`
 
 # Commands
@@ -226,8 +226,8 @@ const getStdin = async () => new TextDecoder().decode(await readAll(Deno.stdin))
 
 const RENDERER = "glow"
 
-async function renderMd(md: string) {
-  if ($.commandExistsSync(RENDERER) && Deno.stdout.isTerminal()) {
+async function renderMd(md: string, raw = false) {
+  if ($.commandExistsSync(RENDERER) && Deno.stdout.isTerminal() && !raw) {
     await $`${RENDERER}`.stdinText(md)
   } else {
     console.log(md)
@@ -262,10 +262,10 @@ function messageHeaderMd(msg: ChatMessage, msgNum: number, msgCount: number) {
 
 const timeFmt = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 })
 
-function messageContentMd(msg: ChatMessage, showMeta = true) {
+function messageContentMd(msg: ChatMessage, raw = false) {
   let output = ""
 
-  if (msg.role === "assistant" && showMeta) {
+  if (msg.role === "assistant" && !raw) {
     // only show stop reason if it's not a natural stop
     const showStopReason = !["stop", "end_turn"].includes(msg.stop_reason.toLowerCase())
 
@@ -278,7 +278,8 @@ function messageContentMd(msg: ChatMessage, showMeta = true) {
     output += "\n\n"
   }
 
-  output += `${msg.content}\n\n`
+  output += msg.content
+  if (!args.raw) output += "\n\n"
   return output
 }
 
@@ -366,7 +367,7 @@ function parseCmd(posArgs: (string | number)[]): Command {
 // --------------------------------
 
 const args = parseArgs(Deno.args, {
-  boolean: ["help", "reply", "hide-meta"],
+  boolean: ["help", "reply", "raw"],
   string: ["persona", "model", "system"],
   alias: { h: "help", m: "model", p: "persona", r: "reply" },
 })
@@ -393,7 +394,7 @@ if (cmd.cmd === "show") {
     await printError("No chat in progress")
     Deno.exit(1)
   }
-  await renderMd(chatToMd(prevChat, cmd.n))
+  await renderMd(chatToMd(prevChat, cmd.n), args.raw)
   Deno.exit()
 }
 
@@ -442,7 +443,7 @@ const createMessage = model.startsWith("claude")
   : gptCreateMessage
 
 // don't want progress spinner when piping output
-const pb = Deno.stdout.isTerminal() ? $.progress("Thinking...") : null
+const pb = Deno.stdout.isTerminal() && !args.raw ? $.progress("Thinking...") : null
 
 try {
   const startTime = performance.now()
@@ -458,7 +459,7 @@ try {
   }
   chat.messages.push({ role: "user", content: input }, assistantMsg)
   History.write(chat)
-  await renderMd(messageContentMd(assistantMsg, !args["hide-meta"]))
+  await renderMd(messageContentMd(assistantMsg, args.raw), args.raw)
 } catch (e) {
   if (pb) pb.finish() // otherwise it hangs around
   if (e.response?.status) console.log("Request error:", e.response.status)

@@ -107,7 +107,6 @@ const allModels = [
   "gpt-4o-2024-08-06",
   "gpt-4o-mini",
   "claude-3-5-sonnet-20240620",
-  "claude-3-opus-20240229",
   "claude-3-haiku-20240307",
   "gemini-1.5-pro-exp-0827",
   "gemini-1.5-flash-exp-0827",
@@ -120,7 +119,6 @@ const M = 1_000_000
 
 // these are per token to keep it simple
 const prices: Record<Model, { input: number; output: number }> = {
-  "claude-3-opus-20240229": { input: 15 / M, output: 75 / M },
   "claude-3-5-sonnet-20240620": { input: 3 / M, output: 15 / M },
   "claude-3-haiku-20240307": { input: .25 / M, output: 1.25 / M },
   "gpt-4o-2024-08-06": { input: 2.5 / M, output: 10 / M },

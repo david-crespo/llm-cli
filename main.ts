@@ -106,6 +106,8 @@ const History = {
 const allModels = [
   "gpt-4o-2024-08-06",
   "gpt-4o-mini",
+  "o1-preview",
+  "o1-mini",
   "claude-3-5-sonnet-20240620",
   "claude-3-haiku-20240307",
   "gemini-1.5-pro-exp-0827",
@@ -113,7 +115,7 @@ const allModels = [
 ] as const
 
 type Model = typeof allModels[number]
-const defaultModel: Model = "gpt-4o-2024-08-06"
+const defaultModel: Model = "claude-3-5-sonnet-20240620"
 
 const M = 1_000_000
 
@@ -123,6 +125,8 @@ const prices: Record<Model, { input: number; output: number }> = {
   "claude-3-haiku-20240307": { input: .25 / M, output: 1.25 / M },
   "gpt-4o-2024-08-06": { input: 2.5 / M, output: 10 / M },
   "gpt-4o-mini": { input: .15 / M, output: .6 / M },
+  "o1-preview": { input: 15 / M, output: 60 / M },
+  "o1-mini": { input: 3 / M, output: 12 / M },
   "gemini-1.5-pro-exp-0827": { input: 3.5 / M, output: 10.5 / M },
   "gemini-1.5-flash-exp-0827": { input: .075 / M, output: .3 / M },
 }

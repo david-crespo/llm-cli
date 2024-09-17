@@ -465,7 +465,7 @@ try {
 } catch (e) {
   if (pb) pb.finish() // otherwise it hangs around
   if (e.response?.status) console.log("Request error:", e.response.status)
-  if (e.response?.data) console.log(jsonBlock(e.response.data))
-  if (e.response?.error) console.log(jsonBlock(e.response.error))
-  if (!("response" in e)) console.log(codeBlock(e))
+  if (e.response?.data) renderMd(jsonBlock(e.response.data))
+  if (e.response?.error) renderMd(jsonBlock(e.response.error))
+  if (!("response" in e)) renderMd(codeBlock(e))
 }

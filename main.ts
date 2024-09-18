@@ -7,6 +7,43 @@ import Anthropic from "npm:@anthropic-ai/sdk@0.24.0"
 import { GoogleGenerativeAI } from "npm:@google/generative-ai@0.11.1"
 import $ from "jsr:@david/dax@0.41.0"
 
+/**
+ * The order of this list matters: preferred models go first.
+ *
+ * We pick a model by finding the first one containing the specified string.
+ * But the same string can be in multiple model names. For example, "mini" is
+ * in both gpt-4o-mini and the gemini models. By putting gpt-4o-mini earlier, we
+ * ensure "mini" matches that. By putting gpt-4o first, we ensure "4o" matches
+ * that.
+ */
+const allModels = [
+  "gpt-4o-2024-08-06",
+  "gpt-4o-mini",
+  "o1-preview",
+  "o1-mini",
+  "claude-3-5-sonnet-20240620",
+  "claude-3-haiku-20240307",
+  "gemini-1.5-pro-exp-0827",
+  "gemini-1.5-flash-exp-0827",
+] as const
+
+type Model = typeof allModels[number]
+const defaultModel: Model = "claude-3-5-sonnet-20240620"
+
+const M = 1_000_000
+
+// these are per token to keep it simple
+const prices: Record<Model, { input: number; output: number }> = {
+  "claude-3-5-sonnet-20240620": { input: 3 / M, output: 15 / M },
+  "claude-3-haiku-20240307": { input: .25 / M, output: 1.25 / M },
+  "gpt-4o-2024-08-06": { input: 2.5 / M, output: 10 / M },
+  "gpt-4o-mini": { input: .15 / M, output: .6 / M },
+  "o1-preview": { input: 15 / M, output: 60 / M },
+  "o1-mini": { input: 3 / M, output: 12 / M },
+  "gemini-1.5-pro-exp-0827": { input: 3.5 / M, output: 10.5 / M },
+  "gemini-1.5-flash-exp-0827": { input: .075 / M, output: .3 / M },
+}
+
 const HELP = `
 # Usage
 
@@ -92,43 +129,6 @@ const History = {
   clear() {
     localStorage.removeItem(HISTORY_KEY)
   },
-}
-
-/**
- * The order of this list matters: preferred models go first.
- *
- * We pick a model by finding the first one containing the specified string.
- * But the same string can be in multiple model names. For example, "mini" is
- * in both gpt-4o-mini and the gemini models. By putting gpt-4o-mini earlier, we
- * ensure "mini" matches that. By putting gpt-4o first, we ensure "4o" matches
- * that.
- */
-const allModels = [
-  "gpt-4o-2024-08-06",
-  "gpt-4o-mini",
-  "o1-preview",
-  "o1-mini",
-  "claude-3-5-sonnet-20240620",
-  "claude-3-haiku-20240307",
-  "gemini-1.5-pro-exp-0827",
-  "gemini-1.5-flash-exp-0827",
-] as const
-
-type Model = typeof allModels[number]
-const defaultModel: Model = "claude-3-5-sonnet-20240620"
-
-const M = 1_000_000
-
-// these are per token to keep it simple
-const prices: Record<Model, { input: number; output: number }> = {
-  "claude-3-5-sonnet-20240620": { input: 3 / M, output: 15 / M },
-  "claude-3-haiku-20240307": { input: .25 / M, output: 1.25 / M },
-  "gpt-4o-2024-08-06": { input: 2.5 / M, output: 10 / M },
-  "gpt-4o-mini": { input: .15 / M, output: .6 / M },
-  "o1-preview": { input: 15 / M, output: 60 / M },
-  "o1-mini": { input: 3 / M, output: 12 / M },
-  "gemini-1.5-pro-exp-0827": { input: 3.5 / M, output: 10.5 / M },
-  "gemini-1.5-flash-exp-0827": { input: .075 / M, output: .3 / M },
 }
 
 function getCost(model: Model, input_tokens: number, output_tokens: number) {

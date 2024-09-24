@@ -17,7 +17,8 @@
     "jsr:@std/streams@0.221": "0.221.0",
     "npm:@anthropic-ai/sdk@0.27": "0.27.3",
     "npm:@google/generative-ai@0.19": "0.19.0",
-    "npm:openai@4.63": "4.63.0"
+    "npm:openai@4.63": "4.63.0",
+    "npm:remeda@2.14": "2.14.0"
   },
   "jsr": {
     "@david/dax@0.42.0": {
@@ -205,8 +206,17 @@
         "node-fetch"
       ]
     },
+    "remeda@2.14.0": {
+      "integrity": "sha512-OSOhr9gGcb3AshMxlu9YnnUtKSkeYhj+AxWiWGfVh3HolYtJP5IF9vC1j1tq15uI7lxCPVd9qnnp43dOvZ840A==",
+      "dependencies": [
+        "type-fest"
+      ]
+    },
     "tr46@0.0.3": {
       "integrity": "sha512-N3WMsuqV66lT30CrXNbEjx4GEwlow3v6rr4mCcv6prnfwhS01rkgyFdjPNBYd9br7LpXV1+Emh01fHnq2Gdgrw=="
+    },
+    "type-fest@4.26.1": {
+      "integrity": "sha512-yOGpmOAL7CkKe/91I5O3gPICmJNLJ1G4zFYVAsRHg7M64biSnPtRj0WNQt++bRkjYOqjWXrhnUw1utzmVErAdg=="
     },
     "undici-types@5.26.5": {
       "integrity": "sha512-JlCMO+ehdEIKqlFxk6IfVoAUVmgz7cU7zD/h9XZ0qzeosSHmUJVOzSQvvYSYWXkFXC+IfLKSIffhv0sVZup6pA=="

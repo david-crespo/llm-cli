@@ -2,13 +2,16 @@
 
 import { parseArgs } from "jsr:@std/cli@1.0/parse-args"
 import { readAll } from "jsr:@std/io@0.224"
+import $ from "jsr:@david/dax@0.42"
+
 import OpenAI from "npm:openai@4.63"
 import Anthropic from "npm:@anthropic-ai/sdk@0.27"
 import { GoogleGenerativeAI } from "npm:@google/generative-ai@0.19"
-import $ from "jsr:@david/dax@0.42"
+import * as R from "npm:remeda@2.14"
 
+const M = 1_000_000
 /**
- * The order of this list matters: preferred models go first.
+ * The order matters: preferred models go first.
  *
  * We pick a model by finding the first one containing the specified string.
  * But the same string can be in multiple model names. For example, "mini" is
@@ -16,33 +19,19 @@ import $ from "jsr:@david/dax@0.42"
  * ensure "mini" matches that. By putting gpt-4o first, we ensure "4o" matches
  * that.
  */
-const allModels = [
-  "chatgpt-4o-latest",
-  "gpt-4o-mini",
-  "o1-preview",
-  "o1-mini",
-  "claude-3-5-sonnet-20240620",
-  "claude-3-haiku-20240307",
-  "gemini-1.5-pro-exp-0827",
-  "gemini-1.5-flash-exp-0827",
-] as const
-
-type Model = typeof allModels[number]
-const defaultModel: Model = "claude-3-5-sonnet-20240620"
-
-const M = 1_000_000
-
-// these are per token to keep it simple
-const prices: Record<Model, { input: number; output: number }> = {
-  "claude-3-5-sonnet-20240620": { input: 3 / M, output: 15 / M },
-  "claude-3-haiku-20240307": { input: .25 / M, output: 1.25 / M },
+const models = {
   "chatgpt-4o-latest": { input: 2.5 / M, output: 10 / M },
   "gpt-4o-mini": { input: .15 / M, output: .6 / M },
   "o1-preview": { input: 15 / M, output: 60 / M },
   "o1-mini": { input: 3 / M, output: 12 / M },
-  "gemini-1.5-pro-exp-0827": { input: 3.5 / M, output: 10.5 / M },
-  "gemini-1.5-flash-exp-0827": { input: .075 / M, output: .3 / M },
+  "claude-3-5-sonnet-20240620": { input: 3 / M, output: 15 / M },
+  "claude-3-haiku-20240307": { input: .25 / M, output: 1.25 / M },
+  "gemini-1.5-pro-002": { input: 1.25 / M, output: 2.50 / M }, // >128k: 5 / 10
+  "gemini-1.5-flash-002": { input: .075 / M, output: .3 / M }, // >128k: 0.15 / 0.60
 }
+
+type Model = keyof typeof models
+const defaultModel: Model = "claude-3-5-sonnet-20240620"
 
 const HELP = `
 # Usage
@@ -132,7 +121,7 @@ const History = {
 }
 
 function getCost(model: Model, input_tokens: number, output_tokens: number) {
-  const { input, output } = prices[model]
+  const { input, output } = models[model]
   const cost = (input * input_tokens) + (output * output_tokens)
 
   // Gemini models have double pricing over 128k https://ai.google.dev/pricing
@@ -249,7 +238,7 @@ const codeBlock = (contents: string, lang = "") => `\`\`\`${lang}\n${contents}\n
 const jsonBlock = (obj: unknown) => codeBlock(JSON.stringify(obj, null, 2), "json")
 
 const modelBullet = (m: string) => `* ${m} ${m === defaultModel ? "(⭐ default)" : ""}`
-const modelsMd = "# Models\n\n" + allModels.map(modelBullet).join("\n")
+const modelsMd = "# Models\n\n" + Object.keys(models).map(modelBullet).join("\n")
 
 const moneyFmt = Intl.NumberFormat("en-US", {
   style: "currency",
@@ -322,7 +311,7 @@ async function resolveModel(modelArg: string | undefined): Promise<Model> {
 
   // Find the first model containing the arg as a substring. See comment at
   // allModels definition about ordering.
-  const match = allModels.find((m) => m.includes(modelArg.toLowerCase()))
+  const match = R.keys(models).find((m) => m.includes(modelArg.toLowerCase()))
 
   if (!match) {
     await printError(`'${modelArg}' isn't a substring of any model name.\n\n${modelsMd}`)
@@ -462,7 +451,8 @@ try {
   chat.messages.push({ role: "user", content: input }, assistantMsg)
   History.write(chat)
   await renderMd(messageContentMd(assistantMsg, args.raw), args.raw)
-} catch (e) {
+  // deno-lint-ignore no-explicit-any
+} catch (e: any) {
   if (pb) pb.finish() // otherwise it hangs around
   if (e.response?.status) console.log("Request error:", e.response.status)
   if (e.response?.data) renderMd(jsonBlock(e.response.data))

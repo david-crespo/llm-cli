@@ -1,11 +1,11 @@
 #! /usr/bin/env -S deno run --allow-env --allow-read --allow-net --allow-run=gh,glow
 
-import { parseArgs } from "https://deno.land/std@0.220.1/cli/parse_args.ts"
-import { readAll } from "https://deno.land/std@0.220.1/io/read_all.ts"
-import OpenAI from "npm:openai@4.45.0"
-import Anthropic from "npm:@anthropic-ai/sdk@0.24.0"
-import { GoogleGenerativeAI } from "npm:@google/generative-ai@0.11.1"
-import $ from "jsr:@david/dax@0.41.0"
+import { parseArgs } from "jsr:@std/cli@1.0/parse-args"
+import { readAll } from "jsr:@std/io@0.224"
+import OpenAI from "npm:openai@4.63"
+import Anthropic from "npm:@anthropic-ai/sdk@0.27"
+import { GoogleGenerativeAI } from "npm:@google/generative-ai@0.19"
+import $ from "jsr:@david/dax@0.42"
 
 /**
  * The order of this list matters: preferred models go first.

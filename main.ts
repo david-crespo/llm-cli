@@ -4,9 +4,9 @@ import { parseArgs } from "jsr:@std/cli@1.0/parse-args"
 import { readAll } from "jsr:@std/io@0.224"
 import $ from "jsr:@david/dax@0.42"
 
-import OpenAI from "npm:openai@4.63"
-import Anthropic from "npm:@anthropic-ai/sdk@0.27"
-import { GoogleGenerativeAI } from "npm:@google/generative-ai@0.19"
+import OpenAI from "npm:openai@4.67"
+import Anthropic from "npm:@anthropic-ai/sdk@0.28"
+import { GoogleGenerativeAI } from "npm:@google/generative-ai@0.21"
 import * as R from "npm:remeda@2.14"
 
 const M = 1_000_000

@@ -24,14 +24,14 @@ const models = {
   "gpt-4o-mini": { input: .15 / M, output: .6 / M },
   "o1-preview": { input: 15 / M, output: 60 / M },
   "o1-mini": { input: 3 / M, output: 12 / M },
-  "claude-3-5-sonnet-20240620": { input: 3 / M, output: 15 / M },
+  "claude-3-5-sonnet-latest": { input: 3 / M, output: 15 / M },
   "claude-3-haiku-20240307": { input: .25 / M, output: 1.25 / M },
   "gemini-1.5-pro-002": { input: 1.25 / M, output: 2.50 / M }, // >128k: 5 / 10
   "gemini-1.5-flash-002": { input: .075 / M, output: .3 / M }, // >128k: 0.15 / 0.60
 }
 
 type Model = keyof typeof models
-const defaultModel: Model = "claude-3-5-sonnet-20240620"
+const defaultModel: Model = "claude-3-5-sonnet-latest"
 
 const HELP = `
 # Usage

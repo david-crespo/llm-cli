@@ -3,6 +3,7 @@
 import { parseArgs } from "jsr:@std/cli@1.0/parse-args"
 import { readAll } from "jsr:@std/io@0.224"
 import $ from "jsr:@david/dax@0.42"
+import { markdownTable } from "https://esm.sh/markdown-table@3.0.4"
 
 import OpenAI from "npm:openai@4.67"
 import Anthropic from "npm:@anthropic-ai/sdk@0.28"
@@ -20,13 +21,13 @@ const M = 1_000_000
  * that.
  */
 const models = {
-  "chatgpt-4o-latest": { input: 2.5 / M, output: 10 / M },
-  "gpt-4o-mini": { input: .15 / M, output: .6 / M },
-  "o1-preview": { input: 15 / M, output: 60 / M },
-  "o1-mini": { input: 3 / M, output: 12 / M },
+  // "o1-preview": { input: 15 / M, output: 60 / M },
+  // "o1-mini": { input: 3 / M, output: 12 / M },
   "claude-3-5-sonnet-latest": { input: 3 / M, output: 15 / M },
   "claude-3-5-haiku-latest": { input: 1 / M, output: 5 / M },
   "claude-3-haiku-20240307": { input: .25 / M, output: 1.25 / M },
+  "chatgpt-4o-latest": { input: 2.5 / M, output: 10 / M },
+  "gpt-4o-mini": { input: .15 / M, output: .6 / M },
   "gemini-1.5-pro-002": { input: 1.25 / M, output: 2.50 / M }, // >128k: 5 / 10
   "gemini-1.5-flash-002": { input: .075 / M, output: .3 / M }, // >128k: 0.15 / 0.60
 }
@@ -238,14 +239,23 @@ async function printError(msg: string) {
 const codeBlock = (contents: string, lang = "") => `\`\`\`${lang}\n${contents}\n\`\`\`\n`
 const jsonBlock = (obj: unknown) => codeBlock(JSON.stringify(obj, null, 2), "json")
 
-const modelBullet = (m: string) => `* ${m} ${m === defaultModel ? "(⭐ default)" : ""}`
-const modelsMd = "# Models\n\n" + Object.keys(models).map(modelBullet).join("\n")
-
 const moneyFmt = Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
   maximumFractionDigits: 5,
 })
+
+const modelsTable = markdownTable([
+  ["Model", "Input ($/M)", "Output ($/M)"],
+  ...Object.entries(models)
+    .map(([key, { input, output }]) => [
+      key + (key === defaultModel ? " ⭐" : ""),
+      moneyFmt.format(input * M),
+      moneyFmt.format(output * M),
+    ]),
+])
+
+const modelsMd = `# Models\n\n${modelsTable}`
 
 // split from message content because we only want this in show or gist mode
 function messageHeaderMd(msg: ChatMessage, msgNum: number, msgCount: number) {

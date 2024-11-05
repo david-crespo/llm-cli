@@ -237,5 +237,12 @@
         "webidl-conversions"
       ]
     }
+  },
+  "redirects": {
+    "https://esm.sh/markdown-table@3": "https://esm.sh/markdown-table@3.0.4"
+  },
+  "remote": {
+    "https://esm.sh/markdown-table@3.0.4": "eef40ceafa9dc44d4f33fb28d61371af3b5e9b91ae014c562f4b509c3a359768",
+    "https://esm.sh/v135/markdown-table@3.0.4/denonext/markdown-table.mjs": "d6627510404446dc47c5e34070aa05b487afae9fa27ffbbee628d41247811beb"
   }
 }

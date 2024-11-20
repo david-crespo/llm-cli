@@ -21,13 +21,14 @@ const M = 1_000_000
  * that.
  */
 const models = {
-  // "o1-preview": { input: 15 / M, output: 60 / M },
-  // "o1-mini": { input: 3 / M, output: 12 / M },
   "claude-3-5-sonnet-latest": { input: 3 / M, output: 15 / M },
   "claude-3-5-haiku-latest": { input: 1 / M, output: 5 / M },
   "claude-3-haiku-20240307": { input: .25 / M, output: 1.25 / M },
   "chatgpt-4o-latest": { input: 2.5 / M, output: 10 / M },
   "gpt-4o-mini": { input: .15 / M, output: .6 / M },
+  "o1-mini": { input: 3 / M, output: 12 / M },
+  "o1-preview": { input: 15 / M, output: 60 / M },
+  "gemini-exp-1114": { input: 1.25 / M, output: 2.50 / M }, // >128k: 5 / 10
   "gemini-1.5-pro-002": { input: 1.25 / M, output: 2.50 / M }, // >128k: 5 / 10
   "gemini-1.5-flash-002": { input: .075 / M, output: .3 / M }, // >128k: 0.15 / 0.60
 }
@@ -150,7 +151,7 @@ type CreateMessage = (
 ) => Promise<ModelResponse>
 
 const gptCreateMessage: CreateMessage = async (chat, input, model) => {
-  const systemMsg = chat.systemPrompt
+  const systemMsg = chat.systemPrompt && !model.startsWith('o1')
     ? [{ role: "system" as const, content: chat.systemPrompt }]
     : []
   const messages = [

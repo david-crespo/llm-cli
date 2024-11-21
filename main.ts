@@ -151,8 +151,11 @@ type CreateMessage = (
 ) => Promise<ModelResponse>
 
 const gptCreateMessage: CreateMessage = async (chat, input, model) => {
-  const systemMsg = chat.systemPrompt && !model.startsWith('o1')
-    ? [{ role: "system" as const, content: chat.systemPrompt }]
+  const systemMsg = chat.systemPrompt
+    ? [{
+      role: model.startsWith("o1") ? "user" as const : "system" as const,
+      content: chat.systemPrompt,
+    }]
     : []
   const messages = [
     ...systemMsg,

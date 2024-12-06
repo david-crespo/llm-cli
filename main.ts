@@ -31,6 +31,9 @@ const models = {
   "gemini-exp-1206": { input: 1.25 / M, output: 2.50 / M }, // >128k: 5 / 10
   "gemini-1.5-pro-002": { input: 1.25 / M, output: 2.50 / M }, // >128k: 5 / 10
   "gemini-1.5-flash-002": { input: .075 / M, output: .3 / M }, // >128k: 0.15 / 0.60
+  // groq models
+  "llama-3.3-70b-versatile": { input: .59 / M, output: 0.79 / M },
+  "llama-3.3-70b-specdec": { input: .59 / M, output: 0.99 / M },
 }
 
 type Model = keyof typeof models
@@ -150,7 +153,7 @@ type CreateMessage = (
   model: string,
 ) => Promise<ModelResponse>
 
-const gptCreateMessage: CreateMessage = async (chat, input, model) => {
+const makeOpenAIFunc = (client: OpenAI): CreateMessage => async (chat, input, model) => {
   const systemMsg = chat.systemPrompt
     ? [{
       role: model.startsWith("o1") ? "user" as const : "system" as const,
@@ -162,7 +165,7 @@ const gptCreateMessage: CreateMessage = async (chat, input, model) => {
     ...chat.messages.map((m) => ({ role: m.role, content: m.content })),
     { role: "user" as const, content: input },
   ]
-  const response = await new OpenAI().chat.completions.create({ model, messages })
+  const response = await client.chat.completions.create({ model, messages })
   const content = response.choices[0].message?.content
   if (!content) throw new Error("No response found")
   return {
@@ -172,6 +175,15 @@ const gptCreateMessage: CreateMessage = async (chat, input, model) => {
     stop_reason: response.choices[0].finish_reason,
   }
 }
+
+const gptCreateMessage = makeOpenAIFunc(new OpenAI())
+
+const groqCreateMessage = makeOpenAIFunc(
+  new OpenAI({
+    baseURL: "https://api.groq.com/openai/v1",
+    apiKey: Deno.env.get("GROQ_API_KEY"),
+  }),
+)
 
 const claudeCreateMessage: CreateMessage = async (chat, input, model) => {
   const response = await new Anthropic().messages.create({
@@ -446,6 +458,8 @@ const createMessage = model.startsWith("claude")
   ? claudeCreateMessage
   : model.startsWith("gemini")
   ? geminiCreateMessage
+  : model.startsWith("llama")
+  ? groqCreateMessage
   : gptCreateMessage
 
 // don't want progress spinner when piping output

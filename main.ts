@@ -7,7 +7,7 @@ import { markdownTable } from "https://esm.sh/markdown-table@3.0.4"
 
 import OpenAI from "npm:openai@4.67"
 import Anthropic from "npm:@anthropic-ai/sdk@0.28"
-import { GoogleGenerativeAI } from "npm:@google/generative-ai@0.21"
+import { GoogleGenerativeAI, type ModelParams } from "npm:@google/generative-ai@0.21"
 import * as R from "npm:remeda@2.14"
 
 const M = 1_000_000
@@ -151,6 +151,7 @@ type ChatInput = {
   history: Chat
   input: string
   model: string
+  tools: string[]
 }
 
 const makeOpenAIFunc = (client: OpenAI) => async ({ history, input, model }: ChatInput) => {
@@ -205,19 +206,30 @@ async function claudeCreateMessage({ history, input, model }: ChatInput) {
   }
 }
 
-async function geminiCreateMessage({ history, input, model }: ChatInput) {
+async function geminiCreateMessage({ history, input, model, tools }: ChatInput) {
   const key = Deno.env.get("GEMINI_API_KEY")
   if (!key) throw Error("GEMINI_API_KEY missing")
-  const result = await new GoogleGenerativeAI(key).getGenerativeModel({
-    model,
-    systemInstruction: history.systemPrompt,
-  }).startChat({
-    history: history.messages.map((msg) => ({
-      // gemini uses model instead of assistant
-      role: msg.role === "assistant" ? "model" : "user",
-      parts: [{ text: msg.content }],
-    })),
-  }).sendMessage(input)
+
+  const params: ModelParams = { model }
+  if (tools && tools.length > 0) {
+    params.tools = []
+    // @ts-expect-error googleSearch is real, the types are wrong
+    if (tools.includes("search")) params.tools.push({ googleSearch: {} })
+    if (tools.includes("code")) params.tools.push({ codeExecution: {} })
+  } else {
+    // code seems incompatible with a system prompt. search isn't, but it's too
+    // concise with the system prompt, so we'll leave it off there too
+    params.systemInstruction = history.systemPrompt
+  }
+
+  const result = await new GoogleGenerativeAI(key).getGenerativeModel(params)
+    .startChat({
+      history: history.messages.map((msg) => ({
+        // gemini uses model instead of assistant
+        role: msg.role === "assistant" ? "model" : "user",
+        parts: [{ text: msg.content }],
+      })),
+    }).sendMessage(input)
 
   return {
     content: result.response.text(),
@@ -287,7 +299,7 @@ function messageContentMd(msg: ChatMessage, raw = false) {
     // only show stop reason if it's not a natural stop
     const showStopReason = !["stop", "end_turn"].includes(msg.stop_reason.toLowerCase())
 
-    output += `\`${msg.model}\``
+    output += codeMd(msg.model)
     output += ` | ${timeFmt.format(msg.timeMs / 1000)} s`
     output += ` | ${moneyFmt.format(msg.cost)}`
     output += ` | **Tokens:** ${msg.input_tokens} -> ${msg.output_tokens}`
@@ -387,14 +399,40 @@ function parseCmd(posArgs: (string | number)[]): Command {
   return { cmd: "message", content: posArgs.join(" ") }
 }
 
+const codeMd = (s: string) => `\`${s}\``
+const codeListMd = (strs: string[]) => strs.map(codeMd).join(", ")
+
+type Tool = "search" | "code"
+const toolKeys: Tool[] = ["search", "code"]
+
+async function parseTools(
+  model: Model,
+  tools: string[],
+): Promise<Tool[]> {
+  if (tools.length === 0) return []
+  if (!model.startsWith("gemini")) {
+    await printError("Tools can only be used with Gemini models")
+    Deno.exit(1)
+  }
+  const badTools = tools.filter((t) => !(toolKeys as string[]).includes(t))
+  if (badTools.length > 0) {
+    await printError(
+      `Invalid tools: ${codeListMd(badTools)}. Valid values are: ${codeListMd(toolKeys)}`,
+    )
+    Deno.exit(1)
+  }
+  return tools as Tool[]
+}
+
 // --------------------------------
 // Actually do the thing
 // --------------------------------
 
 const args = parseArgs(Deno.args, {
   boolean: ["help", "reply", "raw"],
-  string: ["persona", "model", "system"],
-  alias: { h: "help", m: "model", p: "persona", r: "reply" },
+  string: ["persona", "model", "system", "tool"],
+  alias: { h: "help", m: "model", p: "persona", r: "reply", t: "tool" },
+  collect: ["tool"],
 })
 
 if (args.help) {
@@ -461,12 +499,14 @@ const history: Chat = args.reply && prevChat ? prevChat : {
   messages: [],
 }
 
+const tools = await parseTools(model, args.tool)
+
 // don't want progress spinner when piping output
 const pb = Deno.stdout.isTerminal() && !args.raw ? $.progress("Thinking...") : null
 
 try {
   const startTime = performance.now()
-  const response = await createMessage({ history, input, model })
+  const response = await createMessage({ history, input, model, tools })
   if (pb) pb.finish()
   const timeMs = performance.now() - startTime
   const assistantMsg = {

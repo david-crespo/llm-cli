@@ -56,21 +56,22 @@ the raw output to stdout.
 
 # Options
 
-\`\`\`
--r, --reply            Continue existing chat
--m, --model <str>      Select model by substring, e.g., 'opus'
--p, --persona <str>    Override persona in system prompt
---system <str>         Override system prompt (ignore persona)
---raw                  Print LLM text directly (no metadata)
-\`\`\`
+| Option | Description |
+|------|-------------|
+| -r, --reply | Continue existing chat |
+| -m, --model &lt;str&gt; | Select model by substring, e.g., \`opus\` |
+| -p, --persona &lt;str&gt; | Override persona in system prompt |
+| -t, --tool &lt;str&gt; | Use tools (\`code\` or \`search\`, Gemini only) |
+| --system &lt;str&gt; | Override system prompt (ignore persona) |
+| --raw | Print LLM text directly (no metadata) |
 
 # Commands
 
-\`\`\`
-show [N or "all"]      Show chat so far (last N, default 1)
-gist [title]           Save chat to GitHub Gist with gh CLI
-clear                  Delete current chat from localStorage
-\`\`\`
+| Command | Description |
+| --- | --- |
+| show [N or "all"] | Show chat so far (last N, default 1) |
+| gist [title] | Save chat to GitHub Gist with gh CLI |
+| clear | Delete current chat from localStorage |
 
 # Examples
 

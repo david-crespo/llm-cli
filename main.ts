@@ -147,22 +147,22 @@ type ModelResponse = {
   stop_reason: string
 }
 
-type CreateMessage = (
-  chat: Chat,
-  input: string,
-  model: string,
-) => Promise<ModelResponse>
+type ChatInput = {
+  history: Chat
+  input: string
+  model: string
+}
 
-const makeOpenAIFunc = (client: OpenAI): CreateMessage => async (chat, input, model) => {
-  const systemMsg = chat.systemPrompt
+const makeOpenAIFunc = (client: OpenAI) => async ({ history, input, model }: ChatInput) => {
+  const systemMsg = history.systemPrompt
     ? [{
       role: model.startsWith("o1") ? "user" as const : "system" as const,
-      content: chat.systemPrompt,
+      content: history.systemPrompt,
     }]
     : []
   const messages = [
     ...systemMsg,
-    ...chat.messages.map((m) => ({ role: m.role, content: m.content })),
+    ...history.messages.map((m) => ({ role: m.role, content: m.content })),
     { role: "user" as const, content: input },
   ]
   const response = await client.chat.completions.create({ model, messages })
@@ -185,12 +185,12 @@ const groqCreateMessage = makeOpenAIFunc(
   }),
 )
 
-const claudeCreateMessage: CreateMessage = async (chat, input, model) => {
+async function claudeCreateMessage({ history, input, model }: ChatInput) {
   const response = await new Anthropic().messages.create({
     model,
-    system: chat.systemPrompt,
+    system: history.systemPrompt,
     messages: [
-      ...chat.messages.map((m) => ({ role: m.role, content: m.content })),
+      ...history.messages.map((m) => ({ role: m.role, content: m.content })),
       { role: "user" as const, content: input },
     ],
     max_tokens: 4096,
@@ -205,14 +205,14 @@ const claudeCreateMessage: CreateMessage = async (chat, input, model) => {
   }
 }
 
-const geminiCreateMessage: CreateMessage = async (chat, input, model) => {
+async function geminiCreateMessage({ history, input, model }: ChatInput) {
   const key = Deno.env.get("GEMINI_API_KEY")
   if (!key) throw Error("GEMINI_API_KEY missing")
   const result = await new GoogleGenerativeAI(key).getGenerativeModel({
     model,
-    systemInstruction: chat.systemPrompt,
+    systemInstruction: history.systemPrompt,
   }).startChat({
-    history: chat.messages.map((msg) => ({
+    history: history.messages.map((msg) => ({
       // gemini uses model instead of assistant
       role: msg.role === "assistant" ? "model" : "user",
       parts: [{ text: msg.content }],
@@ -348,6 +348,13 @@ async function resolveModel(modelArg: string | undefined): Promise<Model> {
   return match
 }
 
+function createMessage(input: ChatInput): Promise<ModelResponse> {
+  if (input.model.startsWith("claude")) return claudeCreateMessage(input)
+  if (input.model.startsWith("llama")) return groqCreateMessage(input)
+  if (input.model.startsWith("gemini")) return geminiCreateMessage(input)
+  return gptCreateMessage(input)
+}
+
 // --------------------------------
 // CLI structure
 // --------------------------------
@@ -448,26 +455,18 @@ const systemBase =
 const systemPrompt = args.system || (persona + systemBase)
 
 // if replying, use history as current chat, otherwise start new.
-const chat: Chat = args.reply && prevChat ? prevChat : {
+const history: Chat = args.reply && prevChat ? prevChat : {
   createdAt: new Date().toLocaleString(),
   systemPrompt,
   messages: [],
 }
-
-const createMessage = model.startsWith("claude")
-  ? claudeCreateMessage
-  : model.startsWith("gemini")
-  ? geminiCreateMessage
-  : model.startsWith("llama")
-  ? groqCreateMessage
-  : gptCreateMessage
 
 // don't want progress spinner when piping output
 const pb = Deno.stdout.isTerminal() && !args.raw ? $.progress("Thinking...") : null
 
 try {
   const startTime = performance.now()
-  const response = await createMessage(chat, input, model)
+  const response = await createMessage({ history, input, model })
   if (pb) pb.finish()
   const timeMs = performance.now() - startTime
   const assistantMsg = {
@@ -477,8 +476,8 @@ try {
     cost: getCost(model, response.input_tokens, response.output_tokens),
     timeMs,
   }
-  chat.messages.push({ role: "user", content: input }, assistantMsg)
-  History.write(chat)
+  history.messages.push({ role: "user", content: input }, assistantMsg)
+  History.write(history)
   await renderMd(messageContentMd(assistantMsg, args.raw), args.raw)
   // deno-lint-ignore no-explicit-any
 } catch (e: any) {

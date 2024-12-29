@@ -69,8 +69,8 @@ the raw output to stdout.
 
 | Command | Description |
 | --- | --- |
-| show [N or "all"] | Show chat so far (last N, default 1) |
-| gist [title] | Save chat to GitHub Gist with gh CLI |
+| show ["all"] [-n] | Show chat so far (last N, default 1) |
+| gist [title] [-n] | Save chat to GitHub Gist with gh CLI |
 | clear | Delete current chat from localStorage |
 
 # Examples
@@ -345,16 +345,6 @@ function chatToMd(chat: Chat, lastN: number = 0): string {
 // Key functionality
 // --------------------------------
 
-async function uploadGist(title: string, history: Chat) {
-  if (!$.commandExistsSync("gh")) {
-    await printError("Creating a gist requires the `gh` CLI (https://cli.github.com/)")
-    Deno.exit(1)
-  }
-  const md = chatToMd(history)
-  const filename = title ? `LLM chat - ${title}.md` : "LLM chat.md"
-  await $`echo ${md} | gh gist create -f ${filename}`
-}
-
 /** Errors and exits if it can't resolve to a model */
 async function resolveModel(modelArg: string | undefined): Promise<Model> {
   if (modelArg === undefined) return defaultModel
@@ -395,29 +385,32 @@ function createMessage(input: ChatInput): Promise<ModelResponse> {
 type Command =
   | { cmd: "clear" }
   | { cmd: "show"; n: number | undefined }
-  | { cmd: "gist"; title: string | undefined }
+  | { cmd: "gist"; title: string | undefined; n: number | undefined }
   | { cmd: "message"; content: string }
 
-function parseCmd(posArgs: (string | number)[]): Command {
-  const [cmd, ...rest] = posArgs
+function parseCmd(a: typeof args): Command {
+  const [cmd, ...rest] = a._
+  // only relevant in gist and show
+  const n = typeof a.n === "number" ? a.n : undefined
 
   if (cmd == "clear" && rest.length === 0) {
     return { cmd: "clear" }
   } else if (cmd === "gist") {
     // a message would never start with gist
-    return { cmd: "gist", title: rest.join(" ") || undefined }
+    // default n is undefined, which means all
+    return { cmd: "gist", title: rest.join(" ") || undefined, n }
   } else if (cmd === "show" && rest.length <= 1) {
     const arg = rest.at(0)
     if (arg === "all") return { cmd: "show", n: undefined }
 
-    if (typeof arg === "undefined" || typeof arg === "number") {
-      return { cmd: "show", n: arg || 1 } // default with no arg is 1
+    if (typeof arg === "undefined") {
+      return { cmd: "show", n: n || 1 } // default n is 1
     }
     // otherwise this is just a message that starts with "show"
   }
 
   // otherwise, assume it's all one big chat message
-  return { cmd: "message", content: posArgs.join(" ") }
+  return { cmd: "message", content: a._.join(" ") }
 }
 
 const codeMd = (s: string) => `\`${s}\``
@@ -461,7 +454,7 @@ if (args.help) {
   Deno.exit()
 }
 
-const cmd = parseCmd(args._)
+const cmd = parseCmd(args)
 
 if (cmd.cmd === "clear") {
   History.clear()
@@ -482,14 +475,17 @@ if (cmd.cmd === "show") {
   Deno.exit()
 }
 
-// TODO: gist should take a number arg like show
 if (cmd.cmd === "gist") {
   if (!prevChat) {
     await printError("No chat in progress")
     Deno.exit(1)
   }
-  const title = args._.slice(1).join(" ")
-  await uploadGist(title, prevChat)
+  if (!$.commandExistsSync("gh")) {
+    await printError("Creating a gist requires the `gh` CLI (https://cli.github.com/)")
+    Deno.exit(1)
+  }
+  const filename = cmd.title ? `LLM chat - ${cmd.title}.md` : "LLM chat.md"
+  await $`gh gist create -f ${filename}`.stdinText(chatToMd(prevChat, cmd.n))
   Deno.exit()
 }
 

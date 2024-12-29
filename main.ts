@@ -34,6 +34,7 @@ const models = {
   // groq models
   "llama-3.3-70b-versatile": { input: .59 / M, output: 0.79 / M },
   "llama-3.3-70b-specdec": { input: .59 / M, output: 0.99 / M },
+  "deepseek-chat": { input: 0.14 / M, output: 0.28 / M },
 }
 
 type Model = keyof typeof models
@@ -184,6 +185,13 @@ const groqCreateMessage = makeOpenAIFunc(
   new OpenAI({
     baseURL: "https://api.groq.com/openai/v1",
     apiKey: Deno.env.get("GROQ_API_KEY"),
+  }),
+)
+
+const deepseekCreateMessage = makeOpenAIFunc(
+  new OpenAI({
+    baseURL: "https://api.deepseek.com",
+    apiKey: Deno.env.get("DEEPSEEK_API_KEY"),
   }),
 )
 
@@ -365,6 +373,7 @@ function createMessage(input: ChatInput): Promise<ModelResponse> {
   if (input.model.startsWith("claude")) return claudeCreateMessage(input)
   if (input.model.startsWith("llama")) return groqCreateMessage(input)
   if (input.model.startsWith("gemini")) return geminiCreateMessage(input)
+  if (input.model.startsWith("deepseek")) return deepseekCreateMessage(input)
   return gptCreateMessage(input)
 }
 

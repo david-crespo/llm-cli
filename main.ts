@@ -29,12 +29,11 @@ const models = {
   "o1-mini": { input: 3 / M, output: 12 / M },
   "o1-preview": { input: 15 / M, output: 60 / M },
   "gemini-exp-1206": { input: 1.25 / M, output: 2.50 / M }, // >128k: 5 / 10
-  "gemini-1.5-pro-002": { input: 1.25 / M, output: 2.50 / M }, // >128k: 5 / 10
   "gemini-2.0-flash-exp": { input: .075 / M, output: .3 / M }, // >128k: 0.15 / 0.60
-  // groq models
-  "llama-3.3-70b-versatile": { input: .59 / M, output: 0.79 / M },
-  "llama-3.3-70b-specdec": { input: .59 / M, output: 0.99 / M },
+  "groq-llama-3.3-70b-versatile": { input: .59 / M, output: 0.79 / M },
+  "groq-llama-3.3-70b-specdec": { input: .59 / M, output: 0.99 / M },
   "deepseek-chat": { input: 0.14 / M, output: 0.28 / M },
+  "cerebras-llama-3.3-70b": { input: 0 / M, output: 0 / M },
 }
 
 type Model = keyof typeof models
@@ -192,6 +191,13 @@ const deepseekCreateMessage = makeOpenAIFunc(
   new OpenAI({
     baseURL: "https://api.deepseek.com",
     apiKey: Deno.env.get("DEEPSEEK_API_KEY"),
+  }),
+)
+
+const cerebrasCreateMessage = makeOpenAIFunc(
+  new OpenAI({
+    baseURL: "https://api.cerebras.ai/v1",
+    apiKey: Deno.env.get("CEREBRAS_API_KEY"),
   }),
 )
 
@@ -371,9 +377,14 @@ async function resolveModel(modelArg: string | undefined): Promise<Model> {
 
 function createMessage(input: ChatInput): Promise<ModelResponse> {
   if (input.model.startsWith("claude")) return claudeCreateMessage(input)
-  if (input.model.startsWith("llama")) return groqCreateMessage(input)
   if (input.model.startsWith("gemini")) return geminiCreateMessage(input)
   if (input.model.startsWith("deepseek")) return deepseekCreateMessage(input)
+  if (input.model.startsWith("cerebras-")) {
+    return cerebrasCreateMessage({ ...input, model: input.model.slice(9) })
+  }
+  if (input.model.startsWith("groq-")) {
+    return groqCreateMessage({ ...input, model: input.model.slice(5) })
+  }
   return gptCreateMessage(input)
 }
 

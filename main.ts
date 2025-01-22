@@ -461,13 +461,19 @@ if (args.help) {
 
 const cmd = parseCmd(args)
 
+const history = Storage.read()
+
 if (cmd.cmd === "clear") {
-  Storage.clear()
-  console.log("Deleted history from localStorage")
+  const n = history.length
+  const yes = await $.maybeConfirm(`Delete ${n} chats?`, { noClear: true })
+  if (yes) {
+    Storage.clear()
+    console.log("Deleted history from localStorage")
+  } else {
+    console.log("No changes made")
+  }
   Deno.exit()
 }
-
-const history = Storage.read()
 
 // check for no other args because a prompt could start with "show", and we
 // still want to treat that as a prompt

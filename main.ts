@@ -8,7 +8,7 @@ import { markdownTable } from "https://esm.sh/markdown-table@3.0.4"
 import OpenAI from "npm:openai@4.67"
 import Anthropic from "npm:@anthropic-ai/sdk@0.28"
 import { GoogleGenerativeAI, type ModelParams } from "npm:@google/generative-ai@0.21"
-import * as R from "npm:remeda@2.14"
+import * as R from "npm:remeda@2.19"
 
 const M = 1_000_000
 /**
@@ -69,8 +69,10 @@ the raw output to stdout.
 
 | Command | Description |
 | --- | --- |
-| show ["all"] [-n] | Show chat so far (last N, default 1) |
+| show [--all] [-n] | Show chat so far (last N, default 1) |
 | gist [title] [-n] | Save chat to GitHub Gist with gh CLI |
+| history | List recent chats (up to 20) |
+| resume | Pick a chat to bump to current |
 | clear | Delete current chat from localStorage |
 
 # Examples
@@ -112,15 +114,18 @@ type Chat = {
   createdAt: string
 }
 
+type History = Chat[]
+
 const HISTORY_KEY = "llm-cli"
-const History = {
-  read(): Chat | null {
+const Storage = {
+  read(): History {
     const contents = localStorage.getItem(HISTORY_KEY)
-    if (!contents) return null
+    if (!contents) return []
     return JSON.parse(contents)
   },
-  write(chat: Chat) {
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(chat))
+  write(history: History) {
+    // only save up to 20 most recent chats
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(-20)))
   },
   clear() {
     localStorage.removeItem(HISTORY_KEY)
@@ -149,22 +154,22 @@ type ModelResponse = {
 }
 
 type ChatInput = {
-  history: Chat
+  chat: Chat
   input: string
   model: string
   tools: string[]
 }
 
-const makeOpenAIFunc = (client: OpenAI) => async ({ history, input, model }: ChatInput) => {
-  const systemMsg = history.systemPrompt
+const makeOpenAIFunc = (client: OpenAI) => async ({ chat, input, model }: ChatInput) => {
+  const systemMsg = chat.systemPrompt
     ? [{
       role: model.startsWith("o1") ? "user" as const : "system" as const,
-      content: history.systemPrompt,
+      content: chat.systemPrompt,
     }]
     : []
   const messages = [
     ...systemMsg,
-    ...history.messages.map((m) => ({ role: m.role, content: m.content })),
+    ...chat.messages.map((m) => ({ role: m.role, content: m.content })),
     { role: "user" as const, content: input },
   ]
   const response = await client.chat.completions.create({ model, messages })
@@ -201,12 +206,12 @@ const cerebrasCreateMessage = makeOpenAIFunc(
   }),
 )
 
-async function claudeCreateMessage({ history, input, model }: ChatInput) {
+async function claudeCreateMessage({ chat, input, model }: ChatInput) {
   const response = await new Anthropic().messages.create({
     model,
-    system: history.systemPrompt,
+    system: chat.systemPrompt,
     messages: [
-      ...history.messages.map((m) => ({ role: m.role, content: m.content })),
+      ...chat.messages.map((m) => ({ role: m.role, content: m.content })),
       { role: "user" as const, content: input },
     ],
     max_tokens: 4096,
@@ -221,7 +226,7 @@ async function claudeCreateMessage({ history, input, model }: ChatInput) {
   }
 }
 
-async function geminiCreateMessage({ history, input, model, tools }: ChatInput) {
+async function geminiCreateMessage({ chat, input, model, tools }: ChatInput) {
   const key = Deno.env.get("GEMINI_API_KEY")
   if (!key) throw Error("GEMINI_API_KEY missing")
 
@@ -234,12 +239,12 @@ async function geminiCreateMessage({ history, input, model, tools }: ChatInput) 
   } else {
     // code seems incompatible with a system prompt. search isn't, but it's too
     // concise with the system prompt, so we'll leave it off there too
-    params.systemInstruction = history.systemPrompt
+    params.systemInstruction = chat.systemPrompt
   }
 
   const result = await new GoogleGenerativeAI(key).getGenerativeModel(params)
     .startChat({
-      history: history.messages.map((msg) => ({
+      history: chat.messages.map((msg) => ({
         // gemini uses model instead of assistant
         role: msg.role === "assistant" ? "model" : "user",
         parts: [{ text: msg.content }],
@@ -387,26 +392,26 @@ type Command =
   | { cmd: "show"; n: number | undefined }
   | { cmd: "gist"; title: string | undefined; n: number | undefined }
   | { cmd: "message"; content: string }
+  | { cmd: "history" }
+  | { cmd: "resume" }
 
 function parseCmd(a: typeof args): Command {
   const [cmd, ...rest] = a._
   // only relevant in gist and show
-  const n = typeof a.n === "number" ? a.n : undefined
+  const n = a.all ? undefined : (typeof a.n === "number" ? a.n : 1)
 
-  if (cmd == "clear" && rest.length === 0) {
-    return { cmd: "clear" }
-  } else if (cmd === "gist") {
-    // a message would never start with gist
-    // default n is undefined, which means all
+  // simple commands
+  if (rest.length === 0) {
+    if (cmd === "clear") return { cmd: "clear" }
+    if (cmd === "history") return { cmd: "history" }
+    if (cmd === "resume") return { cmd: "resume" }
+    if (cmd === "show") return { cmd: "show", n }
+  }
+
+  // a message would never start with gist
+  // default n is undefined, which means all
+  if (cmd === "gist") {
     return { cmd: "gist", title: rest.join(" ") || undefined, n }
-  } else if (cmd === "show" && rest.length <= 1) {
-    const arg = rest.at(0)
-    if (arg === "all") return { cmd: "show", n: undefined }
-
-    if (typeof arg === "undefined") {
-      return { cmd: "show", n: n || 1 } // default n is 1
-    }
-    // otherwise this is just a message that starts with "show"
   }
 
   // otherwise, assume it's all one big chat message
@@ -443,9 +448,9 @@ async function parseTools(
 // --------------------------------
 
 const args = parseArgs(Deno.args, {
-  boolean: ["help", "reply", "raw"],
+  boolean: ["help", "reply", "raw", "all"], // --all used for show only
   string: ["persona", "model", "system", "tool"],
-  alias: { h: "help", m: "model", p: "persona", r: "reply", t: "tool" },
+  alias: { h: "help", m: "model", p: "persona", r: "reply", t: "tool", a: "all" },
   collect: ["tool"],
 })
 
@@ -457,26 +462,28 @@ if (args.help) {
 const cmd = parseCmd(args)
 
 if (cmd.cmd === "clear") {
-  History.clear()
-  console.log("Deleted chat from localStorage")
+  Storage.clear()
+  console.log("Deleted history from localStorage")
   Deno.exit()
 }
 
-const prevChat = History.read()
+const history = Storage.read()
 
 // check for no other args because a prompt could start with "show", and we
 // still want to treat that as a prompt
 if (cmd.cmd === "show") {
-  if (!prevChat) {
+  const lastChat = history.at(-1) // last one is current
+  if (!lastChat) {
     await printError("No chat in progress")
     Deno.exit(1)
   }
-  await renderMd(chatToMd(prevChat, cmd.n), args.raw)
+  await renderMd(chatToMd(lastChat, cmd.n), args.raw)
   Deno.exit()
 }
 
 if (cmd.cmd === "gist") {
-  if (!prevChat) {
+  const lastChat = history.at(-1) // last one is current
+  if (!lastChat) {
     await printError("No chat in progress")
     Deno.exit(1)
   }
@@ -485,15 +492,39 @@ if (cmd.cmd === "gist") {
     Deno.exit(1)
   }
   const filename = cmd.title ? `LLM chat - ${cmd.title}.md` : "LLM chat.md"
-  await $`gh gist create -f ${filename}`.stdinText(chatToMd(prevChat, cmd.n))
+  await $`gh gist create -f ${filename}`.stdinText(chatToMd(lastChat, cmd.n))
   Deno.exit()
 }
 
-// -r uses same model as last response if there is one and no model is specified
-const prevModel = prevChat?.messages.findLast(isAssistant)?.model
-const model = args.reply && prevModel && !args.model
-  ? prevModel
-  : await resolveModel(args.model)
+if (cmd.cmd === "history") {
+  // chats may be hard to summarize without AI because they often include a
+  // bunch of text up front
+  const rows = history
+    .map((chat) => [
+      chat.createdAt,
+      chat.messages.findLast(isAssistant)?.model,
+      chat.messages.length.toString(),
+    ])
+  await renderMd(markdownTable([["Start time", "Model", "Messages"], ...rows]))
+  Deno.exit()
+}
+
+if (cmd.cmd === "resume") {
+  // pick a conversation with $.select
+  // pull it out of the list and put it on top
+  // write history
+  const selectedIdx = await $.select({
+    message: "pick",
+    options: history.map((chat) => `${chat.createdAt} (${chat.messages.length} messages)`),
+  })
+  // pop out the selected item and move it to the front
+  const [before, after] = R.splitAt(history, selectedIdx)
+  const [selected, rest] = R.splitAt(after, 1)
+  const newHistory = [...before, ...rest, ...selected]
+  console.log("Entry moved to latest. Reply to continue.")
+  Storage.write(newHistory)
+  Deno.exit()
+}
 
 const stdin = Deno.stdin.isTerminal() ? null : await getStdin()
 if (!cmd.content && !stdin) {
@@ -509,13 +540,24 @@ const systemBase =
 
 const systemPrompt = args.system || (persona + systemBase)
 
-// if replying, use history as current chat, otherwise start new.
-const history: Chat = args.reply && prevChat ? prevChat : {
-  createdAt: new Date().toLocaleString(),
-  systemPrompt,
-  messages: [],
+// if we're not continuing an existing conversation, pop a new one onto history
+if (!args.reply || history.length === 0) {
+  history.push({
+    createdAt: new Date().toLocaleString(),
+    systemPrompt,
+    messages: [],
+  })
 }
 
+// now we're guaranteed to have one on hand, and that's our current one.
+// we modify it by reference
+const chat: Chat = history.at(-1)!
+
+// -r uses same model as last response, but only if there is one and no model is specified
+const prevModel = chat.messages.findLast(isAssistant)?.model
+const model = args.reply && prevModel && !args.model
+  ? prevModel
+  : await resolveModel(args.model)
 const tools = await parseTools(model, args.tool)
 
 // don't want progress spinner when piping output
@@ -523,7 +565,7 @@ const pb = Deno.stdout.isTerminal() && !args.raw ? $.progress("Thinking...") : n
 
 try {
   const startTime = performance.now()
-  const response = await createMessage({ history, input, model, tools })
+  const response = await createMessage({ chat, input, model, tools })
   if (pb) pb.finish()
   const timeMs = performance.now() - startTime
   const assistantMsg = {
@@ -533,8 +575,8 @@ try {
     cost: getCost(model, response.input_tokens, response.output_tokens),
     timeMs,
   }
-  history.messages.push({ role: "user", content: input }, assistantMsg)
-  History.write(history)
+  chat.messages.push({ role: "user", content: input }, assistantMsg)
+  Storage.write(history)
   await renderMd(messageContentMd(assistantMsg, args.raw), args.raw)
   // deno-lint-ignore no-explicit-any
 } catch (e: any) {

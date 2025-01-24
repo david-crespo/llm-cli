@@ -10,7 +10,12 @@ import Anthropic from "npm:@anthropic-ai/sdk@0.28"
 import { GoogleGenerativeAI, type ModelParams } from "npm:@google/generative-ai@0.21"
 import * as R from "npm:remeda@2.19"
 
+type Price = { input: number; output: number; input_cached?: number }
+
 const M = 1_000_000
+// keep the Price type for inferred values while keeping const keys
+const makeModels = <T extends Record<string, Price>>(models: T): Record<keyof T, Price> =>
+  models
 /**
  * The order matters: preferred models go first.
  *
@@ -20,24 +25,23 @@ const M = 1_000_000
  * ensure "mini" matches that. By putting gpt-4o first, we ensure "4o" matches
  * that.
  */
-const models = {
+const models = makeModels({
   "claude-3-5-sonnet-latest": { input: 3 / M, output: 15 / M },
   "claude-3-5-haiku-latest": { input: 1 / M, output: 5 / M },
-  "claude-3-haiku-20240307": { input: .25 / M, output: 1.25 / M },
-  "chatgpt-4o-latest": { input: 2.5 / M, output: 10 / M },
-  "gpt-4o-mini": { input: .15 / M, output: .6 / M },
-  "o1-mini": { input: 3 / M, output: 12 / M },
-  "o1-preview": { input: 15 / M, output: 60 / M },
+  "chatgpt-4o-latest": { input: 2.5 / M, input_cached: 1.25 / M, output: 10 / M },
+  "gpt-4o-mini": { input: .15 / M, input_cached: 0.075 / M, output: .6 / M },
+  "o1-mini": { input: 3 / M, input_cached: 1.5 / M, output: 12 / M },
+  "o1-preview": { input: 15 / M, input_cached: 7.5 / M, output: 60 / M },
   "gemini-exp-1206": { input: 1.25 / M, output: 2.50 / M }, // >128k: 5 / 10
   "gemini-2.0-flash-exp": { input: .075 / M, output: .3 / M }, // >128k: 0.15 / 0.60
   "gemini-2.0-flash-thinking-exp": { input: .35 / M, output: 1.5 / M }, // estimated
   "groq-llama-3.3-70b-versatile": { input: .59 / M, output: 0.79 / M },
   "groq-llama-3.3-70b-specdec": { input: .59 / M, output: 0.99 / M },
-  "deepseek-chat": { input: 0.14 / M, output: 0.28 / M },
-  "deepseek-reasoner": { input: 0.55 / M, output: 2.19 / M },
+  "deepseek-chat": { input: 0.14 / M, input_cached: 0.014 / M, output: 0.28 / M },
+  "deepseek-reasoner": { input: 0.55 / M, input_cached: 0.14 / M, output: 2.19 / M },
   // technically free until they set up their paid tier but whatever
   "cerebras-llama-3.3-70b": { input: 0.85 / M, output: 1.20 / M },
-}
+})
 
 type Model = keyof typeof models
 const defaultModel: Model = "claude-3-5-sonnet-latest"
@@ -94,12 +98,17 @@ ai gist 'Generic types'
 // Core data model
 // --------------------------------
 
+type TokenCounts = {
+  input: number
+  input_cache_hit?: number
+  output: number
+}
+
 type AssistantMessage = {
   role: "assistant"
   model: Model
   content: string
-  input_tokens: number
-  output_tokens: number
+  tokens: TokenCounts
   stop_reason: string
   cost: number
   timeMs: number
@@ -135,12 +144,17 @@ const Storage = {
   },
 }
 
-function getCost(model: Model, input_tokens: number, output_tokens: number) {
-  const { input, output } = models[model]
-  const cost = (input * input_tokens) + (output * output_tokens)
+function getCost(model: Model, tokens: TokenCounts) {
+  const { input, output, input_cached } = models[model]
+
+  // when there is caching and we have cache pricing, take it into account
+  const cost = input_cached && tokens.input_cache_hit
+    ? (input_cached * tokens.input_cache_hit) +
+      (input * (tokens.input - tokens.input_cache_hit)) + (output * tokens.output)
+    : (input * tokens.input) + (output * tokens.output)
 
   // Gemini models have double pricing over 128k https://ai.google.dev/pricing
-  if (model.includes("gemini") && input_tokens > 128_000) return 2 * cost
+  if (model.includes("gemini") && tokens.input > 128_000) return 2 * cost
 
   return cost
 }
@@ -151,8 +165,7 @@ function getCost(model: Model, input_tokens: number, output_tokens: number) {
 
 type ModelResponse = {
   content: string
-  input_tokens: number
-  output_tokens: number
+  tokens: TokenCounts
   stop_reason: string
 }
 
@@ -180,8 +193,11 @@ const makeOpenAIFunc = (client: OpenAI) => async ({ chat, input, model }: ChatIn
   if (!content) throw new Error("No response found")
   return {
     content,
-    input_tokens: response.usage?.prompt_tokens || 0,
-    output_tokens: response.usage?.completion_tokens || 0,
+    tokens: {
+      input: response.usage?.prompt_tokens || 0,
+      output: response.usage?.completion_tokens || 0,
+      input_cache_hit: response.usage?.prompt_tokens_details?.cached_tokens || 0,
+    },
     stop_reason: response.choices[0].finish_reason,
   }
 }
@@ -223,8 +239,10 @@ async function claudeCreateMessage({ chat, input, model }: ChatInput) {
   return {
     // we're not doing tool use yet, so the response will always be text
     content: respMsg.type === "text" ? respMsg.text : JSON.stringify(respMsg),
-    input_tokens: response.usage.input_tokens,
-    output_tokens: response.usage.output_tokens,
+    tokens: {
+      input: response.usage.input_tokens,
+      output: response.usage.output_tokens,
+    },
     stop_reason: response.stop_reason!, // always non-null in non-streaming mode
   }
 }
@@ -256,8 +274,10 @@ async function geminiCreateMessage({ chat, input, model, tools }: ChatInput) {
 
   return {
     content: result.response.text(),
-    input_tokens: result.response.usageMetadata!.promptTokenCount,
-    output_tokens: result.response.usageMetadata!.candidatesTokenCount,
+    tokens: {
+      input: result.response.usageMetadata!.promptTokenCount,
+      output: result.response.usageMetadata!.candidatesTokenCount,
+    },
     stop_reason: result.response.candidates?.[0].finishReason || "",
   }
 }
@@ -297,11 +317,12 @@ const moneyFmt = Intl.NumberFormat("en-US", {
 })
 
 const modelsTable = markdownTable([
-  ["Model", "Input ($/M)", "Output ($/M)"],
+  ["Model", "Input (+cached) in $/M", "Output in $/M"],
   ...Object.entries(models)
-    .map(([key, { input, output }]) => [
+    .map(([key, { input, output, input_cached }]) => [
       key + (key === defaultModel ? " ⭐" : ""),
-      moneyFmt.format(input * M),
+      moneyFmt.format(input * M) +
+      (input_cached ? ` (${moneyFmt.format(input_cached * M)})` : ""),
       moneyFmt.format(output * M),
     ]),
 ])
@@ -325,7 +346,12 @@ function messageContentMd(msg: ChatMessage, raw = false) {
     output += codeMd(msg.model)
     output += ` | ${timeFmt.format(msg.timeMs / 1000)} s`
     output += ` | ${moneyFmt.format(msg.cost)}`
-    output += ` | **Tokens:** ${msg.input_tokens} -> ${msg.output_tokens}`
+
+    // show cached tokens in parens if there are any
+    const input = msg.tokens.input_cache_hit
+      ? `${msg.tokens.input} (${msg.tokens.input_cache_hit})`
+      : msg.tokens.input
+    output += ` | **Tokens:** ${input} -> ${msg.tokens.output}`
     if (showStopReason) output += ` | **Stop reason:** ${msg.stop_reason}`
 
     output += "\n\n"
@@ -581,7 +607,7 @@ try {
     role: "assistant" as const,
     model,
     ...response,
-    cost: getCost(model, response.input_tokens, response.output_tokens),
+    cost: getCost(model, response.tokens),
     timeMs,
   }
   chat.messages.push({ role: "user", content: input }, assistantMsg)

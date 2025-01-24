@@ -30,10 +30,13 @@ const models = {
   "o1-preview": { input: 15 / M, output: 60 / M },
   "gemini-exp-1206": { input: 1.25 / M, output: 2.50 / M }, // >128k: 5 / 10
   "gemini-2.0-flash-exp": { input: .075 / M, output: .3 / M }, // >128k: 0.15 / 0.60
+  "gemini-2.0-flash-thinking-exp": { input: .35 / M, output: 1.5 / M }, // estimated
   "groq-llama-3.3-70b-versatile": { input: .59 / M, output: 0.79 / M },
   "groq-llama-3.3-70b-specdec": { input: .59 / M, output: 0.99 / M },
   "deepseek-chat": { input: 0.14 / M, output: 0.28 / M },
-  "cerebras-llama-3.3-70b": { input: 0 / M, output: 0 / M },
+  "deepseek-reasoner": { input: 0.55 / M, output: 2.19 / M },
+  // technically free until they set up their paid tier but whatever
+  "cerebras-llama-3.3-70b": { input: 0.85 / M, output: 1.20 / M },
 }
 
 type Model = keyof typeof models

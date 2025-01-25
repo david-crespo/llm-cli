@@ -124,18 +124,17 @@ type Chat = {
   systemPrompt: string | undefined
   messages: ChatMessage[]
   createdAt: string
+  summary?: string
 }
-
-type History = Chat[]
 
 const HISTORY_KEY = "llm-cli"
 const Storage = {
-  read(): History {
+  read(): Chat[] {
     const contents = localStorage.getItem(HISTORY_KEY)
     if (!contents) return []
     return JSON.parse(contents)
   },
-  write(history: History) {
+  write(history: Chat[]) {
     // only save up to 20 most recent chats
     localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(-20)))
   },
@@ -375,6 +374,15 @@ function chatToMd(chat: Chat, lastN: number = 0): string {
   return output
 }
 
+const dateFmt = new Intl.DateTimeFormat("en-US", {
+  month: "numeric",
+  day: "numeric",
+  year: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: true,
+})
+
 // --------------------------------
 // Key functionality
 // --------------------------------
@@ -472,6 +480,41 @@ async function parseTools(
   return tools as Tool[]
 }
 
+// use a fast model to summarize a chat for display purposes
+async function summarize(chat: Chat): Promise<string> {
+  const firstMsg = chat.messages[0].content
+  const abridged = firstMsg.length > 100
+    ? firstMsg.slice(0, 50) + "..." + firstMsg.slice(-50)
+    : firstMsg
+  const summary = await cerebrasCreateMessage({
+    chat: {
+      systemPrompt:
+        "You are summarizing LLM chats based on excerpts for use in a TUI conversation list. Be concise and accurate. Include details like names to help identify that chat. Only provide the summary; do not include explanation or followup questions. Do not end with a period.",
+      messages: [],
+      createdAt: "",
+    },
+    input:
+      `Please summarize an LLM chat based on the following excerpt from the first message. Use as few words as possible. Ideally 3-6 words, but up to 10. \n\n<excerpt>${abridged}</excerpt>`,
+    model: "llama-3.3-70b",
+    tools: [],
+  })
+  return summary.content
+}
+
+/** Create and save summaries for any chat without one */
+async function genMissingSummaries(history: Chat[]) {
+  if (!Deno.env.get("CEREBRAS_API_KEY")) {
+    $.logWarn("Skipping summarization:", "CEREBRAS_API_KEY not found")
+    return
+  }
+  const pb = $.progress("Summarizing...")
+  for (const chat of history) {
+    if (!chat.summary) chat.summary = await summarize(chat)
+  }
+  Storage.write(history)
+  pb.finish()
+}
+
 // --------------------------------
 // Actually do the thing
 // --------------------------------
@@ -532,31 +575,34 @@ if (cmd.cmd === "gist") {
 }
 
 if (cmd.cmd === "history") {
-  // chats may be hard to summarize without AI because they often include a
-  // bunch of text up front
+  await genMissingSummaries(history)
   const rows = history
     .map((chat) => [
       chat.createdAt,
       chat.messages.findLast(isAssistant)?.model,
+      chat.summary,
       chat.messages.length.toString(),
     ])
-  await renderMd(markdownTable([["Start time", "Model", "Messages"], ...rows]))
+  await renderMd(markdownTable([["Start time", "Model", "Summary", "Messages"], ...rows]))
   Deno.exit()
 }
 
+// 1. pick a conversation with $.select
+// 2. pull it out of the list and put it on top
+// 3. write history
 if (cmd.cmd === "resume") {
-  // pick a conversation with $.select
-  // pull it out of the list and put it on top
-  // write history
+  await genMissingSummaries(history)
   const selectedIdx = await $.select({
-    message: "pick",
-    options: history.map((chat) => `${chat.createdAt} (${chat.messages.length} messages)`),
+    message: "Pick a chat to resume",
+    options: history.map((chat) =>
+      `${chat.summary} (${chat.createdAt}, ${chat.messages.length} messages)`
+    ),
+    noClear: true,
   })
-  // pop out the selected item and move it to the front
+  // pop out the selected item and move it to the end
   const [before, after] = R.splitAt(history, selectedIdx)
   const [selected, rest] = R.splitAt(after, 1)
   const newHistory = [...before, ...rest, ...selected]
-  console.log("Entry moved to latest. Reply to continue.")
   Storage.write(newHistory)
   Deno.exit()
 }
@@ -578,7 +624,8 @@ const systemPrompt = args.system || (persona + systemBase)
 // if we're not continuing an existing conversation, pop a new one onto history
 if (!args.reply || history.length === 0) {
   history.push({
-    createdAt: new Date().toLocaleString(),
+    // TODO: just store the actual date value
+    createdAt: dateFmt.format(new Date()).replace(",", ""),
     systemPrompt,
     messages: [],
   })

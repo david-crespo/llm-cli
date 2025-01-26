@@ -45,7 +45,7 @@ const models = makeModels({
 })
 
 type Model = keyof typeof models
-const defaultModel: Model = "claude-3-5-sonnet-latest"
+const defaultModel: Model = "deepseek-chat"
 
 const HELP = `
 # Usage

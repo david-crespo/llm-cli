@@ -36,7 +36,8 @@ const models = makeModels({
   "gemini-2.0-flash-exp": { input: .075 / M, output: .3 / M }, // >128k: 0.15 / 0.60
   "gemini-2.0-flash-thinking-exp": { input: .35 / M, output: 1.5 / M }, // estimated
   "groq-llama-3.3-70b-versatile": { input: .59 / M, output: 0.79 / M },
-  "groq-llama-3.3-70b-specdec": { input: .59 / M, output: 0.99 / M },
+  // no price online so assume same as llama-70b for now
+  "groq-deepseek-r1-distill-llama-70b": { input: .59 / M, output: 0.79 / M },
   "deepseek-chat": { input: 0.14 / M, input_cached: 0.014 / M, output: 0.28 / M },
   "deepseek-reasoner": { input: 0.55 / M, input_cached: 0.14 / M, output: 2.19 / M },
   // technically free until they set up their paid tier but whatever

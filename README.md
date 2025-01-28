@@ -66,9 +66,8 @@ be set in the environment.
 
 ### Installation
 
-Download `main.ts` (whether directly or by cloning the repo). Then you just need a way to
-run the script and pipe the output to `glow`. The way I do this is with this function in my
-`.zprofile`:
+Clone the repo. Then you just need a way to run `main.ts` and pipe the output to
+`glow`. I use this function in my `.zprofile`:
 
 ```bash
 function ai() {

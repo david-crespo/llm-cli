@@ -1,4 +1,4 @@
-export type Price = { input: number; output: number; input_cached?: number }
+type Price = { input: number; output: number; input_cached?: number }
 
 export const M = 1_000_000
 

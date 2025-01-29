@@ -14,6 +14,7 @@ export async function renderMd(md: string, raw = false) {
   }
 }
 
+// TODO: replace this with something more cliffy-native
 export async function printError(msg: string) {
   await renderMd(`⚠️  ${msg}`)
 }
@@ -31,7 +32,7 @@ const moneyFmt = Intl.NumberFormat("en-US", {
   maximumFractionDigits: 5,
 })
 
-const modelsTable = markdownTable([
+export const modelsMd = markdownTable([
   ["Model", "Input (+cached) in $/M", "Output in $/M"],
   ...Object.entries(models)
     .map(([key, { input, output, input_cached }]) => [
@@ -41,8 +42,6 @@ const modelsTable = markdownTable([
       moneyFmt.format(output * M),
     ]),
 ])
-
-export const modelsMd = `# Models\n\n${modelsTable}`
 
 // split from message content because we only want this in show or gist mode
 function messageHeaderMd(msg: ChatMessage, msgNum: number, msgCount: number) {
@@ -97,11 +96,3 @@ export const dateFmt = new Intl.DateTimeFormat("en-US", {
   minute: "2-digit",
   hour12: false,
 })
-
-export function padMiddle(s1: string, s2: string, width: number) {
-  const len1 = s1.length
-  const len2 = s2.length
-  if (len1 + len2 >= width - 1) return s1 + " " + s2
-  const padding = " " + ".".repeat(width - len1 - len2 - 2) + " "
-  return s1 + padding + s2
-}

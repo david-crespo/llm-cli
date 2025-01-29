@@ -4,11 +4,13 @@ import { cerebrasCreateMessage } from "./adapters.ts"
 import { type Chat } from "./types.ts"
 import { History } from "./storage.ts"
 
+const HALF_EXCERPT = 100
+
 // use a fast model to summarize a chat for display purposes
 async function summarize(chat: Chat): Promise<string> {
   const firstMsg = chat.messages[0].content
-  const abridged = firstMsg.length > 100
-    ? firstMsg.slice(0, 50) + "..." + firstMsg.slice(-50)
+  const abridged = firstMsg.length > HALF_EXCERPT * 2
+    ? firstMsg.slice(0, HALF_EXCERPT) + "..." + firstMsg.slice(-HALF_EXCERPT)
     : firstMsg
   // TODO: fall back to groq llama and then 4o-mini if cerebras key is missing
   const summary = await cerebrasCreateMessage({
@@ -19,7 +21,7 @@ async function summarize(chat: Chat): Promise<string> {
       createdAt: "",
     },
     input:
-      `Please summarize an LLM chat based on the following excerpt from the first message. Use as few words as possible. Ideally 3-6 words, but up to 10. \n\n<excerpt>${abridged}</excerpt>`,
+      `Please summarize an LLM chat based on the following excerpt from the first message. Use as few words as possible. Ideally 4-6 words, but up to 10. \n\n<excerpt>${abridged}</excerpt>`,
     model: "llama-3.3-70b",
     tools: [],
   })

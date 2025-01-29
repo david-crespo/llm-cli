@@ -3,7 +3,6 @@
 import { readAll } from "jsr:@std/io@0.224"
 import { parseArgs } from "jsr:@std/cli@1.0/parse-args"
 import $ from "jsr:@david/dax@0.42"
-import { markdownTable } from "https://esm.sh/markdown-table@3.0.4"
 
 import * as R from "npm:remeda@2.19"
 
@@ -16,6 +15,7 @@ import {
   jsonBlock,
   messageContentMd,
   modelsMd,
+  padMiddle,
   printError,
   renderMd,
 } from "./display.ts"
@@ -56,8 +56,7 @@ the raw output to stdout.
 | --- | --- |
 | show [--all] [-n] | Show chat so far (last N, default 1) |
 | gist [title] [-n] | Save chat to GitHub Gist with gh CLI |
-| history | List recent chats (up to 20) |
-| resume | Pick a chat to bump to current |
+| history | List and resume 20 recent chats |
 | clear | Delete current chat from localStorage |
 
 # Examples
@@ -102,7 +101,6 @@ type Command =
   | { cmd: "gist"; title: string | undefined; n: number | undefined }
   | { cmd: "message"; content: string }
   | { cmd: "history" }
-  | { cmd: "resume" }
 
 function parseCmd(a: typeof args): Command {
   const [cmd, ...rest] = a._
@@ -113,7 +111,6 @@ function parseCmd(a: typeof args): Command {
   if (rest.length === 0) {
     if (cmd === "clear") return { cmd: "clear" }
     if (cmd === "history") return { cmd: "history" }
-    if (cmd === "resume") return { cmd: "resume" }
     if (cmd === "show") return { cmd: "show", n }
   }
 
@@ -228,36 +225,26 @@ if (cmd.cmd === "gist") {
   Deno.exit()
 }
 
-if (cmd.cmd === "history") {
-  await genMissingSummaries(history)
-  const rows = history
-    .map((chat) => [
-      chat.createdAt,
-      chat.messages.findLast(isAssistant)?.model,
-      chat.summary,
-      chat.messages.length.toString(),
-    ])
-  await renderMd(markdownTable([["Start time", "Model", "Summary", "Messages"], ...rows]))
-  Deno.exit()
-}
-
 // 1. pick a conversation with $.select
 // 2. pull it out of the list and put it on top
 // 3. write history
-if (cmd.cmd === "resume") {
+if (cmd.cmd === "history") {
   await genMissingSummaries(history)
+  const reversed = R.reverse(history)
+  const width = Deno.consoleSize().columns - 2 // 2 for prompt >
   const selectedIdx = await $.select({
     message: "Pick a chat to resume",
-    options: history.map((chat) =>
-      `${chat.summary} (${chat.createdAt}, ${chat.messages.length} messages)`
+    options: reversed.map((chat) =>
+      padMiddle(chat.summary || "", `${chat.createdAt}, ${chat.messages.length} msg`, width)
     ),
     noClear: true,
   })
   // pop out the selected item and move it to the end
-  const [before, after] = R.splitAt(history, selectedIdx)
+  const [before, after] = R.splitAt(reversed, selectedIdx)
   const [selected, rest] = R.splitAt(after, 1)
-  const newHistory = [...before, ...rest, ...selected]
-  History.write(newHistory)
+  // put it at the beginning so it's at the end after re-reversing
+  const newHistory = [...selected, ...before, ...rest]
+  History.write(R.reverse(newHistory))
   Deno.exit()
 }
 

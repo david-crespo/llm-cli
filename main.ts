@@ -231,12 +231,14 @@ if (cmd.cmd === "gist") {
 if (cmd.cmd === "history") {
   await genMissingSummaries(history)
   const reversed = R.reverse(history)
-  const width = Deno.consoleSize().columns - 2 // 2 for prompt >
+  // would be 2 indent for prompt >, but after you select one it's 3
+  const width = Deno.consoleSize().columns - 3
   const selectedIdx = await $.select({
     message: "Pick a chat to resume",
-    options: reversed.map((chat) =>
-      padMiddle(chat.summary || "", `${chat.createdAt}, ${chat.messages.length} msg`, width)
-    ),
+    options: reversed.map((chat) => {
+      const date = dateFmt.format(chat.createdAt).replace(",", "")
+      return padMiddle(chat.summary || "", `${date} (${chat.messages.length})`, width)
+    }),
     noClear: true,
   })
   // pop out the selected item and move it to the end
@@ -269,8 +271,7 @@ const systemPrompt = args.system || (persona + systemBase)
 // if we're not continuing an existing conversation, pop a new one onto history
 if (!args.reply || history.length === 0) {
   history.push({
-    // TODO: just store the actual date value
-    createdAt: dateFmt.format(new Date()).replace(",", ""),
+    createdAt: new Date(),
     systemPrompt,
     messages: [],
   })

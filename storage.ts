@@ -6,7 +6,10 @@ export const History = {
   read(): Chat[] {
     const contents = localStorage.getItem(HISTORY_KEY)
     if (!contents) return []
-    return JSON.parse(contents)
+    return JSON.parse(contents, (key, value) => {
+      if (key === "createdAt") return new Date(value)
+      return value
+    })
   },
   write(history: Chat[]) {
     // only save up to 20 most recent chats

@@ -18,7 +18,7 @@ async function summarize(chat: Chat): Promise<string> {
       systemPrompt:
         "You are summarizing LLM chats based on excerpts for use in a TUI conversation list. Be concise and accurate. Include details like names to help identify that chat. Only provide the summary; do not include explanation or followup questions. Do not end with a period.",
       messages: [],
-      createdAt: "",
+      createdAt: new Date(),
     },
     input:
       `Please summarize an LLM chat based on the following excerpt from the first message. Use as few words as possible. Ideally 4-6 words, but up to 10. \n\n<excerpt>${abridged}</excerpt>`,

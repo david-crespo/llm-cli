@@ -25,6 +25,6 @@ export type Chat = {
   // of a chat. Otherwise we'd have to annotate each message with it.
   systemPrompt: string | undefined
   messages: ChatMessage[]
-  createdAt: string
+  createdAt: Date
   summary?: string
 }

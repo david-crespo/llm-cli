@@ -93,16 +93,15 @@ export function chatToMd(chat: Chat, lastN: number = 0): string {
 export const dateFmt = new Intl.DateTimeFormat("en-US", {
   month: "numeric",
   day: "numeric",
-  year: "numeric",
   hour: "2-digit",
   minute: "2-digit",
-  hour12: true,
+  hour12: false,
 })
 
 export function padMiddle(s1: string, s2: string, width: number) {
   const len1 = s1.length
   const len2 = s2.length
   if (len1 + len2 >= width - 1) return s1 + " " + s2
-  const padding = ".".repeat(width - len1 - len2)
+  const padding = " " + ".".repeat(width - len1 - len2 - 2) + " "
   return s1 + padding + s2
 }

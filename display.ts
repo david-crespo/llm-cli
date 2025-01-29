@@ -2,7 +2,7 @@ import $ from "jsr:@david/dax@0.42"
 import { markdownTable } from "https://esm.sh/markdown-table@3.0.4"
 
 import { Chat, type ChatMessage } from "./types.ts"
-import { defaultModel, M, models } from "./models.ts"
+import { defaultModel, models } from "./models.ts"
 
 const RENDERER = "glow"
 
@@ -29,6 +29,7 @@ export const codeListMd = (strs: string[]) => strs.map(codeMd).join(", ")
 const moneyFmt = Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
+  minimumFractionDigits: 0,
   maximumFractionDigits: 5,
 })
 
@@ -37,9 +38,9 @@ export const modelsMd = markdownTable([
   ...Object.entries(models)
     .map(([key, { input, output, input_cached }]) => [
       key + (key === defaultModel ? " ⭐" : ""),
-      moneyFmt.format(input * M) +
-      (input_cached ? ` (${moneyFmt.format(input_cached * M)})` : ""),
-      moneyFmt.format(output * M),
+      moneyFmt.format(input) +
+      (input_cached ? ` (${moneyFmt.format(input_cached)})` : ""),
+      moneyFmt.format(output),
     ]),
 ])
 

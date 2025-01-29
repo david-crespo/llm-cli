@@ -24,6 +24,8 @@ import { createMessage } from "./adapters.ts"
 import { History } from "./storage.ts"
 import { genMissingSummaries } from "./summarize.ts"
 
+const M = 1_000_000
+
 function getCost(model: Model, tokens: TokenCounts) {
   const { input, output, input_cached } = models[model]
 
@@ -34,9 +36,9 @@ function getCost(model: Model, tokens: TokenCounts) {
     : (input * tokens.input) + (output * tokens.output)
 
   // Gemini models have double pricing over 128k https://ai.google.dev/pricing
-  if (model.includes("gemini") && tokens.input > 128_000) return 2 * cost
+  if (model.includes("gemini") && tokens.input > 128_000) return 2 * cost / M
 
-  return cost
+  return cost / M
 }
 
 type Tool = "search" | "code"

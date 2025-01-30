@@ -42,27 +42,30 @@ function parseTools(model: string, tools: string[]): Tool[] {
   return tools as Tool[]
 }
 
+/** use cliffy's table to align columns, then split on newline to get lines as strings */
+function chatPickerOptions(chats: Chat[]) {
+  return new Table(...chats.map((chat) => {
+    const date = dateFmt.format(chat.createdAt).replace(",", "")
+    const modelKey = getModel(chat)
+    const model = models.find((m) => m.key === modelKey)?.nickname || ""
+    return [chat.summary || "", model, `${date} (${chat.messages.length})`]
+  }))
+    .padding(3)
+    .toString().split("\n")
+}
+
 /**
  * 1. pick a conversation with `$.select`
  * 2. pull it out of the list and put it on top
  * 3. write history
  */
-async function resumePicker() {
+async function pickAndResume() {
   const history = History.read()
   await genMissingSummaries(history)
   const reversed = R.reverse(history)
-  // would be 2 indent for prompt >, but after you select one it's 3
   const selectedIdx = await $.select({
     message: "Pick a chat to resume",
-    // use cliffy's table to align columns, then split on newline to get lines as strings
-    options: new Table(...reversed.map((chat) => {
-      const date = dateFmt.format(chat.createdAt).replace(",", "")
-      const modelKey = getModel(chat)
-      const model = models.find((m) => m.key === modelKey)?.nickname || ""
-      return [chat.summary || "", model, `${date} (${chat.messages.length})`]
-    }))
-      .padding(3)
-      .toString().split("\n"),
+    options: chatPickerOptions(reversed),
     noClear: true,
   })
   // pop out the selected item and move it to the end
@@ -75,20 +78,36 @@ async function resumePicker() {
 
 const historyCmd = new Command()
   .description("List and resume recent chats")
-  .action(resumePicker)
-  .command("list", "List and resume recent chats")
-  .action(resumePicker)
+  .action(pickAndResume)
+  .command("resume", "Pick a recent chat to resume")
+  .action(pickAndResume)
+  .command("show", "Pick a recent chat to show")
+  .option("-a, --all", "Show all messages")
+  .option("-n, --limit <n:integer>", "Number of messages", { default: 1 })
+  .action(async (opts) => {
+    const history = History.read()
+    await genMissingSummaries(history)
+    const reversed = R.reverse(history)
+    const selectedIdx = await $.select({
+      message: "Pick a chat to show",
+      options: chatPickerOptions(reversed),
+      noClear: true,
+    })
+    const selected = reversed[selectedIdx]
+    const n = opts.all ? selected.messages.length : opts.limit
+    await renderMd(chatToMd(selected, n))
+  })
   .command("clear", "Delete current chat from localStorage")
   .action(async () => {
     const history = History.read()
     const n = history.length
     const yes = await $.maybeConfirm(`Delete ${n} chats?`, { noClear: true })
-    if (yes) {
-      History.clear()
-      console.log("Deleted history from localStorage")
-    } else {
+    if (!yes) {
       console.log("No changes made")
+      return
     }
+    History.clear()
+    console.log("Deleted history from localStorage")
   })
 
 const showCmd = new Command()

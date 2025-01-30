@@ -50,6 +50,14 @@ function messageHeaderMd(msg: ChatMessage, msgNum: number, msgCount: number) {
 
 const timeFmt = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 })
 
+// TODO: style thinking section better
+//     .split("\n").map((l) => "> " + l)
+//     .join("\n") +
+const escapeThinkTags = (content: string) =>
+  content
+    .replace("<think>", "\\<think>")
+    .replace("</think>", "\\</think>")
+
 export function messageContentMd(msg: ChatMessage, raw = false) {
   let output = ""
 
@@ -71,7 +79,7 @@ export function messageContentMd(msg: ChatMessage, raw = false) {
     output += "\n\n"
   }
 
-  output += msg.content
+  output += raw ? msg.content : escapeThinkTags(msg.content)
   if (!raw) output += "\n\n"
   return output
 }

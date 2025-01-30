@@ -31,10 +31,14 @@ const makeOpenAIFunc = (client: OpenAI) => async ({ chat, input, model }: ChatIn
     { role: "user" as const, content: input },
   ]
   const response = await client.chat.completions.create({ model, messages })
-  const content = response.choices[0].message?.content
-  if (!content) throw new Error("No response found")
+  const message = response.choices[0].message
+  if (!message) throw new Error("No response found")
+  const reasoning_content =
+    "reasoning_content" in message && typeof message.reasoning_content === "string"
+      ? message.reasoning_content + "\n\n"
+      : ""
   return {
-    content,
+    content: reasoning_content + (message.content || ""),
     tokens: {
       input: response.usage?.prompt_tokens || 0,
       output: response.usage?.completion_tokens || 0,

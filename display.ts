@@ -14,11 +14,6 @@ export async function renderMd(md: string, raw = false) {
   }
 }
 
-// TODO: replace this with something more cliffy-native
-export async function printError(msg: string) {
-  await renderMd(`⚠️  ${msg}`)
-}
-
 export const codeBlock = (contents: string, lang = "") =>
   `\`\`\`${lang}\n${contents}\n\`\`\`\n`
 export const jsonBlock = (obj: unknown) => codeBlock(JSON.stringify(obj, null, 2), "json")
@@ -33,16 +28,20 @@ const moneyFmt = Intl.NumberFormat("en-US", {
   maximumFractionDigits: 5,
 })
 
-export const modelsMd = markdownTable([
-  ["Model", "Input (+cached) in $/M", "Output in $/M"],
-  ...Object.entries(models)
-    .map(([key, { input, output, input_cached }]) => [
-      key + (key === defaultModel ? " ⭐" : ""),
-      moneyFmt.format(input) +
-      (input_cached ? ` (${moneyFmt.format(input_cached)})` : ""),
-      moneyFmt.format(output),
+const modelsTable = markdownTable([
+  ["Nickname", "Model", "Input", "Cached", "Output"],
+  ...models
+    .map((m) => [
+      m.nickname + (m.key === defaultModel ? " ⭐" : ""),
+      m.key,
+      moneyFmt.format(m.input),
+      m.input_cached ? moneyFmt.format(m.input_cached) : "",
+      moneyFmt.format(m.output),
     ]),
 ])
+
+export const modelsMd =
+  `Models are matched on key or nickname. Prices are per million tokens.\n\n${modelsTable}`
 
 // split from message content because we only want this in show or gist mode
 function messageHeaderMd(msg: ChatMessage, msgNum: number, msgCount: number) {

@@ -7,7 +7,7 @@ import $ from "jsr:@david/dax@0.42"
 
 import * as R from "npm:remeda@2.19"
 
-import { defaultModel, type Model, models } from "./models.ts"
+import { getCost, models, resolveModel } from "./models.ts"
 import {
   chatToMd,
   codeBlock,
@@ -16,71 +16,30 @@ import {
   jsonBlock,
   messageContentMd,
   modelsMd,
-  printError,
   renderMd,
 } from "./display.ts"
-import { Chat, isAssistant, TokenCounts } from "./types.ts"
+import { type Chat, isAssistant } from "./types.ts"
 import { createMessage } from "./adapters.ts"
 import { History } from "./storage.ts"
 import { genMissingSummaries } from "./summarize.ts"
 
-const M = 1_000_000
-
-function getCost(model: Model, tokens: TokenCounts) {
-  const { input, output, input_cached } = models[model]
-
-  // when there is caching and we have cache pricing, take it into account
-  const cost = input_cached && tokens.input_cache_hit
-    ? (input_cached * tokens.input_cache_hit) +
-      (input * (tokens.input - tokens.input_cache_hit)) + (output * tokens.output)
-    : (input * tokens.input) + (output * tokens.output)
-
-  // Gemini models have double pricing over 128k https://ai.google.dev/pricing
-  if (model.includes("gemini") && tokens.input > 128_000) return 2 * cost / M
-
-  return cost / M
-}
+const getModel = (chat: Chat) => chat.messages.findLast(isAssistant)?.model
 
 type Tool = "search" | "code"
 const toolKeys: Tool[] = ["search", "code"]
 
-async function parseTools(
-  model: Model,
-  tools: string[],
-): Promise<Tool[]> {
+function parseTools(model: string, tools: string[]): Tool[] {
   if (tools.length === 0) return []
   if (!model.startsWith("gemini")) {
-    await printError("Tools can only be used with Gemini models")
-    Deno.exit(1)
+    throw new ValidationError("Tools can only be used with Gemini models")
   }
   const badTools = tools.filter((t) => !(toolKeys as string[]).includes(t))
   if (badTools.length > 0) {
-    await printError(
+    throw new ValidationError(
       `Invalid tools: ${codeListMd(badTools)}. Valid values are: ${codeListMd(toolKeys)}`,
     )
-    Deno.exit(1)
   }
   return tools as Tool[]
-}
-
-/** Errors and exits if it can't resolve to a model */
-export async function resolveModel(modelArg: string | undefined): Promise<Model> {
-  if (modelArg === undefined) return defaultModel
-  if (modelArg.trim() === "") {
-    await printError(`\`-m/--model\` flag requires an argument\n\n${modelsMd}`)
-    Deno.exit(1)
-  }
-
-  // Find the first model containing the arg as a substring. See comment at
-  // allModels definition about ordering.
-  const match = R.keys(models).find((m) => m.includes(modelArg.toLowerCase()))
-
-  if (!match) {
-    await printError(`'${modelArg}' isn't a substring of any model name.\n\n${modelsMd}`)
-    Deno.exit(1)
-  }
-
-  return match
 }
 
 /**
@@ -98,7 +57,9 @@ async function resumePicker() {
     // use cliffy's table to align columns, then split on newline to get lines as strings
     options: new Table(...reversed.map((chat) => {
       const date = dateFmt.format(chat.createdAt).replace(",", "")
-      return [chat.summary || "", `${date} (${chat.messages.length})`]
+      const modelKey = getModel(chat)
+      const model = models.find((m) => m.key === modelKey)?.nickname || ""
+      return [chat.summary || "", model, `${date} (${chat.messages.length})`]
     }))
       .padding(3)
       .toString().split("\n"),
@@ -138,10 +99,7 @@ const showCmd = new Command()
   .action(async (opts) => {
     const history = History.read()
     const lastChat = history.at(-1) // last one is current
-    if (!lastChat) {
-      await printError("No chat in progress")
-      Deno.exit(1)
-    }
+    if (!lastChat) throw new ValidationError("No chat in progress")
     const n = opts.all ? lastChat.messages.length : opts.limit
     await renderMd(chatToMd(lastChat, n), opts.raw)
   })
@@ -153,16 +111,17 @@ const gistCmd = new Command()
   .option("-n, --limit <n:integer>", "Number of messages to include")
   .action(async (opts) => {
     const history = History.read()
+    await genMissingSummaries(history)
     const lastChat = history.at(-1) // last one is current
-    if (!lastChat) {
-      await printError("No chat in progress")
-      Deno.exit(1)
-    }
+    if (!lastChat) throw new ValidationError("No chat in progress")
+
     if (!$.commandExistsSync("gh")) {
-      await printError("Creating a gist requires the `gh` CLI (https://cli.github.com/)")
-      Deno.exit(1)
+      throw new Error(
+        "Creating a gist requires the `gh` CLI (https://cli.github.com/)",
+      )
     }
-    const filename = opts.title ? `LLM chat - ${opts.title}.md` : "LLM chat.md"
+    const title = opts.title || lastChat.summary
+    const filename = title ? `LLM chat - ${title}.md` : "LLM chat.md"
     const n = opts.all ? lastChat.messages.length : opts.limit
     await $`gh gist create -f ${filename}`.stdinText(chatToMd(lastChat, n))
   })
@@ -189,13 +148,16 @@ the raw output to stdout.`)
   // top level `ai hello how are you` command
   .arguments("[message...]")
   .helpOption("-h, --help", "Show help")
+  .help({ hints: false }) // hides ugly (Conflicts: persona) hint
   .option("-r, --reply", "Continue existing chat")
   .option("-m, --model <model:string>", "Select model by substring (e.g., 'sonnet')")
   .option("-t, --tools <tools:string>", "Use tools ('search' or 'code', Gemini only)", {
     collect: true,
   })
   .option("-p, --persona <persona:string>", "Override persona in system prompt")
-  .option("-s, --system <system:string>", "Override entire system prompt")
+  .option("-s, --system <system:string>", "Override entire system prompt", {
+    conflicts: ["persona"],
+  })
   .option("--raw", "Print LLM text directly (no metadata)")
   .example("ai 'What is the capital of France?'", "")
   .example("cat main.ts | ai 'what is this?'", "")
@@ -237,11 +199,11 @@ the raw output to stdout.`)
     const chat: Chat = history.at(-1)!
 
     // -r uses same model as last response, but only if there is one and no model is specified
-    const prevModel = chat.messages.findLast(isAssistant)?.model
-    const model = opts.reply && prevModel && !opts.model
-      ? prevModel
-      : await resolveModel(opts.model)
-    const tools = await parseTools(model, opts.tools || [])
+    const prevModelKey = getModel(chat)
+    const model = opts.reply && prevModelKey && !opts.model
+      ? prevModelKey
+      : resolveModel(opts.model)
+    const tools = parseTools(model, opts.tools || [])
 
     // don't want progress spinner when piping output
     const pb = Deno.stdout.isTerminal() && !opts.raw ? $.progress("Thinking...") : null

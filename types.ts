@@ -1,5 +1,3 @@
-import { type Model } from "./models.ts"
-
 export type TokenCounts = {
   input: number
   input_cache_hit?: number
@@ -8,7 +6,7 @@ export type TokenCounts = {
 
 type AssistantMessage = {
   role: "assistant"
-  model: Model
+  model: string
   content: string
   tokens: TokenCounts
   stop_reason: string

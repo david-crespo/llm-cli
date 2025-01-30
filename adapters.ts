@@ -3,6 +3,7 @@ import Anthropic from "npm:@anthropic-ai/sdk@0.28"
 import { GoogleGenerativeAI, type ModelParams } from "npm:@google/generative-ai@0.21"
 
 import type { Chat, TokenCounts } from "./types.ts"
+import { models } from "./models.ts"
 
 type ModelResponse = {
   content: string
@@ -124,14 +125,11 @@ async function geminiCreateMessage({ chat, input, model, tools }: ChatInput) {
 }
 
 export function createMessage(input: ChatInput): Promise<ModelResponse> {
-  if (input.model.startsWith("claude")) return claudeCreateMessage(input)
-  if (input.model.startsWith("gemini")) return geminiCreateMessage(input)
-  if (input.model.startsWith("deepseek")) return deepseekCreateMessage(input)
-  if (input.model.startsWith("cerebras-")) {
-    return cerebrasCreateMessage({ ...input, model: input.model.slice(9) })
-  }
-  if (input.model.startsWith("groq-")) {
-    return groqCreateMessage({ ...input, model: input.model.slice(5) })
-  }
+  const model = models.find((m) => m.key === input.model)!
+  if (model.provider === "anthropic") return claudeCreateMessage(input)
+  if (model.provider === "google") return geminiCreateMessage(input)
+  if (model.provider === "deepseek") return deepseekCreateMessage(input)
+  if (model.provider === "cerebras") return cerebrasCreateMessage(input)
+  if (model.provider === "groq") return groqCreateMessage(input)
   return gptCreateMessage(input)
 }

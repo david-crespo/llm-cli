@@ -1,5 +1,5 @@
-import OpenAI from "npm:openai@4.67"
-import Anthropic from "npm:@anthropic-ai/sdk@0.28"
+import OpenAI from "npm:openai@4.81.0"
+import Anthropic from "npm:@anthropic-ai/sdk@0.36.3"
 import { GoogleGenerativeAI, type ModelParams } from "npm:@google/generative-ai@0.21"
 
 import type { Chat, TokenCounts } from "./types.ts"

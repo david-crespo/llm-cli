@@ -29,8 +29,11 @@
     "jsr:@std/text@1.0.0-rc.1": "1.0.0-rc.1",
     "jsr:@std/text@~1.0.7": "1.0.10",
     "npm:@anthropic-ai/sdk@0.28": "0.28.0",
+    "npm:@anthropic-ai/sdk@0.36.3": "0.36.3",
     "npm:@google/generative-ai@0.21": "0.21.0",
     "npm:openai@4.67": "4.67.1",
+    "npm:openai@4.81": "4.81.0",
+    "npm:openai@4.81.0": "4.81.0",
     "npm:remeda@2.14": "2.14.0",
     "npm:remeda@2.19": "2.19.2"
   },
@@ -177,6 +180,18 @@
         "node-fetch"
       ]
     },
+    "@anthropic-ai/sdk@0.36.3": {
+      "integrity": "sha512-+c0mMLxL/17yFZ4P5+U6bTWiCSFZUKJddrv01ud2aFBWnTPLdRncYV76D3q1tqfnL7aCnhRtykFnoCFzvr4U3Q==",
+      "dependencies": [
+        "@types/node@18.19.54",
+        "@types/node-fetch",
+        "abort-controller",
+        "agentkeepalive",
+        "form-data-encoder",
+        "formdata-node",
+        "node-fetch"
+      ]
+    },
     "@google/generative-ai@0.21.0": {
       "integrity": "sha512-7XhUbtnlkSEZK15kN3t+tzIMxsbKm/dSkKBFalj+20NvPKe1kBY7mR2P7vuijEn+f06z5+A8bVGKO0v39cr6Wg=="
     },
@@ -273,6 +288,18 @@
     },
     "openai@4.67.1": {
       "integrity": "sha512-2YbRFy6qaYRJabK2zLMn4txrB2xBy0KP5g/eoqeSPTT31mIJMnkT75toagvfE555IKa2RdrzJrZwdDsUipsAMw==",
+      "dependencies": [
+        "@types/node@18.19.54",
+        "@types/node-fetch",
+        "abort-controller",
+        "agentkeepalive",
+        "form-data-encoder",
+        "formdata-node",
+        "node-fetch"
+      ]
+    },
+    "openai@4.81.0": {
+      "integrity": "sha512-lXkFkV+He3O6RGnldHncRGef4uWHssDsAVwN5I3bWcgIdDPy/w8vgtIAwvZxAj49m4WiwWVD0+eGTJ9xOv/ISA==",
       "dependencies": [
         "@types/node@18.19.54",
         "@types/node-fetch",

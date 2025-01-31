@@ -4,6 +4,11 @@ export type TokenCounts = {
   output: number
 }
 
+type UserMessage = {
+  role: "user"
+  content: string
+}
+
 type AssistantMessage = {
   role: "assistant"
   model: string
@@ -13,10 +18,8 @@ type AssistantMessage = {
   cost: number
   timeMs: number
 }
-type UserMessage = { role: "user"; content: string }
-export type ChatMessage = UserMessage | AssistantMessage
 
-export const isAssistant = (m: ChatMessage): m is AssistantMessage => m.role === "assistant"
+export type ChatMessage = UserMessage | AssistantMessage
 
 export type Chat = {
   // For now we don't allow system prompt to be changed in the middle

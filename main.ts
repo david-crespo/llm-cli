@@ -7,51 +7,32 @@ import $ from "jsr:@david/dax@0.42"
 
 import * as R from "npm:remeda@2.19"
 
-import { getCost, models, resolveModel } from "./models.ts"
+import { getCost, resolveModel } from "./models.ts"
 import {
   chatToMd,
   codeBlock,
-  codeListMd,
   dateFmt,
   jsonBlock,
   messageContentMd,
   modelsMd,
   renderMd,
 } from "./display.ts"
-import { type Chat, isAssistant } from "./types.ts"
-import { createMessage } from "./adapters.ts"
+import { type Chat } from "./types.ts"
+import { createMessage, parseTools } from "./adapters.ts"
 import { History } from "./storage.ts"
 import { genMissingSummaries } from "./summarize.ts"
 
-const getModel = (chat: Chat) => chat.messages.findLast(isAssistant)?.model
-
-type Tool = "search" | "code"
-const toolKeys: Tool[] = ["search", "code"]
-
-function parseTools(model: string, tools: string[]): Tool[] {
-  if (tools.length === 0) return []
-  if (!model.startsWith("gemini")) {
-    throw new ValidationError("Tools can only be used with Gemini models")
-  }
-  const badTools = tools.filter((t) => !(toolKeys as string[]).includes(t))
-  if (badTools.length > 0) {
-    throw new ValidationError(
-      `Invalid tools: ${codeListMd(badTools)}. Valid values are: ${codeListMd(toolKeys)}`,
-    )
-  }
-  return tools as Tool[]
-}
+const getLastModelId = (chat: Chat) =>
+  chat.messages.findLast((m) => m.role === "assistant")?.model
 
 /** use cliffy's table to align columns, then split on newline to get lines as strings */
 function chatPickerOptions(chats: Chat[]) {
-  return new Table(...chats.map((chat) => {
+  const table = new Table(...chats.map((chat) => {
     const date = dateFmt.format(chat.createdAt).replace(",", "")
-    const modelKey = getModel(chat)
-    const model = models.find((m) => m.key === modelKey)?.nickname || ""
-    return [chat.summary || "", model, `${date} (${chat.messages.length})`]
+    const modelId = getLastModelId(chat)
+    return [chat.summary || "", modelId, `${date} (${chat.messages.length})`]
   }))
-    .padding(3)
-    .toString().split("\n")
+  return table.padding(3).toString().split("\n")
 }
 
 /**
@@ -218,23 +199,24 @@ the raw output to stdout.`)
     const chat: Chat = history.at(-1)!
 
     // -r uses same model as last response, but only if there is one and no model is specified
-    const prevModelKey = getModel(chat)
-    const model = opts.reply && prevModelKey && !opts.model
-      ? prevModelKey
-      : resolveModel(opts.model)
-    const tools = parseTools(model, opts.tools || [])
+    const prevModelId = getLastModelId(chat)
+    const model = resolveModel(
+      opts.reply && prevModelId && !opts.model ? prevModelId : opts.model,
+    )
+    const tools = parseTools(model.provider, opts.tools || [])
 
     // don't want progress spinner when piping output
     const pb = Deno.stdout.isTerminal() && !opts.raw ? $.progress("Thinking...") : null
 
     try {
       const startTime = performance.now()
-      const response = await createMessage({ chat, input, model, tools })
+      const chatInput = { chat, input, model: model.key, tools }
+      const response = await createMessage(model.provider, chatInput)
       if (pb) pb.finish()
       const timeMs = performance.now() - startTime
       const assistantMsg = {
         role: "assistant" as const,
-        model,
+        model: model.id,
         ...response,
         cost: getCost(model, response.tokens),
         timeMs,

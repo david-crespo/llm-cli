@@ -2,7 +2,7 @@ import $ from "jsr:@david/dax@0.42"
 import { markdownTable } from "https://esm.sh/markdown-table@3.0.4"
 
 import { Chat, type ChatMessage } from "./types.ts"
-import { defaultModel, models } from "./models.ts"
+import { models } from "./models.ts"
 
 const RENDERER = "glow"
 
@@ -29,10 +29,10 @@ const moneyFmt = Intl.NumberFormat("en-US", {
 })
 
 const modelsTable = markdownTable([
-  ["Nickname", "Model", "Input", "Cached", "Output"],
+  ["ID", "Model key", "Input", "Cached", "Output"],
   ...models
     .map((m) => [
-      m.nickname + (m.key === defaultModel ? " ⭐" : ""),
+      m.id + (m.default ? " ⭐" : ""),
       m.key,
       moneyFmt.format(m.input),
       m.input_cached ? moneyFmt.format(m.input_cached) : "",
@@ -41,7 +41,7 @@ const modelsTable = markdownTable([
 ])
 
 export const modelsMd =
-  `Models are matched on key or nickname. Prices are per million tokens.\n\n${modelsTable}`
+  `Models are matched on ID or key. Prices are per million tokens.\n\n${modelsTable}`
 
 // split from message content because we only want this in show or gist mode
 function messageHeaderMd(msg: ChatMessage, msgNum: number, msgCount: number) {

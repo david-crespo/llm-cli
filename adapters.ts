@@ -1,9 +1,10 @@
 import OpenAI from "npm:openai@4.81.0"
 import Anthropic from "npm:@anthropic-ai/sdk@0.36.3"
 import { GoogleGenerativeAI, type ModelParams } from "npm:@google/generative-ai@0.21"
+import { ValidationError } from "jsr:@cliffy/command@1.0.0-rc.7"
 
 import type { Chat, TokenCounts } from "./types.ts"
-import { models } from "./models.ts"
+import { codeListMd } from "./display.ts"
 
 type ModelResponse = {
   content: string
@@ -128,12 +129,28 @@ async function geminiCreateMessage({ chat, input, model, tools }: ChatInput) {
   }
 }
 
-export function createMessage(input: ChatInput): Promise<ModelResponse> {
-  const model = models.find((m) => m.key === input.model)!
-  if (model.provider === "anthropic") return claudeCreateMessage(input)
-  if (model.provider === "google") return geminiCreateMessage(input)
-  if (model.provider === "deepseek") return deepseekCreateMessage(input)
-  if (model.provider === "cerebras") return cerebrasCreateMessage(input)
-  if (model.provider === "groq") return groqCreateMessage(input)
+type Tool = "search" | "code"
+const toolKeys: Tool[] = ["search", "code"]
+
+export function parseTools(provider: string, tools: string[]): Tool[] {
+  if (tools.length === 0) return []
+  if (provider !== "google") {
+    throw new ValidationError("Tools can only be used with Gemini models")
+  }
+  const badTools = tools.filter((t) => !(toolKeys as string[]).includes(t))
+  if (badTools.length > 0) {
+    throw new ValidationError(
+      `Invalid tools: ${codeListMd(badTools)}. Valid values are: ${codeListMd(toolKeys)}`,
+    )
+  }
+  return tools as Tool[]
+}
+
+export function createMessage(provider: string, input: ChatInput): Promise<ModelResponse> {
+  if (provider === "anthropic") return claudeCreateMessage(input)
+  if (provider === "google") return geminiCreateMessage(input)
+  if (provider === "deepseek") return deepseekCreateMessage(input)
+  if (provider === "cerebras") return cerebrasCreateMessage(input)
+  if (provider === "groq") return groqCreateMessage(input)
   return gptCreateMessage(input)
 }

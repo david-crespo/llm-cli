@@ -2,16 +2,15 @@ import { ValidationError } from "jsr:@cliffy/command@1.0.0-rc.7"
 import { type TokenCounts } from "./types.ts"
 
 // prices are per million tokens
-type ModelConfig = {
+type Model = {
   provider: string
   key: string
-  nickname: string
+  id: string
   input: number
   output: number
   input_cached?: number
+  default?: true
 }
-
-export const defaultModel = "claude-3-5-sonnet-latest"
 
 /**
  * The order matters: preferred models go first.
@@ -21,26 +20,29 @@ export const defaultModel = "claude-3-5-sonnet-latest"
  * in both gpt-4o-mini and the gemini models. By putting gpt-4o-mini earlier, we
  * ensure "mini" matches that. By putting gpt-4o first, we ensure "4o" matches
  * that.
+ *
+ * id is doing double duty as both a human-readable nickname and a unique ID.
  */
-export const models: ModelConfig[] = [
+export const models: Model[] = [
   {
     provider: "anthropic",
     key: "claude-3-5-sonnet-latest",
-    nickname: "sonnet",
+    id: "sonnet",
     input: 3,
     output: 15,
+    default: true,
   },
   {
     provider: "anthropic",
     key: "claude-3-5-haiku-latest",
-    nickname: "haiku",
+    id: "haiku",
     input: 1,
     output: 5,
   },
   {
     provider: "openai",
     key: "chatgpt-4o-latest",
-    nickname: "gpt-4o",
+    id: "gpt-4o",
     input: 2.5,
     input_cached: 1.25,
     output: 10,
@@ -48,7 +50,7 @@ export const models: ModelConfig[] = [
   {
     provider: "openai",
     key: "gpt-4o-mini",
-    nickname: "gpt-4o-mini",
+    id: "gpt-4o-mini",
     input: .15,
     input_cached: 0.075,
     output: .6,
@@ -56,7 +58,7 @@ export const models: ModelConfig[] = [
   {
     provider: "openai",
     key: "o1-mini",
-    nickname: "o1-mini",
+    id: "o1-mini",
     input: 3,
     input_cached: 1.5,
     output: 12,
@@ -64,7 +66,7 @@ export const models: ModelConfig[] = [
   {
     provider: "openai",
     key: "o1-preview",
-    nickname: "o1",
+    id: "o1",
     input: 15,
     input_cached: 7.5,
     output: 60,
@@ -72,30 +74,29 @@ export const models: ModelConfig[] = [
   {
     provider: "google",
     key: "gemini-exp-1206",
-    nickname: "gemini-exp",
-    // >128k: 5 / 10
+    id: "gemini-exp",
     input: 1.25,
     output: 2.50,
   },
   {
     provider: "google",
     key: "gemini-2.0-flash-exp",
-    nickname: "flash",
-    // >128k: 0.15 / 0.60
+    id: "flash",
     input: .075,
     output: .3,
   },
   {
     provider: "google",
     key: "gemini-2.0-flash-thinking-exp",
-    nickname: "flash-thinking",
+    id: "flash-thinking",
+    // estimated
     input: .35,
     output: 1.5,
-  }, // estimated
+  },
   {
     provider: "deepseek",
     key: "deepseek-chat",
-    nickname: "deepseek-v3",
+    id: "deepseek-v3",
     input: 0.14,
     input_cached: 0.014,
     output: 0.28,
@@ -103,7 +104,7 @@ export const models: ModelConfig[] = [
   {
     provider: "deepseek",
     key: "deepseek-reasoner",
-    nickname: "deepseek-r1",
+    id: "deepseek-r1",
     input: 0.55,
     input_cached: 0.14,
     output: 2.19,
@@ -111,7 +112,7 @@ export const models: ModelConfig[] = [
   {
     provider: "groq",
     key: "llama-3.3-70b-versatile",
-    nickname: "groq-llama",
+    id: "groq-llama",
     input: .59,
     output: 0.79,
   },
@@ -119,7 +120,7 @@ export const models: ModelConfig[] = [
   {
     provider: "groq",
     key: "deepseek-r1-distill-llama-70b",
-    nickname: "groq-r1-llama",
+    id: "groq-r1-llama",
     input: .59,
     output: 0.79,
   },
@@ -127,20 +128,20 @@ export const models: ModelConfig[] = [
   {
     provider: "cerebras",
     key: "llama-3.3-70b",
-    nickname: "cerebras-llama",
+    id: "cerebras-llama",
     input: 0.85,
     output: 1.20,
   },
 ]
 
 /** Errors and exits if it can't resolve to a model */
-export function resolveModel(modelArg: string | undefined): string {
-  if (modelArg === undefined) return defaultModel
+export function resolveModel(modelArg: string | undefined) {
+  if (modelArg === undefined) return models.find((m) => m.default)!
 
   // Find the first model containing the arg as a substring. See comment at
   // allModels definition about ordering.
   const lower = modelArg.toLowerCase()
-  const match = models.find((m) => m.key.includes(lower) || m.nickname.includes(lower))
+  const match = models.find((m) => m.key.includes(lower) || m.id.includes(lower))
 
   if (!match) {
     // TODO: print list of models as part of this error, not just the help. or
@@ -150,15 +151,12 @@ export function resolveModel(modelArg: string | undefined): string {
     )
   }
 
-  return match.key
+  return match
 }
 
 const M = 1_000_000
 
-export function getCost(modelKey: string, tokens: TokenCounts) {
-  const model = models.find((m) => m.key === modelKey)
-  // this shouldn't happen
-  if (!model) throw new Error(`Model with key '${modelKey}' not found`)
+export function getCost(model: Model, tokens: TokenCounts) {
   const { input, output, input_cached } = model
 
   // when there is caching and we have cache pricing, take it into account
@@ -168,7 +166,7 @@ export function getCost(modelKey: string, tokens: TokenCounts) {
     : (input * tokens.input) + (output * tokens.output)
 
   // Gemini models have double pricing over 128k https://ai.google.dev/pricing
-  if (modelKey.includes("gemini") && tokens.input > 128_000) return 2 * cost / M
+  if (model.provider === "google" && tokens.input > 128_000) return 2 * cost / M
 
   return cost / M
 }

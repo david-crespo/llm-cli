@@ -95,7 +95,7 @@ const showCmd = new Command()
   .description("Show chat so far (last N, default 1)")
   .option("-a, --all", "Show all messages")
   .option("-n, --limit <n:integer>", "Number of messages", { default: 1 })
-  .option("--raw <raw:boolean>", "Raw output, not rendered")
+  .option("--raw", "Raw output, not rendered")
   .action(async (opts) => {
     const history = History.read()
     const lastChat = history.at(-1) // last one is current

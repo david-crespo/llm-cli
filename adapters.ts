@@ -17,6 +17,7 @@ type ChatInput = {
   input: string
   model: string
   tools: string[]
+  cache?: boolean
 }
 
 const makeOpenAIFunc = (client: OpenAI) => async ({ chat, input, model }: ChatInput) => {
@@ -72,13 +73,20 @@ export const cerebrasCreateMessage = makeOpenAIFunc(
   }),
 )
 
-async function claudeCreateMessage({ chat, input, model }: ChatInput) {
+async function claudeCreateMessage({ chat, input, model, cache }: ChatInput) {
   const response = await new Anthropic().messages.create({
     model,
     system: chat.systemPrompt,
     messages: [
       ...chat.messages.map((m) => ({ role: m.role, content: m.content })),
-      { role: "user" as const, content: input },
+      {
+        role: "user" as const,
+        content: [{
+          type: "text",
+          text: input,
+          cache_control: cache ? { type: "ephemeral" } : undefined,
+        }],
+      },
     ],
     max_tokens: 4096,
   })
@@ -87,8 +95,12 @@ async function claudeCreateMessage({ chat, input, model }: ChatInput) {
     // we're not doing tool use yet, so the response will always be text
     content: respMsg.type === "text" ? respMsg.text : JSON.stringify(respMsg),
     tokens: {
-      input: response.usage.input_tokens,
+      input: response.usage.input_tokens +
+        // technically these cost 25% more than regular input tokens but I don't
+        // want to build in the logic to count it
+        (response.usage.cache_creation_input_tokens || 0),
       output: response.usage.output_tokens,
+      input_cache_hit: response.usage.cache_read_input_tokens || 0,
     },
     stop_reason: response.stop_reason!, // always non-null in non-streaming mode
   }

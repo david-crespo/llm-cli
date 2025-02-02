@@ -159,6 +159,7 @@ the raw output to stdout.`)
     conflicts: ["persona"],
   })
   .option("--raw", "Print LLM text directly (no metadata)")
+  .option("-c, --cache", "Cache input (Anthropic only, others are automatic)")
   .example("1)", "ai 'What is the capital of France?'")
   .example("2)", "cat main.ts | ai 'what is this?'")
   .example("3)", "echo 'what are you?' | ai")
@@ -204,13 +205,16 @@ the raw output to stdout.`)
       opts.reply && prevModelId && !opts.model ? prevModelId : opts.model,
     )
     const tools = parseTools(model.provider, opts.tools || [])
+    if (opts.cache && model.provider !== "anthropic") {
+      throw new ValidationError("Manual caching only works for Anthropic")
+    }
 
     // don't want progress spinner when piping output
     const pb = Deno.stdout.isTerminal() && !opts.raw ? $.progress("Thinking...") : null
 
     try {
       const startTime = performance.now()
-      const chatInput = { chat, input, model: model.key, tools }
+      const chatInput = { chat, input, model: model.key, tools, cache: opts.cache }
       const response = await createMessage(model.provider, chatInput)
       if (pb) pb.finish()
       const timeMs = performance.now() - startTime

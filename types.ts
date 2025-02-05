@@ -7,6 +7,7 @@ export type TokenCounts = {
 type UserMessage = {
   role: "user"
   content: string
+  cache?: boolean
 }
 
 type AssistantMessage = {
@@ -17,6 +18,7 @@ type AssistantMessage = {
   stop_reason: string
   cost: number
   timeMs: number
+  cache?: boolean
 }
 
 export type ChatMessage = UserMessage | AssistantMessage

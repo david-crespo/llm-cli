@@ -45,9 +45,9 @@ export const models: Model[] = [
     provider: "openai",
     key: "chatgpt-4o-latest",
     id: "gpt-4o",
-    input: 2.5,
-    input_cached: 1.25,
-    output: 10,
+    input: 5,
+    input_cached: 2.50,
+    output: 15,
   },
   {
     provider: "openai",

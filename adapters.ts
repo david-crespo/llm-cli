@@ -37,7 +37,11 @@ const makeOpenAIFunc = (client: OpenAI) => async ({ chat, input, model }: ChatIn
   if (!message) throw new Error("No response found")
   const reasoning_content =
     "reasoning_content" in message && typeof message.reasoning_content === "string"
-      ? message.reasoning_content + "\n\n"
+      ? message
+        .reasoning_content
+        .split("\n")
+        .map((line) => "> " + line)
+        .join("\n") + "\n\n"
       : ""
   return {
     content: reasoning_content + (message.content || ""),
@@ -73,36 +77,44 @@ export const cerebrasCreateMessage = makeOpenAIFunc(
   }),
 )
 
+const claudeMsg = (role: "user" | "assistant", text: string, cache?: boolean) => ({
+  role,
+  content: [{
+    type: "text" as const,
+    text,
+    cache_control: cache ? { type: "ephemeral" as const } : undefined,
+  }],
+})
+
 async function claudeCreateMessage({ chat, input, model, cache }: ChatInput) {
   const response = await new Anthropic().messages.create({
     model,
     system: chat.systemPrompt,
     messages: [
-      ...chat.messages.map((m) => ({ role: m.role, content: m.content })),
-      {
-        role: "user" as const,
-        content: [{
-          type: "text",
-          text: input,
-          cache_control: cache ? { type: "ephemeral" } : undefined,
-        }],
-      },
+      ...chat.messages.map((m) => claudeMsg(m.role, m.content, m.cache)),
+      claudeMsg("user", input, cache),
     ],
     max_tokens: 4096,
   })
   const respMsg = response.content[0]
+
+  // unlike openapi, input_tokens is only cache misses
+  const cache_miss = response.usage.input_tokens || 0
+  const cache_hit = response.usage.cache_read_input_tokens || 0
+  const cache_write = response.usage.cache_creation_input_tokens || 0
+
   return {
     // we're not doing tool use yet, so the response will always be text
     content: respMsg.type === "text" ? respMsg.text : JSON.stringify(respMsg),
     tokens: {
-      input: response.usage.input_tokens +
-        // technically these cost 25% more than regular input tokens but I don't
-        // want to build in the logic to count it
-        (response.usage.cache_creation_input_tokens || 0),
+      // technically, cache writes cost 25% more than regular input tokens but I
+      // don't want to build in the logic to count it
+      input: cache_miss + cache_hit + cache_write,
       output: response.usage.output_tokens,
-      input_cache_hit: response.usage.cache_read_input_tokens || 0,
+      input_cache_hit: cache_hit,
     },
     stop_reason: response.stop_reason!, // always non-null in non-streaming mode
+    cache,
   }
 }
 

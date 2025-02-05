@@ -75,17 +75,17 @@ export const models: Model[] = [
   },
   {
     provider: "google",
-    key: "gemini-exp-1206",
-    id: "gemini-exp",
+    key: "gemini-2.0-pro-exp",
+    id: "gemini-pro",
     input: 1.25,
     output: 2.50,
   },
   {
     provider: "google",
-    key: "gemini-2.0-flash-exp",
+    key: "gemini-2.0-flash",
     id: "flash",
-    input: .075,
-    output: .3,
+    input: .10,
+    output: .40,
   },
   {
     provider: "google",
@@ -93,7 +93,7 @@ export const models: Model[] = [
     id: "flash-thinking",
     // estimated
     input: .35,
-    output: 1.5,
+    output: 1.50,
   },
   {
     provider: "deepseek",

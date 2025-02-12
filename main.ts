@@ -11,11 +11,11 @@ import { getCost, resolveModel } from "./models.ts"
 import {
   chatToMd,
   codeBlock,
-  dateFmt,
   jsonBlock,
   messageContentMd,
   modelsMd,
   renderMd,
+  shortDateFmt,
 } from "./display.ts"
 import { type Chat } from "./types.ts"
 import { createMessage, parseTools } from "./adapters.ts"
@@ -28,7 +28,7 @@ const getLastModelId = (chat: Chat) =>
 /** use cliffy's table to align columns, then split on newline to get lines as strings */
 function chatPickerOptions(chats: Chat[]) {
   const table = new Table(...chats.map((chat) => {
-    const date = dateFmt.format(chat.createdAt).replace(",", "")
+    const date = shortDateFmt.format(chat.createdAt).replace(",", "")
     const modelId = getLastModelId(chat)
     return [chat.summary || "", modelId, `${date} (${chat.messages.length})`]
   }))

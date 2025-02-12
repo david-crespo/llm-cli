@@ -85,7 +85,7 @@ export function messageContentMd(msg: ChatMessage, raw = false) {
 }
 
 export function chatToMd(chat: Chat, lastN: number = 0): string {
-  let output = `**Chat started:** ${chat.createdAt}\n\n`
+  let output = `**Chat started:** ${longDateFmt.format(chat.createdAt)}\n\n`
   output += `**System prompt:** ${chat.systemPrompt}\n\n`
   const msgCount = chat.messages.length
   chat.messages.forEach((msg, i) => {
@@ -97,7 +97,12 @@ export function chatToMd(chat: Chat, lastN: number = 0): string {
   return output
 }
 
-export const dateFmt = new Intl.DateTimeFormat("en-US", {
+export const longDateFmt = new Intl.DateTimeFormat("en-US", {
+  dateStyle: "medium",
+  timeStyle: "short",
+})
+
+export const shortDateFmt = new Intl.DateTimeFormat("en-US", {
   month: "numeric",
   day: "numeric",
   hour: "2-digit",

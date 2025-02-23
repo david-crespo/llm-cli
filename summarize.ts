@@ -6,8 +6,11 @@ import { History } from "./storage.ts"
 
 const HALF_EXCERPT = 100
 
-// use a fast model to summarize a chat for display purposes
-async function summarize(chat: Chat): Promise<string> {
+/**
+ * Use a fast model to summarize a chat for display purposes. Mutate the chat
+ * directly
+ */
+async function summarize(chat: Chat): Promise<void> {
   const firstMsg = chat.messages[0].content
   const abridged = firstMsg.length > HALF_EXCERPT * 2
     ? firstMsg.slice(0, HALF_EXCERPT) + "..." + firstMsg.slice(-HALF_EXCERPT)
@@ -16,7 +19,7 @@ async function summarize(chat: Chat): Promise<string> {
   const summary = await cerebrasCreateMessage({
     chat: {
       systemPrompt:
-        "You are summarizing LLM chats based on excerpts for use in a TUI conversation list. Be concise and accurate. Include details like names to help identify that chat. Only provide the summary; do not include explanation or followup questions. Do not end with a period.",
+        "You are summarizing LLM chats based on excerpts for use in a TUI conversation list. Be concise and accurate. Include details that help identify that chat. Only provide the summary; do not include explanation or followup questions. Do not end with a period.",
       messages: [],
       createdAt: new Date(),
     },
@@ -25,7 +28,8 @@ async function summarize(chat: Chat): Promise<string> {
     model: "llama-3.3-70b",
     tools: [],
   })
-  return summary.content
+
+  chat.summary = summary.content
 }
 
 /** Create and save summaries for any chat without one */
@@ -35,9 +39,7 @@ export async function genMissingSummaries(history: Chat[]) {
     return
   }
   const pb = $.progress("Summarizing...")
-  for (const chat of history) {
-    if (!chat.summary) chat.summary = await summarize(chat)
-  }
+  await Promise.all(history.filter((chat) => !chat.summary).map(summarize))
   History.write(history)
   pb.finish()
 }

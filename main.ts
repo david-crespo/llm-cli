@@ -181,7 +181,7 @@ the raw output to stdout.`)
     const persona = opts.persona ? `You are ${opts.persona}. ` : ""
 
     const systemBase =
-      "Your answers are precise. Answer only the question as asked. If the answer is a simple yes or no, include a little explanation if it would be helpful. When asked for code, only output code: do not explain unless asked to. Your answers must be in markdown format."
+      "Your answers are precise. If the answer is a simple yes or no, include a little explanation if it would be helpful. When asked for code, only output code: do not explain unless asked to. Your answers must be in markdown format."
 
     const systemPrompt = opts.system || (persona + systemBase)
 

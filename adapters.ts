@@ -1,5 +1,5 @@
 import OpenAI from "npm:openai@4.81.0"
-import Anthropic from "npm:@anthropic-ai/sdk@0.36.3"
+import Anthropic from "npm:@anthropic-ai/sdk@0.37.0"
 import { GoogleGenerativeAI, type ModelParams } from "npm:@google/generative-ai@0.21"
 import { ValidationError } from "jsr:@cliffy/command@1.0.0-rc.7"
 
@@ -86,7 +86,9 @@ const claudeMsg = (role: "user" | "assistant", text: string, cache?: boolean) =>
   }],
 })
 
-async function claudeCreateMessage({ chat, input, model, cache }: ChatInput) {
+async function claudeCreateMessage({ chat, input, model, cache, tools }: ChatInput) {
+  const think = tools.length > 0 && tools.includes("think")
+
   const response = await new Anthropic().messages.create({
     model,
     system: chat.systemPrompt,
@@ -95,8 +97,15 @@ async function claudeCreateMessage({ chat, input, model, cache }: ChatInput) {
       claudeMsg("user", input, cache),
     ],
     max_tokens: 4096,
+    thinking: think ? { "type": "enabled", budget_tokens: 1024 } : undefined,
   })
-  const respMsg = response.content[0]
+  const content = response.content.map((msg) =>
+    msg.type === "text"
+      ? msg.text
+      : msg.type === "thinking"
+      ? msg.thinking.split("\n").map((line) => "> " + line).join("\n")
+      : JSON.stringify(msg)
+  ).join("\n\n")
 
   // unlike openapi, input_tokens is only cache misses
   const cache_miss = response.usage.input_tokens || 0
@@ -105,7 +114,7 @@ async function claudeCreateMessage({ chat, input, model, cache }: ChatInput) {
 
   return {
     // we're not doing tool use yet, so the response will always be text
-    content: respMsg.type === "text" ? respMsg.text : JSON.stringify(respMsg),
+    content,
     tokens: {
       // technically, cache writes cost 25% more than regular input tokens but I
       // don't want to build in the logic to count it
@@ -153,20 +162,32 @@ async function geminiCreateMessage({ chat, input, model, tools }: ChatInput) {
   }
 }
 
-type Tool = "search" | "code"
-const toolKeys: Tool[] = ["search", "code"]
+type Tool = "search" | "code" | "think"
+const geminiTools: Tool[] = ["search", "code"]
+const anthropicTools: Tool[] = ["think"]
+
+function checkTools(provider: string, inputTools: string[], allowedTools: Tool[]) {
+  const badTools = inputTools.filter((t) => !(allowedTools as string[]).includes(t))
+  if (badTools.length > 0) {
+    throw new ValidationError(
+      `Invalid tools: ${
+        codeListMd(badTools)
+      }. Valid tools for ${provider} models are: ${allowedTools}`,
+    )
+  }
+}
 
 export function parseTools(provider: string, tools: string[]): Tool[] {
   if (tools.length === 0) return []
-  if (provider !== "google") {
-    throw new ValidationError("Tools can only be used with Gemini models")
+
+  if (provider === "google") {
+    checkTools(provider, tools, geminiTools)
+  } else if (provider === "anthropic") {
+    checkTools(provider, tools, anthropicTools)
+  } else {
+    throw new ValidationError("Tools can only be used with Google and Anthropic models")
   }
-  const badTools = tools.filter((t) => !(toolKeys as string[]).includes(t))
-  if (badTools.length > 0) {
-    throw new ValidationError(
-      `Invalid tools: ${codeListMd(badTools)}. Valid values are: ${codeListMd(toolKeys)}`,
-    )
-  }
+
   return tools as Tool[]
 }
 

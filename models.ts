@@ -26,7 +26,7 @@ type Model = {
 export const models: Model[] = [
   {
     provider: "anthropic",
-    key: "claude-3-5-sonnet-latest",
+    key: "claude-3-7-sonnet-latest",
     id: "sonnet",
     input: 3,
     input_cached: 0.3,

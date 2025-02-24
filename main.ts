@@ -151,7 +151,7 @@ the raw output to stdout.`)
   .help({ hints: false }) // hides ugly (Conflicts: persona) hint
   .option("-r, --reply", "Continue existing chat")
   .option("-m, --model <model:string>", "Select model by substring (e.g., 'sonnet')")
-  .option("-t, --tools <tools:string>", "Use tools ('search' or 'code', Gemini only)", {
+  .option("-t, --tools <tools:string>", "Use tools (search, code, or think)", {
     collect: true,
   })
   .option("-p, --persona <persona:string>", "Override persona in system prompt")

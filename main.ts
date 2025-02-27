@@ -7,7 +7,7 @@ import $ from "jsr:@david/dax@0.42"
 
 import * as R from "npm:remeda@2.19"
 
-import { getCost, resolveModel } from "./models.ts"
+import { getCost, resolveModel, systemBase } from "./models.ts"
 import {
   chatToMd,
   codeBlock,
@@ -123,24 +123,14 @@ const gistCmd = new Command()
     const title = opts.title || lastChat.summary
     const filename = title ? `LLM chat - ${title}.md` : "LLM chat.md"
     const n = opts.all ? lastChat.messages.length : opts.limit
-    await $`gh gist create -f ${filename}`.stdinText(chatToMd(lastChat, n))
+    await $`gh gist create -f ${filename}`.stdinText(
+      chatToMd(lastChat, n, true),
+    )
   })
 
 const modelsCmd = new Command()
   .description("List models")
   .action(() => renderMd(modelsMd))
-
-const systemBase =
-  `Answer the question precisely, without much elaboration. When asked for code, only output code: do not explain unless asked to. Your answers must be in markdown format.
-
-Here is some information about the user
-- macOS user
-- Terminal: Ghostty
-- Text editor: Helix
-- Shell: zsh
-- Software engineer who mostly uses TypeScript and Rust
-- Preference for elegant terminal one-liners
-`
 
 await new Command()
   .name("ai")

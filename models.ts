@@ -172,3 +172,15 @@ export function getCost(model: Model, tokens: TokenCounts) {
 
   return cost / M
 }
+
+export const systemBase =
+  `Answer the question precisely, without much elaboration. When asked for code, only output code: do not explain unless asked to. Your answers must be in markdown format.
+
+Here is some information about the user
+- macOS user
+- Terminal: Ghostty
+- Text editor: Helix
+- Shell: zsh
+- Software engineer who mostly uses TypeScript and Rust
+- Preference for elegant terminal one-liners
+`

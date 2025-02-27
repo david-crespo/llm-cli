@@ -2,7 +2,7 @@ import $ from "jsr:@david/dax@0.42"
 import { markdownTable } from "https://esm.sh/markdown-table@3.0.4"
 
 import { Chat, type ChatMessage } from "./types.ts"
-import { models } from "./models.ts"
+import { models, systemBase } from "./models.ts"
 
 const RENDERER = "glow"
 
@@ -84,9 +84,14 @@ export function messageContentMd(msg: ChatMessage, raw = false) {
   return output
 }
 
-export function chatToMd(chat: Chat, lastN: number = 0): string {
+export function chatToMd(chat: Chat, lastN: number = 0, verbose?: boolean): string {
   let output = `**Chat started:** ${longDateFmt.format(chat.createdAt)}\n\n`
-  output += `**System prompt:** ${chat.systemPrompt}\n\n`
+
+  // only print system prompt if it's non-default
+  if (verbose || chat.systemPrompt !== systemBase) {
+    output += `**System prompt:** ${chat.systemPrompt}\n\n`
+  }
+
   const msgCount = chat.messages.length
   chat.messages.forEach((msg, i) => {
     if (!lastN || i >= msgCount - lastN) {

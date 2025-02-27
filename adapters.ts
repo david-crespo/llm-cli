@@ -56,7 +56,7 @@ const makeOpenAIFunc = (client: OpenAI) => async ({ chat, input, model }: ChatIn
 
 const gptCreateMessage = makeOpenAIFunc(new OpenAI())
 
-const groqCreateMessage = makeOpenAIFunc(
+export const groqCreateMessage = makeOpenAIFunc(
   new OpenAI({
     baseURL: "https://api.groq.com/openai/v1",
     apiKey: Deno.env.get("GROQ_API_KEY"),

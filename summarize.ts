@@ -1,6 +1,6 @@
 import $ from "jsr:@david/dax@0.42"
 
-import { cerebrasCreateMessage } from "./adapters.ts"
+import { groqCreateMessage } from "./adapters.ts"
 import { type Chat } from "./types.ts"
 import { History } from "./storage.ts"
 
@@ -16,7 +16,7 @@ async function summarize(chat: Chat): Promise<void> {
     ? firstMsg.slice(0, HALF_EXCERPT) + "..." + firstMsg.slice(-HALF_EXCERPT)
     : firstMsg
   // TODO: fall back to groq llama and then 4o-mini if cerebras key is missing
-  const summary = await cerebrasCreateMessage({
+  const summary = await groqCreateMessage({
     chat: {
       systemPrompt:
         "You are summarizing LLM chats based on excerpts for use in a TUI conversation list. Be concise and accurate. Include details that help identify that chat. Only provide the summary; do not include explanation or followup questions. Do not end with a period.",
@@ -25,7 +25,7 @@ async function summarize(chat: Chat): Promise<void> {
     },
     input:
       `Please summarize an LLM chat based on the following excerpt from the first message. Use as few words as possible. Ideally 4-6 words, but up to 10. \n\n<excerpt>${abridged}</excerpt>`,
-    model: "llama-3.3-70b",
+    model: "llama-3.3-70b-versatile",
     tools: [],
   })
 
@@ -34,8 +34,8 @@ async function summarize(chat: Chat): Promise<void> {
 
 /** Create and save summaries for any chat without one */
 export async function genMissingSummaries(history: Chat[]) {
-  if (!Deno.env.get("CEREBRAS_API_KEY")) {
-    $.logWarn("Skipping summarization:", "CEREBRAS_API_KEY not found")
+  if (!Deno.env.get("GROQ_API_KEY")) {
+    $.logWarn("Skipping summarization:", "GROQ_API_KEY not found")
     return
   }
   const pb = $.progress("Summarizing...")

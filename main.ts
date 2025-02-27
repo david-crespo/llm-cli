@@ -130,6 +130,18 @@ const modelsCmd = new Command()
   .description("List models")
   .action(() => renderMd(modelsMd))
 
+const systemBase =
+  `Answer the question precisely, without much elaboration. When asked for code, only output code: do not explain unless asked to. Your answers must be in markdown format.
+
+Here is some information about the user
+- macOS user
+- Terminal: Ghostty
+- Text editor: Helix
+- Shell: zsh
+- Software engineer who mostly uses TypeScript and Rust
+- Preference for elegant terminal one-liners
+`
+
 await new Command()
   .name("ai")
   .description(`
@@ -179,9 +191,6 @@ the raw output to stdout.`)
     const input = [stdin, msg].filter(Boolean).join("\n\n")
 
     const persona = opts.persona ? `You are ${opts.persona}. ` : ""
-
-    const systemBase =
-      "Your answers are precise. If the answer is a simple yes or no, include a little explanation if it would be helpful. When asked for code, only output code: do not explain unless asked to. Your answers must be in markdown format."
 
     const systemPrompt = opts.system || (persona + systemBase)
 

@@ -126,13 +126,12 @@ export const models: Model[] = [
     input: .59,
     output: 0.79,
   },
-  // no price online so assume same as llama-70b for now
   {
     provider: "groq",
     key: "deepseek-r1-distill-llama-70b",
     id: "groq-r1-llama",
-    input: .59,
-    output: 0.79,
+    input: .75,
+    output: 0.99,
   },
   // technically free until they set up their paid tier but whatever
   {

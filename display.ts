@@ -80,6 +80,9 @@ export function messageContentMd(msg: ChatMessage, raw = false) {
   }
 
   output += raw ? msg.content : escapeThinkTags(msg.content)
+  if (msg.role === "user" && msg.image_url) {
+    output += `\n\n[Image](${msg.image_url})`
+  }
   if (!raw) output += "\n\n"
   return output
 }

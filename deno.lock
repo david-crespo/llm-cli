@@ -31,6 +31,7 @@
     "npm:@anthropic-ai/sdk@0.28": "0.28.0",
     "npm:@anthropic-ai/sdk@0.36.3": "0.36.3",
     "npm:@anthropic-ai/sdk@0.37.0": "0.37.0",
+    "npm:@anthropic-ai/sdk@0.39.0": "0.39.0",
     "npm:@google/generative-ai@0.21": "0.21.0",
     "npm:openai@4.67": "4.67.1",
     "npm:openai@4.81": "4.81.0",
@@ -195,6 +196,18 @@
     },
     "@anthropic-ai/sdk@0.37.0": {
       "integrity": "sha512-tHjX2YbkUBwEgg0JZU3EFSSAQPoK4qQR/NFYa8Vtzd5UAyXzZksCw2In69Rml4R/TyHPBfRYaLK35XiOe33pjw==",
+      "dependencies": [
+        "@types/node@18.19.54",
+        "@types/node-fetch",
+        "abort-controller",
+        "agentkeepalive",
+        "form-data-encoder",
+        "formdata-node",
+        "node-fetch"
+      ]
+    },
+    "@anthropic-ai/sdk@0.39.0": {
+      "integrity": "sha512-eMyDIPRZbt1CCLErRCi3exlAvNkBtRe+kW5vvJyef93PmNr/clstYgHhtvmkxN82nlKgzyGPCyGxrm0JQ1ZIdg==",
       "dependencies": [
         "@types/node@18.19.54",
         "@types/node-fetch",

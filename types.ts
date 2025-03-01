@@ -7,6 +7,7 @@ export type TokenCounts = {
 type UserMessage = {
   role: "user"
   content: string
+  image_url?: string
   cache?: boolean
 }
 

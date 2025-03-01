@@ -1,5 +1,5 @@
 import OpenAI from "npm:openai@4.81.0"
-import Anthropic from "npm:@anthropic-ai/sdk@0.37.0"
+import Anthropic from "npm:@anthropic-ai/sdk@0.39.0"
 import { GoogleGenerativeAI, type ModelParams } from "npm:@google/generative-ai@0.21"
 import { ValidationError } from "jsr:@cliffy/command@1.0.0-rc.7"
 
@@ -12,9 +12,10 @@ type ModelResponse = {
   stop_reason: string
 }
 
-type ChatInput = {
+export type ChatInput = {
   chat: Chat
   input: string
+  image_url: string | undefined
   model: string
   tools: string[]
   cache?: boolean
@@ -77,16 +78,33 @@ export const cerebrasCreateMessage = makeOpenAIFunc(
   }),
 )
 
-const claudeMsg = (role: "user" | "assistant", text: string, cache?: boolean) => ({
-  role,
-  content: [{
-    type: "text" as const,
-    text,
-    cache_control: cache ? { type: "ephemeral" as const } : undefined,
-  }],
-})
+function claudeMsg(
+  role: "user" | "assistant",
+  text: string,
+  cache?: boolean,
+  image_url?: string,
+): Anthropic.MessageParam {
+  const content: Anthropic.ContentBlockParam[] = [
+    {
+      type: "text",
+      text,
+      cache_control: cache ? { type: "ephemeral" } : undefined,
+    },
+  ]
 
-async function claudeCreateMessage({ chat, input, model, cache, tools }: ChatInput) {
+  if (image_url) {
+    content.unshift({
+      type: "image",
+      source: { type: "url", url: image_url },
+    })
+  }
+
+  return { role, content }
+}
+
+async function claudeCreateMessage(
+  { chat, input, image_url, model, cache, tools }: ChatInput,
+) {
   const think = tools.length > 0 && tools.includes("think")
 
   const response = await new Anthropic().messages.create({
@@ -94,7 +112,7 @@ async function claudeCreateMessage({ chat, input, model, cache, tools }: ChatInp
     system: chat.systemPrompt,
     messages: [
       ...chat.messages.map((m) => claudeMsg(m.role, m.content, m.cache)),
-      claudeMsg("user", input, cache),
+      claudeMsg("user", input, cache, image_url),
     ],
     max_tokens: 4096,
     thinking: think ? { "type": "enabled", budget_tokens: 1024 } : undefined,

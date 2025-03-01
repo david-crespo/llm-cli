@@ -18,7 +18,7 @@ import {
   shortDateFmt,
 } from "./display.ts"
 import { type Chat } from "./types.ts"
-import { createMessage, parseTools } from "./adapters.ts"
+import { ChatInput, createMessage, parseTools } from "./adapters.ts"
 import { History } from "./storage.ts"
 import { genMissingSummaries } from "./summarize.ts"
 
@@ -156,6 +156,7 @@ the raw output to stdout.`)
   .option("-t, --tools <tools:string>", "Use tools (search, code, or think)", {
     collect: true,
   })
+  .option("-i, --image <url:string>", "Image URL (Claude only)")
   .option("-p, --persona <persona:string>", "Override persona in system prompt")
   .option("-s, --system <system:string>", "Override entire system prompt", {
     conflicts: ["persona"],
@@ -207,13 +208,23 @@ the raw output to stdout.`)
     if (opts.cache && model.provider !== "anthropic") {
       throw new ValidationError("Manual caching only works for Anthropic")
     }
+    if (opts.image && model.provider !== "anthropic") {
+      throw new ValidationError("Image URLs only work for Anthropic")
+    }
 
     // don't want progress spinner when piping output
     const pb = Deno.stdout.isTerminal() && !opts.raw ? $.progress("Thinking...") : null
 
     try {
       const startTime = performance.now()
-      const chatInput = { chat, input, model: model.key, tools, cache: opts.cache }
+      const chatInput: ChatInput = {
+        chat,
+        input,
+        image_url: opts.image,
+        model: model.key,
+        tools,
+        cache: opts.cache,
+      }
       const response = await createMessage(model.provider, chatInput)
       if (pb) pb.finish()
       const timeMs = performance.now() - startTime
@@ -224,7 +235,10 @@ the raw output to stdout.`)
         cost: getCost(model, response.tokens),
         timeMs,
       }
-      chat.messages.push({ role: "user", content: input }, assistantMsg)
+      chat.messages.push(
+        { role: "user", content: input, image_url: opts.image },
+        assistantMsg,
+      )
       History.write(history)
       await renderMd(messageContentMd(assistantMsg, opts.raw), opts.raw)
       // deno-lint-ignore no-explicit-any

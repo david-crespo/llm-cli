@@ -33,9 +33,11 @@
     "npm:@anthropic-ai/sdk@0.37.0": "0.37.0",
     "npm:@anthropic-ai/sdk@0.39.0": "0.39.0",
     "npm:@google/generative-ai@0.21": "0.21.0",
+    "npm:@google/generative-ai@0.24.0": "0.24.0",
     "npm:openai@4.67": "4.67.1",
     "npm:openai@4.81": "4.81.0",
     "npm:openai@4.81.0": "4.81.0",
+    "npm:openai@4.87.3": "4.87.3",
     "npm:remeda@2.14": "2.14.0",
     "npm:remeda@2.19": "2.19.2"
   },
@@ -221,6 +223,9 @@
     "@google/generative-ai@0.21.0": {
       "integrity": "sha512-7XhUbtnlkSEZK15kN3t+tzIMxsbKm/dSkKBFalj+20NvPKe1kBY7mR2P7vuijEn+f06z5+A8bVGKO0v39cr6Wg=="
     },
+    "@google/generative-ai@0.24.0": {
+      "integrity": "sha512-fnEITCGEB7NdX0BhoYZ/cq/7WPZ1QS5IzJJfC3Tg/OwkvBetMiVJciyaan297OvE4B9Jg1xvo0zIazX/9sGu1Q=="
+    },
     "@types/node-fetch@2.6.11": {
       "integrity": "sha512-24xFj9R5+rfQJLRyM56qh+wnVSYhyXC2tkoBndtY0U+vubqNsYXGjufB2nn8Q6gt0LrARwL6UBtMCSVCwl4B1g==",
       "dependencies": [
@@ -326,6 +331,18 @@
     },
     "openai@4.81.0": {
       "integrity": "sha512-lXkFkV+He3O6RGnldHncRGef4uWHssDsAVwN5I3bWcgIdDPy/w8vgtIAwvZxAj49m4WiwWVD0+eGTJ9xOv/ISA==",
+      "dependencies": [
+        "@types/node@18.19.54",
+        "@types/node-fetch",
+        "abort-controller",
+        "agentkeepalive",
+        "form-data-encoder",
+        "formdata-node",
+        "node-fetch"
+      ]
+    },
+    "openai@4.87.3": {
+      "integrity": "sha512-d2D54fzMuBYTxMW8wcNmhT1rYKcTfMJ8t+4KjH2KtvYenygITiGBgHoIrzHwnDQWW+C5oCA+ikIR2jgPCFqcKQ==",
       "dependencies": [
         "@types/node@18.19.54",
         "@types/node-fetch",

@@ -1,6 +1,6 @@
-import OpenAI from "npm:openai@4.81.0"
+import OpenAI from "npm:openai@4.87.3"
 import Anthropic from "npm:@anthropic-ai/sdk@0.39.0"
-import { GoogleGenerativeAI, type ModelParams } from "npm:@google/generative-ai@0.21"
+import { GoogleGenerativeAI, type ModelParams } from "npm:@google/generative-ai@0.24.0"
 import { ValidationError } from "jsr:@cliffy/command@1.0.0-rc.7"
 
 import type { Chat, TokenCounts } from "./types.ts"
@@ -15,7 +15,7 @@ type ModelResponse = {
 export type ChatInput = {
   chat: Chat
   input: string
-  image_url: string | undefined
+  image_url?: string | undefined
   model: string
   tools: string[]
   cache?: boolean

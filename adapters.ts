@@ -2,6 +2,7 @@ import OpenAI from "npm:openai@4.87.3"
 import Anthropic from "npm:@anthropic-ai/sdk@0.39.0"
 import { GoogleGenerativeAI, type ModelParams } from "npm:@google/generative-ai@0.24.0"
 import { ValidationError } from "jsr:@cliffy/command@1.0.0-rc.7"
+import * as R from "npm:remeda@2.19"
 
 import type { Chat, TokenCounts } from "./types.ts"
 import { codeListMd } from "./display.ts"
@@ -20,6 +21,45 @@ export type ChatInput = {
   tools: string[]
   cache?: boolean
 }
+
+const makeOpenAIResponsesFunc =
+  (client: OpenAI) => async ({ chat, input, model, tools }: ChatInput) => {
+    const response = await client.responses.create({
+      model,
+      input: [
+        ...chat.messages.map((m) => ({ role: m.role, content: m.content })),
+        { role: "user" as const, content: input },
+      ],
+      tools: tools.includes("search")
+        ? [{ type: "web_search_preview" as const }]
+        : undefined,
+      // this is rejected, it doesn't like generate_summary yet
+      // reasoning: model.startsWith("o")
+      //   ? { effort: "low", generate_summary: "concise" }
+      //   : undefined,
+      instructions: chat.systemPrompt,
+    })
+
+    // Haven't been able to get it to give me a reasoning summary, so I don't
+    // know how those are integrated into output_text. For now, don't bother
+    // processing reasoning tokens explicitly at all. Might be nice to add a
+    // token count for reasoning tokens.
+
+    return {
+      content: response.output_text,
+      tokens: {
+        input: response.usage?.input_tokens || 0,
+        output: response.usage?.output_tokens || 0,
+        // @ts-expect-error openai client types are wrong, it's there
+        input_cache_hit: R.pathOr(response, [
+          "usage",
+          "input_tokens_details",
+          "cached_tokens",
+        ], 0) as number,
+      },
+      stop_reason: response.status || "completed",
+    }
+  }
 
 const makeOpenAIFunc = (client: OpenAI) => async ({ chat, input, model }: ChatInput) => {
   const systemMsg = chat.systemPrompt
@@ -55,7 +95,7 @@ const makeOpenAIFunc = (client: OpenAI) => async ({ chat, input, model }: ChatIn
   }
 }
 
-const gptCreateMessage = makeOpenAIFunc(new OpenAI())
+const gptCreateMessage = makeOpenAIResponsesFunc(new OpenAI())
 
 export const groqCreateMessage = makeOpenAIFunc(
   new OpenAI({
@@ -183,6 +223,7 @@ async function geminiCreateMessage({ chat, input, model, tools }: ChatInput) {
 type Tool = "search" | "code" | "think"
 const geminiTools: Tool[] = ["search", "code"]
 const anthropicTools: Tool[] = ["think"]
+const openaiTools: Tool[] = ["search"]
 
 function checkTools(provider: string, inputTools: string[], allowedTools: Tool[]) {
   const badTools = inputTools.filter((t) => !(allowedTools as string[]).includes(t))
@@ -202,6 +243,8 @@ export function parseTools(provider: string, tools: string[]): Tool[] {
     checkTools(provider, tools, geminiTools)
   } else if (provider === "anthropic") {
     checkTools(provider, tools, anthropicTools)
+  } else if (provider === "openai") {
+    checkTools(provider, tools, openaiTools)
   } else {
     throw new ValidationError("Tools can only be used with Google and Anthropic models")
   }

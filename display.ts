@@ -63,7 +63,9 @@ export function messageContentMd(msg: ChatMessage, raw = false) {
 
   if (msg.role === "assistant" && !raw) {
     // only show stop reason if it's not a natural stop
-    const showStopReason = !["stop", "end_turn"].includes(msg.stop_reason.toLowerCase())
+    const showStopReason = !["stop", "end_turn", "completed"].includes(
+      msg.stop_reason.toLowerCase(),
+    )
 
     output += codeMd(msg.model)
     output += ` | ${timeFmt.format(msg.timeMs / 1000)} s`

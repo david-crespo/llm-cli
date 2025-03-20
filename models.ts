@@ -27,7 +27,7 @@ export const models: Model[] = [
   {
     provider: "anthropic",
     key: "claude-3-7-sonnet-latest",
-    id: "sonnet",
+    id: "3.7-sonnet",
     input: 3,
     input_cached: 0.3,
     output: 15,
@@ -36,7 +36,7 @@ export const models: Model[] = [
   {
     provider: "anthropic",
     key: "claude-3-5-haiku-latest",
-    id: "haiku",
+    id: "3.5-haiku",
     input: 0.8,
     input_cached: 0.08,
     output: 4,

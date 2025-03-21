@@ -89,7 +89,15 @@ export function messageContentMd(msg: ChatMessage, raw = false) {
   return output
 }
 
-export function chatToMd(chat: Chat, lastN: number = 0, verbose?: boolean): string {
+type ChatToMd = { chat: Chat; lastN?: number; raw?: boolean; verbose?: boolean }
+
+export function chatToMd({ chat, lastN = 0, raw, verbose }: ChatToMd): string {
+  const messages = lastN ? chat.messages.slice(-lastN) : chat.messages
+
+  if (raw) {
+    return messages.map((msg) => messageContentMd(msg, true)).join("\n\n")
+  }
+
   let output = `**Chat started:** ${longDateFmt.format(chat.createdAt)}\n\n`
 
   // only print system prompt if it's non-default
@@ -98,11 +106,10 @@ export function chatToMd(chat: Chat, lastN: number = 0, verbose?: boolean): stri
   }
 
   const msgCount = chat.messages.length
-  chat.messages.forEach((msg, i) => {
-    if (!lastN || i >= msgCount - lastN) {
-      output += messageHeaderMd(msg, i + 1, msgCount)
-      output += messageContentMd(msg)
-    }
+  const skippedCount = msgCount - lastN
+  messages.forEach((msg, i) => {
+    output += messageHeaderMd(msg, skippedCount + i + 1, msgCount)
+    output += messageContentMd(msg)
   })
   return output
 }

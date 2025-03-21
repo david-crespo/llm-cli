@@ -76,7 +76,7 @@ const historyCmd = new Command()
     })
     const selected = reversed[selectedIdx]
     const n = opts.all ? selected.messages.length : opts.limit
-    await renderMd(chatToMd(selected, n))
+    await renderMd(chatToMd({ chat: selected, lastN: n }))
   })
   .command("clear", "Delete current chat from localStorage")
   .action(async () => {
@@ -98,10 +98,10 @@ const showCmd = new Command()
   .option("--raw", "Raw output, not rendered")
   .action(async (opts) => {
     const history = History.read()
-    const lastChat = history.at(-1) // last one is current
-    if (!lastChat) throw new ValidationError("No chat in progress")
-    const n = opts.all ? lastChat.messages.length : opts.limit
-    await renderMd(chatToMd(lastChat, n), opts.raw)
+    const chat = history.at(-1) // last one is current
+    if (!chat) throw new ValidationError("No chat in progress")
+    const lastN = opts.all ? chat.messages.length : opts.limit
+    await renderMd(chatToMd({ chat, lastN, raw: opts.raw }), opts.raw)
   })
 
 const gistCmd = new Command()
@@ -124,7 +124,7 @@ const gistCmd = new Command()
     const filename = title ? `LLM chat - ${title}.md` : "LLM chat.md"
     const n = opts.all ? lastChat.messages.length : opts.limit
     await $`gh gist create -f ${filename}`.stdinText(
-      chatToMd(lastChat, n, true),
+      chatToMd({ chat: lastChat, lastN: n, verbose: true }),
     )
   })
 

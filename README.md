@@ -7,7 +7,8 @@ Thanks to [Justin Bennett](https://github.com/zephraph) for the
 that inspired this as well as the idea of piping markdown output to
 [`glow`](https://github.com/charmbracelet/glow).
 
-https://github.com/david-crespo/llm-cli/assets/3612203/31cfa0cb-3efc-4171-88f7-72de253bb255
+<img width="657" alt="image" src="https://github.com/user-attachments/assets/627a4ce2-a0b5-42c5-a63e-1a39ef2b607e" />
+
 
 ## Features
 

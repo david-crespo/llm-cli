@@ -91,8 +91,8 @@ export const models: Model[] = [
   },
   {
     provider: "google",
-    key: "gemini-2.0-pro-exp",
-    id: "gemini-pro",
+    key: "gemini-2.5-pro-exp-03-25",
+    id: "gemini-2.5-pro",
     input: 1.25,
     output: 2.50,
   },

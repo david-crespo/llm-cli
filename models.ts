@@ -158,7 +158,11 @@ export function resolveModel(modelArg: string | undefined) {
   // Find the first model containing the arg as a substring. See comment at
   // allModels definition about ordering.
   const lower = modelArg.toLowerCase()
-  const match = models.find((m) => m.key.includes(lower) || m.id.includes(lower))
+  // First look for an exact match, then find the first model containing the arg
+  // as a substring. See comment at allModels definition about ordering. Without
+  // this logic, you could never match o1 if o1-mini is present.
+  const match = models.find((m) => m.key === lower || m.id === lower) ||
+    models.find((m) => m.key.includes(lower) || m.id.includes(lower))
 
   if (!match) {
     // TODO: print list of models as part of this error, not just the help. or

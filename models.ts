@@ -47,6 +47,14 @@ export const models: Model[] = [
     id: "gpt-4o",
     input: 2.50,
     input_cached: 1.25,
+    output: 10,
+  },
+  {
+    provider: "openai",
+    key: "chatgpt-4o-latest",
+    id: "chatgpt-4o",
+    input: 5.00,
+    // it doesn't do caching? yikes
     output: 15,
   },
   {

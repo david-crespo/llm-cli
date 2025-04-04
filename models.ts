@@ -31,7 +31,7 @@ export const models: Model[] = [
     input: 3,
     input_cached: 0.3,
     output: 15,
-    default: true,
+    // default: true,
   },
   {
     provider: "anthropic",
@@ -103,6 +103,7 @@ export const models: Model[] = [
     id: "gemini-pro",
     input: 1.25,
     output: 10.00,
+    default: true,
   },
   {
     provider: "google",

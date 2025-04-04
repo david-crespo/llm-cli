@@ -36,8 +36,7 @@ https://gist.github.com/david-crespo/a2bf06be5db310db967b2e35f6140da2
 
 ### Limitations
 
-No vision, no streaming responses (yet). No history of previous chats unless you
-upload a gist; only the current conversation is stored locally.
+No vision, no streaming responses (yet).
 
 ## Setup
 

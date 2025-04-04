@@ -99,25 +99,17 @@ export const models: Model[] = [
   },
   {
     provider: "google",
-    key: "gemini-2.5-pro-exp-03-25",
-    id: "gemini-2.5-pro",
+    key: "gemini-2.5-pro-preview-03-25",
+    id: "gemini-pro",
     input: 1.25,
-    output: 2.50,
+    output: 10.00,
   },
   {
     provider: "google",
     key: "gemini-2.0-flash",
-    id: "flash",
+    id: "gemini-flash",
     input: .10,
     output: .40,
-  },
-  {
-    provider: "google",
-    key: "gemini-2.0-flash-thinking-exp",
-    id: "flash-thinking",
-    // estimated
-    input: .35,
-    output: 1.50,
   },
   {
     provider: "deepseek",
@@ -188,14 +180,16 @@ const M = 1_000_000
 export function getCost(model: Model, tokens: TokenCounts) {
   const { input, output, input_cached } = model
 
+  // HACK for higher pricing over 200k https://ai.google.dev/pricing
+  if (model.id === "gemini-pro" && tokens.input > 200_000) {
+    return (tokens.input * 2.5 + tokens.output * 15) / M
+  }
+
   // when there is caching and we have cache pricing, take it into account
   const cost = input_cached && tokens.input_cache_hit
     ? (input_cached * tokens.input_cache_hit) +
       (input * (tokens.input - tokens.input_cache_hit)) + (output * tokens.output)
     : (input * tokens.input) + (output * tokens.output)
-
-  // Gemini models have double pricing over 128k https://ai.google.dev/pricing
-  if (model.provider === "google" && tokens.input > 128_000) return 2 * cost / M
 
   return cost / M
 }

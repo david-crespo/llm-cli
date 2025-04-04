@@ -162,6 +162,7 @@ the raw output to stdout.`)
     conflicts: ["persona"],
   })
   .option("--raw", "Print LLM text directly (no metadata)")
+  .option("-e, --ephemeral", "Don't save to history")
   .option("-c, --cache", "Cache input (Anthropic only, others are automatic)")
   .example("1)", "ai 'What is the capital of France?'")
   .example("2)", "cat main.ts | ai 'what is this?'")
@@ -239,7 +240,7 @@ the raw output to stdout.`)
         { role: "user", content: input, image_url: opts.image },
         assistantMsg,
       )
-      History.write(history)
+      if (!opts.ephemeral) History.write(history)
       await renderMd(messageContentMd(assistantMsg, opts.raw), opts.raw)
       // deno-lint-ignore no-explicit-any
     } catch (e: any) {

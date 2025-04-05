@@ -130,6 +130,20 @@ export const models: Model[] = [
   },
   {
     provider: "groq",
+    key: "meta-llama/llama-4-scout-17b-16e-instruct",
+    id: "llama-4-scout",
+    input: 0.11,
+    output: 0.34,
+  },
+  {
+    provider: "groq",
+    key: "meta-llama/llama-4-maverick-17b-128e-instruct",
+    id: "llama-4-maverick",
+    input: 0.50,
+    output: 0.77,
+  },
+  {
+    provider: "groq",
     key: "llama-3.3-70b-versatile",
     id: "groq-llama",
     input: .59,
@@ -149,6 +163,13 @@ export const models: Model[] = [
     id: "cerebras-llama",
     input: 0.85,
     output: 1.20,
+  },
+  {
+    provider: "cerebras",
+    key: "llama-4-scout",
+    id: "cerebras-scout",
+    input: 0.65,
+    output: 0.85,
   },
 ]
 

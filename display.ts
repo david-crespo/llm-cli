@@ -33,7 +33,7 @@ const modelsTable = markdownTable([
   ...models
     .map((m) => [
       m.id + (m.default ? " ⭐" : ""),
-      m.key,
+      m.key.replace(/^meta-llama\//, ""),
       moneyFmt.format(m.input),
       m.input_cached ? moneyFmt.format(m.input_cached) : "",
       moneyFmt.format(m.output),

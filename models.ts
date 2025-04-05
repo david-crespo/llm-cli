@@ -42,6 +42,21 @@ export const models: Model[] = [
     output: 4,
   },
   {
+    provider: "google",
+    key: "gemini-2.5-pro-preview-03-25",
+    id: "gemini-2.5-pro",
+    input: 1.25,
+    output: 10.00,
+    default: true,
+  },
+  {
+    provider: "google",
+    key: "gemini-2.0-flash",
+    id: "gemini-2.0-flash",
+    input: .10,
+    output: .40,
+  },
+  {
     provider: "openai",
     key: "gpt-4o",
     id: "gpt-4o",
@@ -96,21 +111,6 @@ export const models: Model[] = [
     input: 15,
     input_cached: 7.5,
     output: 60,
-  },
-  {
-    provider: "google",
-    key: "gemini-2.5-pro-preview-03-25",
-    id: "gemini-pro",
-    input: 1.25,
-    output: 10.00,
-    default: true,
-  },
-  {
-    provider: "google",
-    key: "gemini-2.0-flash",
-    id: "gemini-flash",
-    input: .10,
-    output: .40,
   },
   {
     provider: "deepseek",
@@ -182,7 +182,7 @@ export function getCost(model: Model, tokens: TokenCounts) {
   const { input, output, input_cached } = model
 
   // HACK for higher pricing over 200k https://ai.google.dev/pricing
-  if (model.id === "gemini-pro" && tokens.input > 200_000) {
+  if (model.id === "gemini-2.5-pro" && tokens.input > 200_000) {
     return (tokens.input * 2.5 + tokens.output * 15) / M
   }
 

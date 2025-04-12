@@ -1,6 +1,6 @@
 import OpenAI from "npm:openai@4.87.3"
 import Anthropic from "npm:@anthropic-ai/sdk@0.39.0"
-import { GoogleGenerativeAI, type ModelParams } from "npm:@google/generative-ai@0.24.0"
+import { type GenerateContentConfig, GoogleGenAI } from "npm:@google/genai@0.8.0"
 import { ValidationError } from "jsr:@cliffy/command@1.0.0-rc.7"
 import * as R from "npm:remeda@2.19"
 
@@ -186,37 +186,40 @@ async function claudeCreateMessage(
 }
 
 async function geminiCreateMessage({ chat, input, model, tools }: ChatInput) {
-  const key = Deno.env.get("GEMINI_API_KEY")
-  if (!key) throw Error("GEMINI_API_KEY missing")
+  const apiKey = Deno.env.get("GEMINI_API_KEY")
+  if (!apiKey) throw Error("GEMINI_API_KEY missing")
 
-  const params: ModelParams = { model }
+  const config: GenerateContentConfig = {}
   if (tools && tools.length > 0) {
-    params.tools = []
-    // @ts-expect-error googleSearch is real, the types are wrong
-    if (tools.includes("search")) params.tools.push({ googleSearch: {} })
-    if (tools.includes("code")) params.tools.push({ codeExecution: {} })
+    config.tools = []
+    if (tools.includes("search")) config.tools.push({ googleSearch: {} })
+    if (tools.includes("code")) config.tools.push({ codeExecution: {} })
   } else {
     // code seems incompatible with a system prompt. search isn't, but it's too
     // concise with the system prompt, so we'll leave it off there too
-    params.systemInstruction = chat.systemPrompt
+    config.systemInstruction = chat.systemPrompt
   }
 
-  const result = await new GoogleGenerativeAI(key).getGenerativeModel(params)
-    .startChat({
-      history: chat.messages.map((msg) => ({
+  const result = await new GoogleGenAI({ apiKey }).models.generateContent({
+    config,
+    model,
+    contents: [
+      ...chat.messages.map((msg) => ({
         // gemini uses model instead of assistant
         role: msg.role === "assistant" ? "model" : "user",
         parts: [{ text: msg.content }],
       })),
-    }).sendMessage(input)
+      input,
+    ],
+  })
 
   return {
-    content: result.response.text(),
+    content: result.text || "",
     tokens: {
-      input: result.response.usageMetadata!.promptTokenCount,
-      output: result.response.usageMetadata!.candidatesTokenCount,
+      input: result.usageMetadata!.promptTokenCount || 0,
+      output: result.usageMetadata!.candidatesTokenCount || 0,
     },
-    stop_reason: result.response.candidates?.[0].finishReason || "",
+    stop_reason: result.candidates?.[0].finishReason || "",
   }
 }
 

@@ -51,10 +51,10 @@ export const models: Model[] = [
   },
   {
     provider: "google",
-    key: "gemini-2.0-flash",
-    id: "gemini-2.0-flash",
-    input: .10,
-    output: .40,
+    key: "gemini-2.5-flash-preview-04-17",
+    id: "gemini-2.5-flash",
+    input: .15,
+    output: .60,
   },
   {
     provider: "openai",

@@ -191,11 +191,9 @@ async function geminiCreateMessage({ chat, input, model, tools }: ChatInput) {
 
   const config: GenerateContentConfig = {
     thinkingConfig: {
-      thinkingBudget: model === "gemini-2.5-flash-preview-04-17"
-        ? 0
-        : model === "gemini-2.5-flash-preview-04-17-thinking"
-        ? 1024
-        : undefined,
+      // flash is always non-thinking for now until I figure out how to specify
+      // thinking budget and do the cost accounting
+      thinkingBudget: model === "gemini-2.5-flash-preview-04-17" ? 0 : undefined,
     },
   }
   if (tools && tools.length > 0) {
@@ -210,7 +208,7 @@ async function geminiCreateMessage({ chat, input, model, tools }: ChatInput) {
 
   const result = await new GoogleGenAI({ apiKey }).models.generateContent({
     config,
-    model: model.replace(/-thinking$/, ""),
+    model,
     contents: [
       ...chat.messages.map((msg) => ({
         // gemini uses model instead of assistant

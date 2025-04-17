@@ -56,15 +56,6 @@ export const models: Model[] = [
     input: .15,
     output: .60,
   },
-  // implementing this as a second model while I figure out how to put thinking
-  // budget in the CLI and
-  {
-    provider: "google",
-    key: "gemini-2.5-flash-preview-04-17-thinking",
-    id: "gemini-2.5-flash-thinking",
-    input: .15,
-    output: 3.50,
-  },
   {
     provider: "openai",
     key: "gpt-4.1",

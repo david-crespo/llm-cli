@@ -189,7 +189,15 @@ async function geminiCreateMessage({ chat, input, model, tools }: ChatInput) {
   const apiKey = Deno.env.get("GEMINI_API_KEY")
   if (!apiKey) throw Error("GEMINI_API_KEY missing")
 
-  const config: GenerateContentConfig = {}
+  const config: GenerateContentConfig = {
+    thinkingConfig: {
+      thinkingBudget: model === "gemini-2.5-flash-preview-04-17"
+        ? 0
+        : model === "gemini-2.5-flash-preview-04-17-thinking"
+        ? 1024
+        : undefined,
+    },
+  }
   if (tools && tools.length > 0) {
     config.tools = []
     if (tools.includes("search")) config.tools.push({ googleSearch: {} })
@@ -202,7 +210,7 @@ async function geminiCreateMessage({ chat, input, model, tools }: ChatInput) {
 
   const result = await new GoogleGenAI({ apiKey }).models.generateContent({
     config,
-    model,
+    model: model.replace(/-thinking$/, ""),
     contents: [
       ...chat.messages.map((msg) => ({
         // gemini uses model instead of assistant

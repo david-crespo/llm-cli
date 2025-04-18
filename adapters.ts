@@ -6,18 +6,20 @@ import * as R from "npm:remeda@2.19"
 
 import type { Chat, TokenCounts } from "./types.ts"
 import { codeListMd } from "./display.ts"
+import { getCost, type Model } from "./models.ts"
 
 type ModelResponse = {
   content: string
   tokens: TokenCounts
   stop_reason: string
+  cost: number
 }
 
 export type ChatInput = {
   chat: Chat
   input: string
   image_url?: string | undefined
-  model: string
+  model: Model
   tools: string[]
   cache?: boolean
 }
@@ -25,7 +27,7 @@ export type ChatInput = {
 const makeOpenAIResponsesFunc =
   (client: OpenAI) => async ({ chat, input, model, tools }: ChatInput) => {
     const response = await client.responses.create({
-      model,
+      model: model.key,
       input: [
         ...chat.messages.map((m) => ({ role: m.role, content: m.content })),
         { role: "user" as const, content: input },
@@ -40,6 +42,16 @@ const makeOpenAIResponsesFunc =
       instructions: chat.systemPrompt,
     })
 
+    const tokens = {
+      input: response.usage?.input_tokens || 0,
+      output: response.usage?.output_tokens || 0,
+      // @ts-expect-error openai client types are wrong, it's there
+      input_cache_hit: R.pathOr(response, [
+        "usage",
+        "input_tokens_details",
+        "cached_tokens",
+      ], 0) as number,
+    }
     // Haven't been able to get it to give me a reasoning summary, so I don't
     // know how those are integrated into output_text. For now, don't bother
     // processing reasoning tokens explicitly at all. Might be nice to add a
@@ -47,16 +59,8 @@ const makeOpenAIResponsesFunc =
 
     return {
       content: response.output_text,
-      tokens: {
-        input: response.usage?.input_tokens || 0,
-        output: response.usage?.output_tokens || 0,
-        // @ts-expect-error openai client types are wrong, it's there
-        input_cache_hit: R.pathOr(response, [
-          "usage",
-          "input_tokens_details",
-          "cached_tokens",
-        ], 0) as number,
-      },
+      tokens,
+      cost: getCost(model, tokens),
       stop_reason: response.status || "completed",
     }
   }
@@ -64,7 +68,7 @@ const makeOpenAIResponsesFunc =
 const makeOpenAIFunc = (client: OpenAI) => async ({ chat, input, model }: ChatInput) => {
   const systemMsg = chat.systemPrompt
     ? [{
-      role: model.startsWith("o1") ? "user" as const : "system" as const,
+      role: model.key.startsWith("o1") ? "user" as const : "system" as const,
       content: chat.systemPrompt,
     }]
     : []
@@ -73,7 +77,7 @@ const makeOpenAIFunc = (client: OpenAI) => async ({ chat, input, model }: ChatIn
     ...chat.messages.map((m) => ({ role: m.role, content: m.content })),
     { role: "user" as const, content: input },
   ]
-  const response = await client.chat.completions.create({ model, messages })
+  const response = await client.chat.completions.create({ model: model.key, messages })
   const message = response.choices[0].message
   if (!message) throw new Error("No response found")
   const reasoning_content =
@@ -84,13 +88,15 @@ const makeOpenAIFunc = (client: OpenAI) => async ({ chat, input, model }: ChatIn
         .map((line) => "> " + line)
         .join("\n") + "\n\n"
       : ""
+  const tokens = {
+    input: response.usage?.prompt_tokens || 0,
+    output: response.usage?.completion_tokens || 0,
+    input_cache_hit: response.usage?.prompt_tokens_details?.cached_tokens || 0,
+  }
   return {
     content: reasoning_content + (message.content || ""),
-    tokens: {
-      input: response.usage?.prompt_tokens || 0,
-      output: response.usage?.completion_tokens || 0,
-      input_cache_hit: response.usage?.prompt_tokens_details?.cached_tokens || 0,
-    },
+    tokens,
+    cost: getCost(model, tokens),
     stop_reason: response.choices[0].finish_reason,
   }
 }
@@ -148,7 +154,7 @@ async function claudeCreateMessage(
   const think = tools.length > 0 && tools.includes("think")
 
   const response = await new Anthropic().messages.create({
-    model,
+    model: model.key,
     system: chat.systemPrompt,
     messages: [
       ...chat.messages.map((m) => claudeMsg(m.role, m.content, m.cache)),
@@ -170,16 +176,19 @@ async function claudeCreateMessage(
   const cache_hit = response.usage.cache_read_input_tokens || 0
   const cache_write = response.usage.cache_creation_input_tokens || 0
 
+  const tokens = {
+    // technically, cache writes cost 25% more than regular input tokens but I
+    // don't want to build in the logic to count it
+    input: cache_miss + cache_hit + cache_write,
+    output: response.usage.output_tokens,
+    input_cache_hit: cache_hit,
+  }
+
   return {
     // we're not doing tool use yet, so the response will always be text
     content,
-    tokens: {
-      // technically, cache writes cost 25% more than regular input tokens but I
-      // don't want to build in the logic to count it
-      input: cache_miss + cache_hit + cache_write,
-      output: response.usage.output_tokens,
-      input_cache_hit: cache_hit,
-    },
+    tokens,
+    cost: getCost(model, tokens),
     stop_reason: response.stop_reason!, // always non-null in non-streaming mode
     cache,
   }
@@ -189,12 +198,10 @@ async function geminiCreateMessage({ chat, input, model, tools }: ChatInput) {
   const apiKey = Deno.env.get("GEMINI_API_KEY")
   if (!apiKey) throw Error("GEMINI_API_KEY missing")
 
+  const think = model.id.includes("pro") || model.id.includes("flash-thinking")
+
   const config: GenerateContentConfig = {
-    thinkingConfig: {
-      // flash is always non-thinking for now until I figure out how to specify
-      // thinking budget and do the cost accounting
-      thinkingBudget: model === "gemini-2.5-flash-preview-04-17" ? 0 : undefined,
-    },
+    thinkingConfig: { thinkingBudget: think ? undefined : 0 },
   }
   if (tools && tools.length > 0) {
     config.tools = []
@@ -208,7 +215,7 @@ async function geminiCreateMessage({ chat, input, model, tools }: ChatInput) {
 
   const result = await new GoogleGenAI({ apiKey }).models.generateContent({
     config,
-    model,
+    model: model.key,
     contents: [
       ...chat.messages.map((msg) => ({
         // gemini uses model instead of assistant
@@ -219,22 +226,33 @@ async function geminiCreateMessage({ chat, input, model, tools }: ChatInput) {
     ],
   })
 
+  const tokens = {
+    input: result.usageMetadata!.promptTokenCount || 0,
+    output: result.usageMetadata!.candidatesTokenCount || 0,
+  }
+
+  // HACK for higher pricing over 200k https://ai.google.dev/pricing
+  const costModel = model.id === "gemini-2.5-pro" && tokens.input > 200_000
+    ? { ...model, input: 2.50, output: 15 }
+    : model
+
   return {
     content: result.text || "",
-    tokens: {
-      input: result.usageMetadata!.promptTokenCount || 0,
-      output: result.usageMetadata!.candidatesTokenCount || 0,
-    },
+    tokens,
+    cost: getCost(costModel, tokens),
     stop_reason: result.candidates?.[0].finishReason || "",
   }
 }
 
 type Tool = "search" | "code" | "think"
-const geminiTools: Tool[] = ["search", "code"]
-const anthropicTools: Tool[] = ["think"]
-const openaiTools: Tool[] = ["search"]
+const providerTools: Record<string, Tool[]> = {
+  google: ["search", "code"],
+  anthropic: ["think"],
+  openai: ["search"],
+}
 
-function checkTools(provider: string, inputTools: string[], allowedTools: Tool[]) {
+function checkTools(provider: string, inputTools: string[]) {
+  const allowedTools = providerTools[provider]
   const badTools = inputTools.filter((t) => !(allowedTools as string[]).includes(t))
   if (badTools.length > 0) {
     throw new ValidationError(
@@ -248,16 +266,10 @@ function checkTools(provider: string, inputTools: string[], allowedTools: Tool[]
 export function parseTools(provider: string, tools: string[]): Tool[] {
   if (tools.length === 0) return []
 
-  if (provider === "google") {
-    checkTools(provider, tools, geminiTools)
-  } else if (provider === "anthropic") {
-    checkTools(provider, tools, anthropicTools)
-  } else if (provider === "openai") {
-    checkTools(provider, tools, openaiTools)
-  } else {
+  if (!(provider in providerTools)) {
     throw new ValidationError("Tools can only be used with Google and Anthropic models")
   }
-
+  checkTools(provider, tools)
   return tools as Tool[]
 }
 

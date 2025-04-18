@@ -2,14 +2,17 @@ import { ValidationError } from "jsr:@cliffy/command@1.0.0-rc.7"
 import { type TokenCounts } from "./types.ts"
 
 // prices are per million tokens
-type Model = {
+export type Model = {
   provider: string
+  /** Key provided to API call */
   key: string
+  /** ID for display and usability purposes */
   id: string
+  default?: true
+  // prices
   input: number
   output: number
   input_cached?: number
-  default?: true
 }
 
 /**
@@ -57,6 +60,13 @@ export const models: Model[] = [
     output: .60,
   },
   {
+    provider: "google",
+    key: "gemini-2.5-flash-preview-04-17",
+    id: "gemini-2.5-flash-thinking",
+    input: .15,
+    output: 3.50,
+  },
+  {
     provider: "openai",
     key: "gpt-4.1",
     id: "gpt-4.1",
@@ -71,14 +81,6 @@ export const models: Model[] = [
     input: .40,
     input_cached: 0.10,
     output: 1.60,
-  },
-  {
-    provider: "openai",
-    key: "gpt-4.1-nano",
-    id: "gpt-4.1-nano",
-    input: .10,
-    input_cached: 0.025,
-    output: 0.4,
   },
   {
     provider: "openai",
@@ -141,13 +143,6 @@ export const models: Model[] = [
     input: .59,
     output: 0.79,
   },
-  {
-    provider: "groq",
-    key: "deepseek-r1-distill-llama-70b",
-    id: "groq-r1-llama",
-    input: .75,
-    output: 0.99,
-  },
   // technically free until they set up their paid tier but whatever
   {
     provider: "cerebras",
@@ -193,11 +188,6 @@ const M = 1_000_000
 
 export function getCost(model: Model, tokens: TokenCounts) {
   const { input, output, input_cached } = model
-
-  // HACK for higher pricing over 200k https://ai.google.dev/pricing
-  if (model.id === "gemini-2.5-pro" && tokens.input > 200_000) {
-    return (tokens.input * 2.5 + tokens.output * 15) / M
-  }
 
   // when there is caching and we have cache pricing, take it into account
   const cost = input_cached && tokens.input_cache_hit

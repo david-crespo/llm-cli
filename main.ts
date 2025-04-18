@@ -7,7 +7,7 @@ import $ from "jsr:@david/dax@0.42"
 
 import * as R from "npm:remeda@2.19"
 
-import { getCost, resolveModel, systemBase } from "./models.ts"
+import { resolveModel, systemBase } from "./models.ts"
 import {
   chatToMd,
   codeBlock,
@@ -222,7 +222,7 @@ the raw output to stdout.`)
         chat,
         input,
         image_url: opts.image,
-        model: model.key,
+        model,
         tools,
         cache: opts.cache,
       }
@@ -232,9 +232,8 @@ the raw output to stdout.`)
       const assistantMsg = {
         role: "assistant" as const,
         model: model.id,
-        ...response,
-        cost: getCost(model, response.tokens),
         timeMs,
+        ...response,
       }
       chat.messages.push(
         { role: "user", content: input, image_url: opts.image },

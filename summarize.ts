@@ -3,6 +3,7 @@ import $ from "jsr:@david/dax@0.42"
 import { groqCreateMessage } from "./adapters.ts"
 import { type Chat } from "./types.ts"
 import { History } from "./storage.ts"
+import { resolveModel } from "./models.ts"
 
 const HALF_EXCERPT = 100
 
@@ -25,7 +26,7 @@ async function summarize(chat: Chat): Promise<void> {
     },
     input:
       `Please summarize an LLM chat based on the following excerpt from the first message. Use as few words as possible. Ideally 4-6 words, but up to 10. \n\n<excerpt>${abridged}</excerpt>`,
-    model: "llama-3.3-70b-versatile",
+    model: resolveModel("llama-3.3-70b-versatile"),
     tools: [],
   })
 

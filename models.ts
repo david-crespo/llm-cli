@@ -199,7 +199,7 @@ export function getCost(model: Model, tokens: TokenCounts) {
 }
 
 export const systemBase =
-  `Answer the question precisely, without much elaboration. When asked for code, only output code: do not explain unless asked to. Your answers MUST be in markdown format.
+  `Answer the question precisely, without much elaboration. When asked for code, only output code: do not explain unless asked to. Your answers MUST be in markdown format. Put code in code blocks with a language key. Markdown prose should not be in a code block.
 
 Here is some information about the user:
 - macOS user

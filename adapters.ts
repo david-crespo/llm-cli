@@ -1,6 +1,6 @@
 import OpenAI from "npm:openai@4.87.3"
 import Anthropic from "npm:@anthropic-ai/sdk@0.39.0"
-import { type GenerateContentConfig, GoogleGenAI } from "npm:@google/genai@0.8.0"
+import { type GenerateContentConfig, GoogleGenAI } from "npm:@google/genai@0.9.0"
 import { ValidationError } from "jsr:@cliffy/command@1.0.0-rc.7"
 import * as R from "npm:remeda@2.19"
 
@@ -222,7 +222,7 @@ async function geminiCreateMessage({ chat, input, model, tools }: ChatInput) {
         role: msg.role === "assistant" ? "model" : "user",
         parts: [{ text: msg.content }],
       })),
-      input,
+      { role: "user", parts: [{ text: input }] },
     ],
   })
 

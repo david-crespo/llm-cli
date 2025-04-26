@@ -1,5 +1,6 @@
 import { ValidationError } from "jsr:@cliffy/command@1.0.0-rc.7"
 import { type TokenCounts } from "./types.ts"
+import $ from "jsr:@david/dax@0.42"
 
 // prices are per million tokens
 export type Model = {
@@ -198,13 +199,18 @@ export function getCost(model: Model, tokens: TokenCounts) {
   return cost / M
 }
 
-export const systemBase =
-  `Answer the question precisely, without much elaboration. When asked for code, only output code: do not explain unless asked to. Your answers MUST be in markdown format. Put code in code blocks with a language key. Markdown prose should not be in a code block.
+export const systemBase = $.dedent`
+  - Answer the question precisely, without much elaboration
+  - Write natural prose for a sophisticated reader, without unnecessary bullets or headings
+  - When asked to write code, primarily output code, with minimal explanation unless requested
+  - Your answers MUST be in markdown format
+  - Put code within a triple-backtick fence block with a language key (like \`\`\`rust)
+  - Never put markdown prose (or bullets or whatever) in a fenced code block
 
-Here is some information about the user:
-- macOS user
-- Terminal: Ghostty
-- Text editor: Helix
-- Shell: zsh
-- Software engineer who mostly uses TypeScript and Rust
+  Tailor answers to the user:
+  - OS: macOS
+  - Terminal: Ghostty
+  - Text editor: Helix
+  - Shell: zsh
+  - Programming languages: TypeScript and Rust
 `

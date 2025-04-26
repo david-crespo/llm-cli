@@ -123,9 +123,8 @@ const gistCmd = new Command()
     const title = opts.title || lastChat.summary
     const filename = title ? `LLM chat - ${title}.md` : "LLM chat.md"
     const n = opts.all ? lastChat.messages.length : opts.limit
-    await $`gh gist create -f ${filename}`.stdinText(
-      chatToMd({ chat: lastChat, lastN: n, verbose: true }),
-    )
+    const md = chatToMd({ chat: lastChat, lastN: n, verbose: true })
+    await $`gh gist create -f ${filename}`.stdinText(md)
   })
 
 const modelsCmd = new Command()

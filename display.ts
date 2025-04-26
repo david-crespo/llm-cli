@@ -91,6 +91,9 @@ export function messageContentMd(msg: ChatMessage, raw = false) {
 
 type ChatToMd = { chat: Chat; lastN?: number; raw?: boolean; verbose?: boolean }
 
+const tag = (t: string, ...children: string[]) =>
+  `<${t}>\n${children.join("\n")}\n</${t}>\n\n`
+
 export function chatToMd({ chat, lastN = 0, raw, verbose }: ChatToMd): string {
   const messages = lastN ? chat.messages.slice(-lastN) : chat.messages
 
@@ -102,7 +105,7 @@ export function chatToMd({ chat, lastN = 0, raw, verbose }: ChatToMd): string {
 
   // only print system prompt if it's non-default
   if (verbose || chat.systemPrompt !== systemBase) {
-    output += `**System prompt:** ${chat.systemPrompt}\n\n`
+    output += tag("details", tag("summary", "System prompt"), chat.systemPrompt)
   }
 
   const msgCount = chat.messages.length

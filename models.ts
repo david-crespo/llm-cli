@@ -47,7 +47,7 @@ export const models: Model[] = [
   },
   {
     provider: "google",
-    key: "gemini-2.5-pro-preview-03-25",
+    key: "gemini-2.5-pro-preview-05-06",
     id: "gemini-2.5-pro",
     input: 1.25,
     output: 10.00,

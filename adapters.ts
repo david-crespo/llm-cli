@@ -1,6 +1,6 @@
 import OpenAI from "npm:openai@4.87.3"
 import Anthropic from "npm:@anthropic-ai/sdk@0.39.0"
-import { type GenerateContentConfig, GoogleGenAI } from "npm:@google/genai@0.9.0"
+import { type GenerateContentConfig, GoogleGenAI } from "npm:@google/genai@0.13.0"
 import { ValidationError } from "jsr:@cliffy/command@1.0.0-rc.7"
 import * as R from "npm:remeda@2.19"
 
@@ -229,6 +229,7 @@ async function geminiCreateMessage({ chat, input, model, tools }: ChatInput) {
   const tokens = {
     input: result.usageMetadata!.promptTokenCount || 0,
     output: result.usageMetadata!.candidatesTokenCount || 0,
+    input_cache_hit: result.usageMetadata!.cachedContentTokenCount || 0,
   }
 
   // HACK for higher pricing over 200k https://ai.google.dev/pricing

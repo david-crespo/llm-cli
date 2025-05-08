@@ -50,6 +50,7 @@ export const models: Model[] = [
     key: "gemini-2.5-pro-preview-05-06",
     id: "gemini-2.5-pro",
     input: 1.25,
+    input_cached: 0.31,
     output: 10.00,
     default: true,
   },
@@ -58,6 +59,7 @@ export const models: Model[] = [
     key: "gemini-2.5-flash-preview-04-17",
     id: "gemini-2.5-flash",
     input: .15,
+    input_cached: 0.04,
     output: .60,
   },
   {
@@ -65,6 +67,7 @@ export const models: Model[] = [
     key: "gemini-2.5-flash-preview-04-17",
     id: "gemini-2.5-flash-thinking",
     input: .15,
+    input_cached: 0.04,
     output: 3.50,
   },
   {

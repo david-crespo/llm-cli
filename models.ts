@@ -80,14 +80,6 @@ export const models: Model[] = [
   },
   {
     provider: "openai",
-    key: "gpt-4.1-mini",
-    id: "gpt-4.1-mini",
-    input: .40,
-    input_cached: 0.10,
-    output: 1.60,
-  },
-  {
-    provider: "openai",
     key: "gpt-4.5-preview",
     id: "gpt-4.5",
     input: 75,
@@ -140,13 +132,6 @@ export const models: Model[] = [
     input: 0.50,
     output: 0.77,
   },
-  {
-    provider: "groq",
-    key: "llama-3.3-70b-versatile",
-    id: "groq-llama",
-    input: .59,
-    output: 0.79,
-  },
   // technically free until they set up their paid tier but whatever
   {
     provider: "cerebras",
@@ -157,7 +142,7 @@ export const models: Model[] = [
   },
   {
     provider: "cerebras",
-    key: "llama-4-scout",
+    key: "llama-4-scout-17b-16e-instruct",
     id: "cerebras-scout",
     input: 0.65,
     output: 0.85,

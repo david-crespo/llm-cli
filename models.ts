@@ -147,6 +147,13 @@ export const models: Model[] = [
     input: 0.65,
     output: 0.85,
   },
+  {
+    provider: "cerebras",
+    key: "qwen-3-32b",
+    id: "qwen-3-32b",
+    input: 0.40,
+    output: 0.80,
+  },
 ]
 
 /** Errors and exits if it can't resolve to a model */

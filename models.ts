@@ -103,6 +103,14 @@ export const models: Model[] = [
     output: 4.40,
   },
   {
+    provider: "openai",
+    key: "codex-mini-latest",
+    id: "codex-mini",
+    input: 1.50,
+    input_cached: 0.375,
+    output: 6.00,
+  },
+  {
     provider: "deepseek",
     key: "deepseek-chat",
     id: "deepseek-v3",

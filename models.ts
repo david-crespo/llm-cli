@@ -56,7 +56,7 @@ export const models: Model[] = [
   },
   {
     provider: "google",
-    key: "gemini-2.5-flash-preview-04-17",
+    key: "gemini-2.5-flash-preview-05-20",
     id: "gemini-2.5-flash",
     input: .15,
     input_cached: 0.04,
@@ -64,7 +64,7 @@ export const models: Model[] = [
   },
   {
     provider: "google",
-    key: "gemini-2.5-flash-preview-04-17",
+    key: "gemini-2.5-flash-preview-05-20",
     id: "gemini-2.5-flash-thinking",
     input: .15,
     input_cached: 0.04,

@@ -30,20 +30,20 @@ export type Model = {
 export const models: Model[] = [
   {
     provider: "anthropic",
-    key: "claude-3-7-sonnet-latest",
-    id: "3.7-sonnet",
+    key: "claude-sonnet-4-20250514",
+    id: "sonnet-4",
     input: 3,
-    input_cached: 0.3,
+    input_cached: 0.30,
     output: 15,
-    // default: true,
+    default: true,
   },
   {
     provider: "anthropic",
-    key: "claude-3-5-haiku-latest",
-    id: "3.5-haiku",
-    input: 0.8,
-    input_cached: 0.08,
-    output: 4,
+    key: "claude-opus-4-20250514",
+    id: "opus-4",
+    input: 15,
+    input_cached: 1.50,
+    output: 75,
   },
   {
     provider: "google",
@@ -52,7 +52,7 @@ export const models: Model[] = [
     input: 1.25,
     input_cached: 0.31,
     output: 10.00,
-    default: true,
+    // default: true,
   },
   {
     provider: "google",

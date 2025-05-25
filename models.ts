@@ -78,14 +78,6 @@ export const models: Model[] = [
     input_cached: 0.50,
     output: 8.00,
   },
-  {
-    provider: "openai",
-    key: "gpt-4.5-preview",
-    id: "gpt-4.5",
-    input: 75,
-    input_cached: 37.50,
-    output: 150,
-  },
   // {
   //   provider: "openai",
   //   key: "o3",

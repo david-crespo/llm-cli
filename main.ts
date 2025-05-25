@@ -160,9 +160,9 @@ the raw output to stdout.`)
   .option("-s, --system <system:string>", "Override entire system prompt", {
     conflicts: ["persona"],
   })
-  .option("--raw", "Print LLM text directly (no metadata)")
   .option("-e, --ephemeral", "Don't save to history")
   .option("-c, --cache", "Cache input (Anthropic only, others are automatic)")
+  .option("--raw", "Print LLM text directly (no metadata)")
   .example("1)", "ai 'What is the capital of France?'")
   .example("2)", "cat main.ts | ai 'what is this?'")
   .example("3)", "echo 'what are you?' | ai")

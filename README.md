@@ -1,32 +1,35 @@
 # llm-cli
 
-A simple but full-featured CLI powered by Deno for chatting with LLMs. A few hundred lines of TypeScript in a single file.
+A simple but full-featured CLI powered by Deno for chatting with LLMs.
 
 Thanks to [Justin Bennett](https://github.com/zephraph) for the
 [script](https://github.com/zephraph/deno.run/blob/0972d0cd3d8f050cb11c3a6d1c1c201608d100a9/chat-gpt.ts)
 that inspired this as well as the idea of piping markdown output to
 [`glow`](https://github.com/charmbracelet/glow).
 
-<img width="657" alt="image" src="https://github.com/user-attachments/assets/627a4ce2-a0b5-42c5-a63e-1a39ef2b607e" />
-
+<img width="664" alt="image" src="https://github.com/user-attachments/assets/4f45bb8a-7568-43b6-a1b0-5ce76fd8fc1b" />
 
 ## Features
 
-### Supports GPT and Claude
+### Supports a bunch of models
 
-<img width="604" alt="image" src="https://github.com/david-crespo/llm-cli/assets/3612203/a91c35de-8b5a-4fa9-9d11-32f0c4aa86a0" />
+And it's easy to add more.
+
+<img width="668" alt="output of models command showing table of supported models" src="https://github.com/user-attachments/assets/95880d8a-b4fc-4095-8d08-b4a920125a11" />
+
 
 ### Beautiful output powered by markdown
 
-<img width="632" alt="image" src="https://github.com/david-crespo/llm-cli/assets/3612203/2574b335-6aeb-4e35-916e-dc0467bfbfb2" />
+<img width="711" alt="image" src="https://github.com/user-attachments/assets/0acab93c-4062-46db-9779-8e48f9ccc1e9" />
 
 ### Continue chat with replies
 
-<img width="537" alt="image" src="https://github.com/david-crespo/llm-cli/assets/3612203/535e1c48-95be-46aa-891d-3254ddc87bc8" />
+<img width="668" alt="image" src="https://github.com/user-attachments/assets/8ff7b591-9690-4798-bd5e-f45d52206768" />
 
 ### Read input from stdin
 
-<img width="620" alt="image" src="https://github.com/david-crespo/llm-cli/assets/3612203/c5dc783c-b754-454a-9765-9363624fda80">
+<img width="668" alt="image" src="https://github.com/user-attachments/assets/84f64f93-6d56-483f-984e-42ce1eea5235" />
+
 
 ### Upload chat to GitHub Gist for sharing or permanent storage
 

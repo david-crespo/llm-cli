@@ -1,6 +1,6 @@
 import OpenAI from "npm:openai@4.87.3"
 import Anthropic from "npm:@anthropic-ai/sdk@0.39.0"
-import { type GenerateContentConfig, GoogleGenAI } from "npm:@google/genai@0.13.0"
+import { type GenerateContentConfig, GoogleGenAI } from "npm:@google/genai@1.1.0"
 import { ValidationError } from "jsr:@cliffy/command@1.0.0-rc.7"
 import * as R from "npm:remeda@2.19"
 
@@ -80,21 +80,20 @@ const makeOpenAIFunc = (client: OpenAI) => async ({ chat, input, model }: ChatIn
   const response = await client.chat.completions.create({ model: model.key, messages })
   const message = response.choices[0].message
   if (!message) throw new Error("No response found")
-  const reasoning_content =
+
+  const reasoning =
     "reasoning_content" in message && typeof message.reasoning_content === "string"
-      ? message
-        .reasoning_content
-        .split("\n")
-        .map((line) => "> " + line)
-        .join("\n") + "\n\n"
-      : ""
+      ? message.reasoning_content
+      : undefined
+
   const tokens = {
     input: response.usage?.prompt_tokens || 0,
     output: response.usage?.completion_tokens || 0,
     input_cache_hit: response.usage?.prompt_tokens_details?.cached_tokens || 0,
   }
   return {
-    content: reasoning_content + (message.content || ""),
+    content: (message.content || ""),
+    reasoning,
     tokens,
     cost: getCost(model, tokens),
     stop_reason: response.choices[0].finish_reason,
@@ -163,13 +162,14 @@ async function claudeCreateMessage(
     max_tokens: 4096,
     thinking: think ? { "type": "enabled", budget_tokens: 1024 } : undefined,
   })
-  const content = response.content.map((msg) =>
-    msg.type === "text"
-      ? msg.text
-      : msg.type === "thinking"
-      ? msg.thinking.split("\n").map((line) => "> " + line).join("\n")
-      : JSON.stringify(msg)
-  ).join("\n\n")
+  const content = response.content
+    .filter((msg) => msg.type === "text")
+    .map((msg) => msg.text)
+    .join("\n\n")
+  const reasoning = response.content
+    .filter((msg) => msg.type === "thinking")
+    .map((msg) => msg.thinking)
+    .join("\n\n")
 
   // unlike openapi, input_tokens is only cache misses
   const cache_miss = response.usage.input_tokens || 0
@@ -187,6 +187,7 @@ async function claudeCreateMessage(
   return {
     // we're not doing tool use yet, so the response will always be text
     content,
+    reasoning,
     tokens,
     cost: getCost(model, tokens),
     stop_reason: response.stop_reason!, // always non-null in non-streaming mode
@@ -201,7 +202,10 @@ async function geminiCreateMessage({ chat, input, model, tools }: ChatInput) {
   const think = model.id.includes("pro") || model.id.includes("flash-thinking")
 
   const config: GenerateContentConfig = {
-    thinkingConfig: { thinkingBudget: think ? undefined : 0 },
+    thinkingConfig: {
+      thinkingBudget: think ? undefined : 0,
+      includeThoughts: true,
+    },
   }
   if (tools && tools.length > 0) {
     config.tools = []
@@ -226,10 +230,17 @@ async function geminiCreateMessage({ chat, input, model, tools }: ChatInput) {
     ],
   })
 
+  const parts = result.candidates?.[0].content?.parts ?? []
+  const reasoning = parts.filter((p) => p.text && p.thought).map((p) => p.text!).join(
+    "\n\n",
+  )
+  const content = parts.filter((p) => p.text && !p.thought).map((p) => p.text!).join("\n\n")
+
   const tokens = {
-    input: result.usageMetadata!.promptTokenCount || 0,
-    output: result.usageMetadata!.candidatesTokenCount || 0,
-    input_cache_hit: result.usageMetadata!.cachedContentTokenCount || 0,
+    input: result.usageMetadata?.promptTokenCount || 0,
+    output: (result.usageMetadata?.candidatesTokenCount || 0) +
+      (result.usageMetadata?.thoughtsTokenCount || 0),
+    input_cache_hit: result.usageMetadata?.cachedContentTokenCount || 0,
   }
 
   // HACK for higher pricing over 200k https://ai.google.dev/pricing
@@ -238,7 +249,8 @@ async function geminiCreateMessage({ chat, input, model, tools }: ChatInput) {
     : model
 
   return {
-    content: result.text || "",
+    content,
+    reasoning,
     tokens,
     cost: getCost(costModel, tokens),
     stop_reason: result.candidates?.[0].finishReason || "",

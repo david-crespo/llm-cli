@@ -14,7 +14,10 @@ type UserMessage = {
 type AssistantMessage = {
   role: "assistant"
   model: string
+  /** Model response text */
   content: string
+  /** Reasoning text. May be blank. Not rendered in --raw mode. */
+  reasoning?: string
   tokens: TokenCounts
   stop_reason: string
   cost: number

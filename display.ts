@@ -40,6 +40,9 @@ const modelsTable = markdownTable([
     ]),
 ])
 
+/** Split, add `"> "` to the beginning of each line, and rejoin */
+const quote = (s: string) => s.split("\n").map((line) => "> " + line).join("\n")
+
 export const modelsMd =
   `Models are matched on ID or key. Prices are per million tokens.\n\n${modelsTable}`
 
@@ -79,6 +82,9 @@ export function messageContentMd(msg: ChatMessage, raw = false) {
     if (showStopReason) output += ` | **Stop reason:** ${msg.stop_reason}`
 
     output += "\n\n"
+
+    // only show reasoning if not raw
+    if (msg.reasoning) output += quote(msg.reasoning) + "\n\n"
   }
 
   output += raw ? msg.content : escapeThinkTags(msg.content)

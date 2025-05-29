@@ -16,6 +16,10 @@ export type Model = {
   input_cached?: number
 }
 
+// deepseek is discounted from UTC 16:30-0:30
+const utcMinutes = new Date().getUTCHours() * 60 + new Date().getUTCMinutes()
+const deepseekDiscount = utcMinutes >= ((16 * 60) + 30) || utcMinutes <= 30
+
 /**
  * The order matters: preferred models go first.
  *
@@ -106,17 +110,33 @@ export const models: Model[] = [
     provider: "deepseek",
     key: "deepseek-chat",
     id: "deepseek-v3",
-    input: 0.14,
-    input_cached: 0.014,
-    output: 0.28,
+    ...(deepseekDiscount
+      ? {
+        input: 0.135,
+        input_cached: 0.035,
+        output: 0.55,
+      }
+      : {
+        input: 0.27,
+        input_cached: 0.07,
+        output: 1.10,
+      }),
   },
   {
     provider: "deepseek",
     key: "deepseek-reasoner",
     id: "deepseek-r1",
-    input: 0.55,
-    input_cached: 0.14,
-    output: 2.19,
+    ...(deepseekDiscount
+      ? {
+        input: 0.135,
+        input_cached: 0.035,
+        output: 0.55,
+      }
+      : {
+        input: 0.55,
+        input_cached: 0.14,
+        output: 2.19,
+      }),
   },
   {
     provider: "groq",

@@ -199,8 +199,8 @@ async function geminiCreateMessage({ chat, input, model, tools }: ChatInput) {
   const apiKey = Deno.env.get("GEMINI_API_KEY")
   if (!apiKey) throw Error("GEMINI_API_KEY missing")
 
-  const think = model.id.includes("pro") || model.id.includes("flash-thinking")
-
+  // TODO: input token count seems too low when using think tool
+  const think = model.id.includes("pro") || tools.includes("think")
   const config: GenerateContentConfig = {
     thinkingConfig: {
       thinkingBudget: think ? undefined : 0,
@@ -259,7 +259,7 @@ async function geminiCreateMessage({ chat, input, model, tools }: ChatInput) {
 
 type Tool = "search" | "code" | "think"
 const providerTools: Record<string, Tool[]> = {
-  google: ["search", "code"],
+  google: ["search", "code", "think"],
   anthropic: ["think"],
   openai: ["search"],
 }

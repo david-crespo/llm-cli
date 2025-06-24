@@ -53,18 +53,24 @@ function messageHeaderMd(msg: ChatMessage, msgNum: number, msgCount: number) {
 
 const timeFmt = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 })
 
-// TODO: style thinking section better
-//     .split("\n").map((l) => "> " + l)
-//     .join("\n") +
 const escapeThinkTags = (content: string) =>
   content
     .replace("<think>", "\\<think>")
     .replace("</think>", "\\</think>")
 
-export function messageContentMd(msg: ChatMessage, raw = false) {
+// TODO: add `verbose` mode and hide reasoning from `nice` mode
+
+/**
+ * - `nice` is the default show output, includes meta and reasoning
+ * - `raw` is for insertion in, e.g., a text editor
+ * - `gist` includes meta but collapses reasoning under `<details>`
+ */
+type DisplayMode = "nice" | "raw" | "gist"
+
+export function messageContentMd(msg: ChatMessage, mode: DisplayMode) {
   let output = ""
 
-  if (msg.role === "assistant" && !raw) {
+  if (msg.role === "assistant" && mode !== "raw") {
     // only show stop reason if it's not a natural stop
     const showStopReason = !["stop", "end_turn", "completed"].includes(
       msg.stop_reason.toLowerCase(),
@@ -84,33 +90,39 @@ export function messageContentMd(msg: ChatMessage, raw = false) {
     output += "\n\n"
 
     // only show reasoning if not raw
-    if (msg.reasoning) output += quote(msg.reasoning) + "\n\n"
+    if (msg.reasoning) {
+      if (mode === "gist") {
+        output += tag("details", tag("summary", "Reasoning"), quote(msg.reasoning))
+      } else if (mode === "nice") {
+        output += quote(msg.reasoning) + "\n\n"
+      }
+    }
   }
 
-  output += raw ? msg.content : escapeThinkTags(msg.content)
+  output += mode === "raw" ? msg.content : escapeThinkTags(msg.content)
   if (msg.role === "user" && msg.image_url) {
     output += `\n\n[Image](${msg.image_url})`
   }
-  if (!raw) output += "\n\n"
+  if (mode !== "raw") output += "\n\n"
   return output
 }
 
-type ChatToMd = { chat: Chat; lastN?: number; raw?: boolean; verbose?: boolean }
+type ChatToMd = { chat: Chat; lastN?: number; mode?: DisplayMode }
 
 const tag = (t: string, ...children: string[]) =>
   `<${t}>\n${children.join("\n")}\n</${t}>\n\n`
 
-export function chatToMd({ chat, lastN = 0, raw, verbose }: ChatToMd): string {
+export function chatToMd({ chat, lastN = 0, mode = "nice" }: ChatToMd): string {
   const messages = lastN ? chat.messages.slice(-lastN) : chat.messages
 
-  if (raw) {
-    return messages.map((msg) => messageContentMd(msg, true)).join("\n\n")
+  if (mode === "raw") {
+    return messages.map((msg) => messageContentMd(msg, "raw")).join("\n\n")
   }
 
   let output = `**Chat started:** ${longDateFmt.format(chat.createdAt)}\n\n`
 
   // only print system prompt if it's non-default
-  if (verbose || chat.systemPrompt !== systemBase) {
+  if (mode === "gist" || chat.systemPrompt !== systemBase) {
     output += tag("details", tag("summary", "System prompt"), chat.systemPrompt)
   }
 
@@ -118,7 +130,7 @@ export function chatToMd({ chat, lastN = 0, raw, verbose }: ChatToMd): string {
   const skippedCount = msgCount - lastN
   messages.forEach((msg, i) => {
     output += messageHeaderMd(msg, skippedCount + i + 1, msgCount)
-    output += messageContentMd(msg)
+    output += messageContentMd(msg, mode)
   })
   return output
 }

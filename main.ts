@@ -101,7 +101,7 @@ const showCmd = new Command()
     const chat = history.at(-1) // last one is current
     if (!chat) throw new ValidationError("No chat in progress")
     const lastN = opts.all ? chat.messages.length : opts.limit
-    await renderMd(chatToMd({ chat, lastN, raw: opts.raw }), opts.raw)
+    await renderMd(chatToMd({ chat, lastN, mode: opts.raw ? "raw" : "nice" }), opts.raw)
   })
 
 const gistCmd = new Command()
@@ -123,7 +123,7 @@ const gistCmd = new Command()
     const title = opts.title || lastChat.summary
     const filename = title ? `LLM chat - ${title}.md` : "LLM chat.md"
     const n = opts.all ? lastChat.messages.length : opts.limit
-    const md = chatToMd({ chat: lastChat, lastN: n, verbose: true })
+    const md = chatToMd({ chat: lastChat, lastN: n, mode: "gist" })
     await $`gh gist create -f ${filename}`.stdinText(md)
   })
 
@@ -239,7 +239,7 @@ the raw output to stdout.`)
         assistantMsg,
       )
       if (!opts.ephemeral) History.write(history)
-      await renderMd(messageContentMd(assistantMsg, opts.raw), opts.raw)
+      await renderMd(messageContentMd(assistantMsg, opts.raw ? "raw" : "nice"), opts.raw)
       // deno-lint-ignore no-explicit-any
     } catch (e: any) {
       if (pb) pb.finish() // otherwise it hangs around

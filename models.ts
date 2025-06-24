@@ -82,14 +82,14 @@ export const models: Model[] = [
     input_cached: 0.50,
     output: 8.00,
   },
-  {
-    provider: "openai",
-    key: "o3",
-    id: "o3",
-    input: 10,
-    input_cached: 2.50,
-    output: 40,
-  },
+  // {
+  //   provider: "openai",
+  //   key: "o3",
+  //   id: "o3",
+  //   input: 10,
+  //   input_cached: 2.50,
+  //   output: 40,
+  // },
   {
     provider: "openai",
     key: "o4-mini",

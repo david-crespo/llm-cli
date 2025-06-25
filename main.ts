@@ -95,13 +95,15 @@ const showCmd = new Command()
   .description("Show chat so far (last N, default 1)")
   .option("-a, --all", "Show all messages")
   .option("-n, --limit <n:integer>", "Number of messages (default 1)", { default: 1 })
-  .option("--raw", "Raw output, not rendered")
+  .option("-v, --verbose", "Include reasoning in output")
+  .option("--raw", "Print LLM output directly (no metadata or reasoning)")
   .action(async (opts) => {
     const history = History.read()
     const chat = history.at(-1) // last one is current
     if (!chat) throw new ValidationError("No chat in progress")
     const lastN = opts.all ? chat.messages.length : opts.limit
-    await renderMd(chatToMd({ chat, lastN, mode: opts.raw ? "raw" : "nice" }), opts.raw)
+    const mode = opts.raw ? "raw" : opts.verbose ? "verbose" : "cli"
+    await renderMd(chatToMd({ chat, lastN, mode }), opts.raw)
   })
 
 const gistCmd = new Command()
@@ -239,7 +241,8 @@ the raw output to stdout.`)
         assistantMsg,
       )
       if (!opts.ephemeral) History.write(history)
-      await renderMd(messageContentMd(assistantMsg, opts.raw ? "raw" : "nice"), opts.raw)
+      await renderMd(messageContentMd(assistantMsg, opts.raw ? "raw" : "cli"), opts.raw)
+
       // deno-lint-ignore no-explicit-any
     } catch (e: any) {
       if (pb) pb.finish() // otherwise it hangs around

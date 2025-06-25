@@ -61,11 +61,12 @@ const escapeThinkTags = (content: string) =>
 // TODO: add `verbose` mode and hide reasoning from `nice` mode
 
 /**
- * - `nice` is the default show output, includes meta and reasoning
+ * - `cli` is the default show output, includes meta but not reasoning
+ * - `verbose` is like `cli` + reasoning
  * - `raw` is for insertion in, e.g., a text editor
  * - `gist` includes meta but collapses reasoning under `<details>`
  */
-type DisplayMode = "nice" | "raw" | "gist"
+type DisplayMode = "cli" | "verbose" | "raw" | "gist"
 
 export function messageContentMd(msg: ChatMessage, mode: DisplayMode) {
   let output = ""
@@ -93,7 +94,7 @@ export function messageContentMd(msg: ChatMessage, mode: DisplayMode) {
     if (msg.reasoning) {
       if (mode === "gist") {
         output += tag("details", tag("summary", "Reasoning"), quote(msg.reasoning))
-      } else if (mode === "nice") {
+      } else if (mode === "verbose") {
         output += quote(msg.reasoning) + "\n\n"
       }
     }
@@ -112,7 +113,7 @@ type ChatToMd = { chat: Chat; lastN?: number; mode?: DisplayMode }
 const tag = (t: string, ...children: string[]) =>
   `<${t}>\n${children.join("\n")}\n</${t}>\n\n`
 
-export function chatToMd({ chat, lastN = 0, mode = "nice" }: ChatToMd): string {
+export function chatToMd({ chat, lastN = 0, mode = "cli" }: ChatToMd): string {
   const messages = lastN ? chat.messages.slice(-lastN) : chat.messages
 
   if (mode === "raw") {

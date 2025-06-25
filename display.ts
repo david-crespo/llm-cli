@@ -71,26 +71,29 @@ type DisplayMode = "cli" | "verbose" | "raw" | "gist"
 export function messageContentMd(msg: ChatMessage, mode: DisplayMode) {
   let output = ""
 
-  if (msg.role === "assistant" && mode !== "raw") {
-    // only show stop reason if it's not a natural stop
-    const showStopReason = !["stop", "end_turn", "completed"].includes(
-      msg.stop_reason.toLowerCase(),
-    )
+  if (msg.role === "assistant") {
+    // show metadata line in all modes except raw
+    if (mode !== "raw") {
+      // only show stop reason if it's not a natural stop
+      const showStopReason = !["stop", "end_turn", "completed"].includes(
+        msg.stop_reason.toLowerCase(),
+      )
 
-    output += codeMd(msg.model)
-    output += ` | ${timeFmt.format(msg.timeMs / 1000)} s`
-    output += ` | ${moneyFmt.format(msg.cost)}`
+      output += codeMd(msg.model)
+      output += ` | ${timeFmt.format(msg.timeMs / 1000)} s`
+      output += ` | ${moneyFmt.format(msg.cost)}`
 
-    // show cached tokens in parens if there are any
-    const input = msg.tokens.input_cache_hit
-      ? `${msg.tokens.input} (${msg.tokens.input_cache_hit})`
-      : msg.tokens.input
-    output += ` | **Tokens:** ${input} -> ${msg.tokens.output}`
-    if (showStopReason) output += ` | **Stop reason:** ${msg.stop_reason}`
+      // show cached tokens in parens if there are any
+      const input = msg.tokens.input_cache_hit
+        ? `${msg.tokens.input} (${msg.tokens.input_cache_hit})`
+        : msg.tokens.input
+      output += ` | **Tokens:** ${input} -> ${msg.tokens.output}`
+      if (showStopReason) output += ` | **Stop reason:** ${msg.stop_reason}`
 
-    output += "\n\n"
+      output += "\n\n"
+    }
 
-    // only show reasoning if not raw
+    // only show reasoning in gist or verbose mode
     if (msg.reasoning) {
       if (mode === "gist") {
         output += tag("details", tag("summary", "Reasoning"), quote(msg.reasoning))

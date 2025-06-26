@@ -39,7 +39,7 @@ export const models: Model[] = [
     input: 3,
     input_cached: 0.30,
     output: 15,
-    default: true,
+    // default: true,
   },
   {
     provider: "anthropic",
@@ -56,7 +56,7 @@ export const models: Model[] = [
     input: 1.25,
     input_cached: 0.31,
     output: 10.00,
-    // default: true,
+    default: true,
   },
   {
     provider: "google",

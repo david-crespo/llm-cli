@@ -230,11 +230,22 @@ async function geminiCreateMessage({ chat, input, model, tools }: ChatInput) {
     ],
   })
 
+  // console.log(JSON.stringify(result, null, 2))
+
   const parts = result.candidates?.[0].content?.parts ?? []
   const reasoning = parts.filter((p) => p.text && p.thought).map((p) => p.text!).join(
     "\n\n",
   )
-  const content = parts.filter((p) => p.text && !p.thought).map((p) => p.text!).join("\n\n")
+  let content = parts.filter((p) => p.text && !p.thought).map((p) => p.text!).join("\n\n")
+
+  const searchResults = result.candidates?.[0].groundingMetadata?.groundingChunks
+  const searchResultsMd = searchResults
+    ? "\n\n### Sources\n\n" + searchResults
+      .filter((chunk) => chunk.web)
+      .map((chunk) => `- [${chunk.web!.title}](${chunk.web!.uri})`).join("\n")
+    : ""
+
+  content += searchResultsMd
 
   const tokens = {
     input: result.usageMetadata?.promptTokenCount || 0,

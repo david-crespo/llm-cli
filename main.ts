@@ -11,6 +11,7 @@ import { resolveModel, systemBase } from "./models.ts"
 import {
   chatToMd,
   codeBlock,
+  type DisplayMode,
   jsonBlock,
   messageContentMd,
   modelsMd,
@@ -33,6 +34,10 @@ function chatPickerOptions(chats: Chat[]) {
     return [chat.summary || "", modelId, `${date} (${chat.messages.length})`]
   }))
   return table.padding(3).toString().split("\n")
+}
+
+function getMode(opts: { raw?: boolean; verbose?: boolean }): DisplayMode {
+  return opts.raw ? "raw" : opts.verbose ? "verbose" : "cli"
 }
 
 /**
@@ -102,8 +107,7 @@ const showCmd = new Command()
     const chat = history.at(-1) // last one is current
     if (!chat) throw new ValidationError("No chat in progress")
     const lastN = opts.all ? chat.messages.length : opts.limit
-    const mode = opts.raw ? "raw" : opts.verbose ? "verbose" : "cli"
-    await renderMd(chatToMd({ chat, lastN, mode }), opts.raw)
+    await renderMd(chatToMd({ chat, lastN, mode: getMode(opts) }), opts.raw)
   })
 
 const gistCmd = new Command()
@@ -164,6 +168,7 @@ the raw output to stdout.`)
   })
   .option("-e, --ephemeral", "Don't save to history")
   .option("-c, --cache", "Cache input (Anthropic only, others are automatic)")
+  .option("-v, --verbose", "Include reasoning in output")
   .option("--raw", "Print LLM text directly (no metadata or reasoning)")
   .example("1)", "ai 'What is the capital of France?'")
   .example("2)", "cat main.ts | ai 'what is this?'")
@@ -241,7 +246,7 @@ the raw output to stdout.`)
         assistantMsg,
       )
       if (!opts.ephemeral) History.write(history)
-      await renderMd(messageContentMd(assistantMsg, opts.raw ? "raw" : "cli"), opts.raw)
+      await renderMd(messageContentMd(assistantMsg, getMode(opts)), opts.raw)
 
       // deno-lint-ignore no-explicit-any
     } catch (e: any) {

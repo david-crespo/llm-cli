@@ -66,7 +66,7 @@ const escapeThinkTags = (content: string) =>
  * - `raw` is for insertion in, e.g., a text editor
  * - `gist` includes meta but collapses reasoning under `<details>`
  */
-type DisplayMode = "cli" | "verbose" | "raw" | "gist"
+export type DisplayMode = "cli" | "verbose" | "raw" | "gist"
 
 export function messageContentMd(msg: ChatMessage, mode: DisplayMode) {
   let output = ""

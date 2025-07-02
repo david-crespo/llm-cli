@@ -117,6 +117,8 @@ const tag = (t: string, ...children: string[]) =>
   `<${t}>\n${children.join("\n")}\n</${t}>\n\n`
 
 export function chatToMd({ chat, lastN = 0, mode = "cli" }: ChatToMd): string {
+  // cap lastN at the number of messages, otherwise indexing gets weird
+  lastN = Math.min(lastN, chat.messages.length)
   const messages = lastN ? chat.messages.slice(-lastN) : chat.messages
 
   if (mode === "raw") {

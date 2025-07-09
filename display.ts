@@ -127,9 +127,12 @@ export function chatToMd({ chat, lastN = 0, mode = "cli" }: ChatToMd): string {
 
   let output = `**Chat started:** ${longDateFmt.format(chat.createdAt)}\n\n`
 
-  // only print system prompt if it's non-default
-  if (mode === "gist" || chat.systemPrompt !== systemBase) {
+  if (mode === "gist") {
+    // always print system prompt in gist mode, but collapse it
     output += tag("details", tag("summary", "System prompt"), chat.systemPrompt)
+  } else if (chat.systemPrompt !== systemBase) {
+    // otherwise only print system prompt if it's non-default
+    output += `**System prompt:** ${chat.systemPrompt}\n\n`
   }
 
   const msgCount = chat.messages.length

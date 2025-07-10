@@ -67,10 +67,7 @@ const makeOpenAIResponsesFunc =
 
 const makeOpenAIFunc = (client: OpenAI) => async ({ chat, input, model }: ChatInput) => {
   const systemMsg = chat.systemPrompt
-    ? [{
-      role: model.key.startsWith("o1") ? "user" as const : "system" as const,
-      content: chat.systemPrompt,
-    }]
+    ? [{ role: "system" as const, content: chat.systemPrompt }]
     : []
   const messages = [
     ...systemMsg,
@@ -86,9 +83,15 @@ const makeOpenAIFunc = (client: OpenAI) => async ({ chat, input, model }: ChatIn
       ? message.reasoning_content
       : undefined
 
+  // grok does not include reasoning tokens in completion_tokens. deepseek does
+  let output = response.usage?.completion_tokens || 0
+  if (model.key.startsWith("grok")) {
+    output += response.usage?.completion_tokens_details?.reasoning_tokens || 0
+  }
+
   const tokens = {
     input: response.usage?.prompt_tokens || 0,
-    output: response.usage?.completion_tokens || 0,
+    output,
     input_cache_hit: response.usage?.prompt_tokens_details?.cached_tokens || 0,
   }
   return {
@@ -120,6 +123,13 @@ export const cerebrasCreateMessage = makeOpenAIFunc(
   new OpenAI({
     baseURL: "https://api.cerebras.ai/v1",
     apiKey: Deno.env.get("CEREBRAS_API_KEY"),
+  }),
+)
+
+export const grokCreateMessage = makeOpenAIFunc(
+  new OpenAI({
+    baseURL: "https://api.x.ai/v1",
+    apiKey: Deno.env.get("XAI_API_KEY"),
   }),
 )
 
@@ -303,5 +313,6 @@ export function createMessage(provider: string, input: ChatInput): Promise<Model
   if (provider === "deepseek") return deepseekCreateMessage(input)
   if (provider === "cerebras") return cerebrasCreateMessage(input)
   if (provider === "groq") return groqCreateMessage(input)
+  if (provider === "xai") return grokCreateMessage(input)
   return gptCreateMessage(input)
 }

@@ -39,7 +39,6 @@ export const models: Model[] = [
     input: 3,
     input_cached: 0.30,
     output: 15,
-    // default: true,
   },
   {
     provider: "anthropic",
@@ -73,6 +72,14 @@ export const models: Model[] = [
     input: .10,
     input_cached: 0.025,
     output: .40,
+  },
+  {
+    provider: "xai",
+    key: "grok-4",
+    id: "grok-4",
+    input: 3.00,
+    input_cached: 0.75,
+    output: 15.00,
   },
   {
     provider: "openai",

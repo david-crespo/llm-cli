@@ -8,7 +8,10 @@ const RENDERER = "glow"
 
 export async function renderMd(md: string, raw = false) {
   if ($.commandExistsSync(RENDERER) && Deno.stdout.isTerminal() && !raw) {
-    await $`${RENDERER}`.stdinText(md)
+    // When the terminal width is < 80, glow by default seems to use a width of
+    // 80, causing unsightly wrapping. Plus sometimes we want wider than 80.
+    const width = Math.min(Deno.consoleSize().columns, 100)
+    await $`${RENDERER} --width ${width}`.stdinText(md)
   } else {
     console.log(md)
   }

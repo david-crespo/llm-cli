@@ -161,6 +161,13 @@ export const models: Model[] = [
   // technically free until they set up their paid tier but whatever
   {
     provider: "cerebras",
+    key: "qwen-3-235b-a22b",
+    id: "cerebras-qwen-3-235b",
+    input: 0.60,
+    output: 1.20,
+  },
+  {
+    provider: "cerebras",
     key: "llama-3.3-70b",
     id: "cerebras-llama",
     input: 0.85,

@@ -78,10 +78,20 @@ const makeOpenAIFunc = (client: OpenAI) => async ({ chat, input, model }: ChatIn
   const message = response.choices[0].message
   if (!message) throw new Error("No response found")
 
-  const reasoning =
+  let reasoning =
     "reasoning_content" in message && typeof message.reasoning_content === "string"
       ? message.reasoning_content
-      : undefined
+      : ""
+
+  let content = message.content || ""
+
+  // extract reasoning from think tags
+  const thinkMatch = /<think>(.+)<\/think>\s+(.+)/ms.exec(content)
+  if (thinkMatch) {
+    // shouldn't be both reasoning_content and <think> but handle it just in case
+    reasoning = reasoning ? reasoning + "\n\n" + thinkMatch[1] : thinkMatch[1]
+    content = thinkMatch[2]
+  }
 
   // grok does not include reasoning tokens in completion_tokens. deepseek does
   let output = response.usage?.completion_tokens || 0
@@ -95,7 +105,7 @@ const makeOpenAIFunc = (client: OpenAI) => async ({ chat, input, model }: ChatIn
     input_cache_hit: response.usage?.prompt_tokens_details?.cached_tokens || 0,
   }
   return {
-    content: (message.content || ""),
+    content,
     reasoning,
     tokens,
     cost: getCost(model, tokens),

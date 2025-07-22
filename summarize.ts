@@ -19,7 +19,7 @@ async function summarize(chat: Chat): Promise<void> {
   const summary = await groqCreateMessage({
     chat: {
       systemPrompt:
-        "You are summarizing LLM chats based on excerpts for use in a TUI conversation list. Be concise and accurate. Include details that help identify that chat. Only provide the summary; do not include explanation or followup questions. Do not end with a period.",
+        "You are summarizing LLM chats based on excerpts for use in a TUI conversation list. Be concise and accurate. Include details that help identify that chat. Only provide the summary; do not include explanation or followup questions. Do not end with a period. Do not use slashes.",
       messages: [],
       createdAt: new Date(),
     },

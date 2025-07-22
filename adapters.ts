@@ -219,22 +219,19 @@ async function geminiCreateMessage({ chat, input, model, tools }: ChatInput) {
   const apiKey = Deno.env.get("GEMINI_API_KEY")
   if (!apiKey) throw Error("GEMINI_API_KEY missing")
 
-  // TODO: input token count seems too low when using think tool
   const think = model.id.includes("pro") || tools.includes("think")
   const config: GenerateContentConfig = {
     thinkingConfig: {
       thinkingBudget: think ? undefined : 0,
       includeThoughts: true,
     },
+    systemInstruction: chat.systemPrompt,
   }
+
   if (tools && tools.length > 0) {
     config.tools = []
     if (tools.includes("search")) config.tools.push({ googleSearch: {} })
     if (tools.includes("code")) config.tools.push({ codeExecution: {} })
-  } else {
-    // code seems incompatible with a system prompt. search isn't, but it's too
-    // concise with the system prompt, so we'll leave it off there too
-    config.systemInstruction = chat.systemPrompt
   }
 
   const result = await new GoogleGenAI({ apiKey }).models.generateContent({

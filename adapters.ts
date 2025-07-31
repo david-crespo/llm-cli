@@ -85,12 +85,13 @@ const makeOpenAIFunc = (client: OpenAI) => async ({ chat, input, model }: ChatIn
 
   let content = message.content || ""
 
-  // extract reasoning from think tags
-  const thinkMatch = /<think>(.+)<\/think>\s+(.+)/ms.exec(content)
+  // extract reasoning from think tags. opening tag is optional because
+  // cerebras leaves it out, the maniacs
+  const thinkMatch = /(<think>)?(.+)<\/think>\s+(.+)/ms.exec(content)
   if (thinkMatch) {
     // shouldn't be both reasoning_content and <think> but handle it just in case
-    reasoning = reasoning ? reasoning + "\n\n" + thinkMatch[1] : thinkMatch[1]
-    content = thinkMatch[2]
+    reasoning = reasoning ? reasoning + "\n\n" + thinkMatch[2] : thinkMatch[2]
+    content = thinkMatch[3]
   }
 
   // grok does not include reasoning tokens in completion_tokens. deepseek does

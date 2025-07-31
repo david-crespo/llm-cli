@@ -128,7 +128,22 @@ export const models: Model[] = [
     input: 1.00,
     output: 3.00,
   },
-  // technically free until they set up their paid tier but whatever
+  // technically free until they set up their paid tier but whatever.
+  // put thinking first so it's the default
+  {
+    provider: "cerebras",
+    key: "qwen-3-coder-480b",
+    id: "qwen-3-coder-480b",
+    input: 2.00,
+    output: 2.00,
+  },
+  {
+    provider: "cerebras",
+    key: "qwen-3-235b-a22b-thinking-2507",
+    id: "qwen-3-235b-thinking",
+    input: 0.60,
+    output: 1.20,
+  },
   {
     provider: "cerebras",
     key: "qwen-3-235b-a22b-instruct-2507",

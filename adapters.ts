@@ -144,6 +144,13 @@ export const grokCreateMessage = makeOpenAIFunc(
   }),
 )
 
+export const openrouterCreateMessage = makeOpenAIFunc(
+  new OpenAI({
+    baseURL: "https://openrouter.ai/api/v1",
+    apiKey: Deno.env.get("OPENROUTER_API_KEY"),
+  }),
+)
+
 function claudeMsg(
   role: "user" | "assistant",
   text: string,
@@ -322,5 +329,6 @@ export function createMessage(provider: string, input: ChatInput): Promise<Model
   if (provider === "cerebras") return cerebrasCreateMessage(input)
   if (provider === "groq") return groqCreateMessage(input)
   if (provider === "xai") return grokCreateMessage(input)
+  if (provider === "openrouter") return openrouterCreateMessage(input)
   return gptCreateMessage(input)
 }

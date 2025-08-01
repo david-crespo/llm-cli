@@ -158,6 +158,13 @@ export const models: Model[] = [
     input: 0.40,
     output: 0.80,
   },
+  {
+    provider: "openrouter",
+    key: "openrouter/horizon-alpha",
+    id: "horizon-alpha",
+    input: 0,
+    output: 0,
+  },
 ]
 
 /** Errors and exits if it can't resolve to a model */

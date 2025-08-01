@@ -65,90 +65,82 @@ const makeOpenAIResponsesFunc =
     }
   }
 
-const makeOpenAIFunc = (client: OpenAI) => async ({ chat, input, model }: ChatInput) => {
-  const systemMsg = chat.systemPrompt
-    ? [{ role: "system" as const, content: chat.systemPrompt }]
-    : []
-  const messages = [
-    ...systemMsg,
-    ...chat.messages.map((m) => ({ role: m.role, content: m.content })),
-    { role: "user" as const, content: input },
-  ]
-  const response = await client.chat.completions.create({ model: model.key, messages })
-  const message = response.choices[0].message
-  if (!message) throw new Error("No response found")
+const makeOpenAIFunc =
+  (baseURL: string, envVarName: string) => async ({ chat, input, model }: ChatInput) => {
+    const client = new OpenAI({ baseURL, apiKey: Deno.env.get(envVarName) })
+    const systemMsg = chat.systemPrompt
+      ? [{ role: "system" as const, content: chat.systemPrompt }]
+      : []
+    const messages = [
+      ...systemMsg,
+      ...chat.messages.map((m) => ({ role: m.role, content: m.content })),
+      { role: "user" as const, content: input },
+    ]
+    const response = await client.chat.completions.create({ model: model.key, messages })
+    const message = response.choices[0].message
+    if (!message) throw new Error("No response found")
 
-  let reasoning =
-    "reasoning_content" in message && typeof message.reasoning_content === "string"
-      ? message.reasoning_content
-      : ""
+    let reasoning =
+      "reasoning_content" in message && typeof message.reasoning_content === "string"
+        ? message.reasoning_content
+        : ""
 
-  let content = message.content || ""
+    let content = message.content || ""
 
-  // extract reasoning from think tags. opening tag is optional because
-  // cerebras leaves it out, the maniacs
-  const thinkMatch = /(<think>)?(.+)<\/think>\s+(.+)/ms.exec(content)
-  if (thinkMatch) {
-    // shouldn't be both reasoning_content and <think> but handle it just in case
-    reasoning = reasoning ? reasoning + "\n\n" + thinkMatch[2] : thinkMatch[2]
-    content = thinkMatch[3]
+    // extract reasoning from think tags. opening tag is optional because
+    // cerebras leaves it out, the maniacs
+    const thinkMatch = /(<think>)?(.+)<\/think>\s+(.+)/ms.exec(content)
+    if (thinkMatch) {
+      // shouldn't be both reasoning_content and <think> but handle it just in case
+      reasoning = reasoning ? reasoning + "\n\n" + thinkMatch[2] : thinkMatch[2]
+      content = thinkMatch[3]
+    }
+
+    // grok does not include reasoning tokens in completion_tokens. deepseek does
+    let output = response.usage?.completion_tokens || 0
+    if (model.key.startsWith("grok")) {
+      output += response.usage?.completion_tokens_details?.reasoning_tokens || 0
+    }
+
+    const tokens = {
+      input: response.usage?.prompt_tokens || 0,
+      output,
+      input_cache_hit: response.usage?.prompt_tokens_details?.cached_tokens || 0,
+    }
+    return {
+      content,
+      reasoning,
+      tokens,
+      cost: getCost(model, tokens),
+      stop_reason: response.choices[0].finish_reason,
+    }
   }
-
-  // grok does not include reasoning tokens in completion_tokens. deepseek does
-  let output = response.usage?.completion_tokens || 0
-  if (model.key.startsWith("grok")) {
-    output += response.usage?.completion_tokens_details?.reasoning_tokens || 0
-  }
-
-  const tokens = {
-    input: response.usage?.prompt_tokens || 0,
-    output,
-    input_cache_hit: response.usage?.prompt_tokens_details?.cached_tokens || 0,
-  }
-  return {
-    content,
-    reasoning,
-    tokens,
-    cost: getCost(model, tokens),
-    stop_reason: response.choices[0].finish_reason,
-  }
-}
 
 const gptCreateMessage = makeOpenAIResponsesFunc(new OpenAI())
 
 export const groqCreateMessage = makeOpenAIFunc(
-  new OpenAI({
-    baseURL: "https://api.groq.com/openai/v1",
-    apiKey: Deno.env.get("GROQ_API_KEY"),
-  }),
+  "https://api.groq.com/openai/v1",
+  "GROQ_API_KEY",
 )
 
 const deepseekCreateMessage = makeOpenAIFunc(
-  new OpenAI({
-    baseURL: "https://api.deepseek.com",
-    apiKey: Deno.env.get("DEEPSEEK_API_KEY"),
-  }),
+  "https://api.deepseek.com",
+  "DEEPSEEK_API_KEY",
 )
 
 export const cerebrasCreateMessage = makeOpenAIFunc(
-  new OpenAI({
-    baseURL: "https://api.cerebras.ai/v1",
-    apiKey: Deno.env.get("CEREBRAS_API_KEY"),
-  }),
+  "https://api.cerebras.ai/v1",
+  "CEREBRAS_API_KEY",
 )
 
 export const grokCreateMessage = makeOpenAIFunc(
-  new OpenAI({
-    baseURL: "https://api.x.ai/v1",
-    apiKey: Deno.env.get("XAI_API_KEY"),
-  }),
+  "https://api.x.ai/v1",
+  "XAI_API_KEY",
 )
 
 export const openrouterCreateMessage = makeOpenAIFunc(
-  new OpenAI({
-    baseURL: "https://openrouter.ai/api/v1",
-    apiKey: Deno.env.get("OPENROUTER_API_KEY"),
-  }),
+  "https://openrouter.ai/api/v1",
+  "OPENROUTER_API_KEY",
 )
 
 function claudeMsg(

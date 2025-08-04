@@ -160,8 +160,8 @@ export const models: Model[] = [
   },
   {
     provider: "openrouter",
-    key: "openrouter/horizon-alpha",
-    id: "horizon-alpha",
+    key: "openrouter/horizon-beta",
+    id: "horizon-beta",
     input: 0,
     output: 0,
   },

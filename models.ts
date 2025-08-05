@@ -128,6 +128,20 @@ export const models: Model[] = [
     input: 1.00,
     output: 3.00,
   },
+  {
+    provider: "groq",
+    key: "openai/gpt-oss-120b",
+    id: "gpt-oss-120b",
+    input: 0.15,
+    output: 0.75,
+  },
+  {
+    provider: "groq",
+    key: "openai/gpt-oss-20b",
+    id: "gpt-oss-20b",
+    input: 0.10,
+    output: 0.50,
+  },
   // technically free until they set up their paid tier but whatever.
   // put thinking first so it's the default
   {

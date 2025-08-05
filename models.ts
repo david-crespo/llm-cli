@@ -234,4 +234,5 @@ export const systemBase = $.dedent`
   - Text editor: Helix
   - Shell: zsh
   - Programming languages: TypeScript and Rust
+  - Today's date is ${new Date().toISOString().slice(0, 10)}
 `

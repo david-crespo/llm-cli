@@ -55,7 +55,6 @@ export const models: Model[] = [
     input: 1.25,
     input_cached: 0.31,
     output: 10.00,
-    default: true,
   },
   {
     provider: "google",
@@ -83,11 +82,37 @@ export const models: Model[] = [
   },
   {
     provider: "openai",
-    key: "o4-mini",
-    id: "o4-mini",
-    input: 1.10,
-    input_cached: 0.275,
-    output: 4.40,
+    key: "gpt-5",
+    id: "gpt-5",
+    input: 1.25,
+    input_cached: 0.125,
+    output: 10,
+  },
+  // hack to have a thinking version as the default like gemini 2.5 pro
+  {
+    provider: "openai",
+    key: "gpt-5",
+    id: "gpt-5-thinking",
+    input: 1.25,
+    input_cached: 0.125,
+    output: 10,
+    default: true,
+  },
+  {
+    provider: "openai",
+    key: "gpt-5-mini",
+    id: "gpt-5-mini",
+    input: .25,
+    input_cached: 0.025,
+    output: 2.00,
+  },
+  {
+    provider: "openai",
+    key: "gpt-5-nano",
+    id: "gpt-5-nano",
+    input: 0.05,
+    input_cached: 0.005,
+    output: 0.40,
   },
   {
     provider: "deepseek",
@@ -208,6 +233,7 @@ export function getCost(model: Model, tokens: TokenCounts) {
 export const systemBase = $.dedent`
   - Answer the question precisely, without much elaboration
   - Write natural prose for a sophisticated reader, without unnecessary bullets or headings
+  - Avoid referring to yourself in the first person. You are a computer program, not a person.
   - When asked to write code, primarily output code, with minimal explanation unless requested
   - When given code to modify, prefer diff output rather than rewriting the full input unless the input is short
   - Your answers MUST be in markdown format

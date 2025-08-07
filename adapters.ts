@@ -1,4 +1,4 @@
-import OpenAI from "npm:openai@4.87.3"
+import OpenAI from "npm:openai@5.12.1"
 import Anthropic from "npm:@anthropic-ai/sdk@0.39.0"
 import { type GenerateContentConfig, GoogleGenAI } from "npm:@google/genai@1.1.0"
 import { ValidationError } from "jsr:@cliffy/command@1.0.0-rc.7"
@@ -35,10 +35,11 @@ const makeOpenAIResponsesFunc =
       tools: tools.includes("search")
         ? [{ type: "web_search_preview" as const }]
         : undefined,
-      // this is rejected, it doesn't like generate_summary yet
-      // reasoning: model.startsWith("o")
-      //   ? { effort: "low", generate_summary: "concise" }
-      //   : undefined,
+      reasoning: {
+        effort: tools.includes("think") || model.id === "gpt-5-thinking"
+          ? "medium"
+          : "minimal",
+      },
       instructions: chat.systemPrompt,
     })
 
@@ -289,7 +290,7 @@ type Tool = "search" | "code" | "think"
 const providerTools: Record<string, Tool[]> = {
   google: ["search", "code", "think"],
   anthropic: ["think"],
-  openai: ["search"],
+  openai: ["search", "think"],
 }
 
 function checkTools(provider: string, inputTools: string[]) {

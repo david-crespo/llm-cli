@@ -26,6 +26,7 @@
     "npm:@google/genai@0.8.0": "0.8.0",
     "npm:@google/genai@0.9.0": "0.9.0_zod@3.24.3",
     "npm:@google/genai@1.1.0": "1.1.0_@modelcontextprotocol+sdk@1.12.0__express@5.1.0__zod@3.24.3_zod@3.24.3",
+    "npm:@google/genai@1.15.0": "1.15.0",
     "npm:openai@4.87.3": "4.87.3",
     "npm:openai@5.12.1": "5.12.1",
     "npm:remeda@2.19": "2.19.2"
@@ -168,6 +169,13 @@
         "ws",
         "zod",
         "zod-to-json-schema"
+      ]
+    },
+    "@google/genai@1.15.0": {
+      "integrity": "sha512-4CSW+hRTESWl3xVtde7pkQ3E+dDFhDq+m4ztmccRctZfx1gKy3v0M9STIMGk6Nq0s6O2uKMXupOZQ1JGorXVwQ==",
+      "dependencies": [
+        "google-auth-library",
+        "ws"
       ]
     },
     "@modelcontextprotocol/sdk@1.12.0_express@5.1.0_zod@3.24.3": {

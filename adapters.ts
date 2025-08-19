@@ -1,6 +1,6 @@
 import OpenAI from "npm:openai@5.12.1"
 import Anthropic from "npm:@anthropic-ai/sdk@0.39.0"
-import { type GenerateContentConfig, GoogleGenAI } from "npm:@google/genai@1.1.0"
+import { type GenerateContentConfig, GoogleGenAI } from "npm:@google/genai@1.15.0"
 import { ValidationError } from "jsr:@cliffy/command@1.0.0-rc.7"
 import * as R from "npm:remeda@2.19"
 
@@ -221,22 +221,20 @@ async function geminiCreateMessage({ chat, input, model, tools }: ChatInput) {
   if (!apiKey) throw Error("GEMINI_API_KEY missing")
 
   const think = model.id.includes("pro") || tools.includes("think")
-  const config: GenerateContentConfig = {
-    thinkingConfig: {
-      thinkingBudget: think ? undefined : 0,
-      includeThoughts: true,
-    },
-    systemInstruction: chat.systemPrompt,
-  }
-
-  if (tools && tools.length > 0) {
-    config.tools = []
-    if (tools.includes("search")) config.tools.push({ googleSearch: {} })
-    if (tools.includes("code")) config.tools.push({ codeExecution: {} })
-  }
-
   const result = await new GoogleGenAI({ apiKey }).models.generateContent({
-    config,
+    config: {
+      thinkingConfig: {
+        thinkingBudget: think ? undefined : 0,
+        includeThoughts: true,
+      },
+      systemInstruction: chat.systemPrompt,
+      tools: [
+        // always include URL context. it was designed to be used this way
+        { urlContext: {} },
+        ...(tools.includes("search") ? [{ googleSearch: {} }] : []),
+        ...(tools.includes("code") ? [{ codeExecution: {} }] : []),
+      ],
+    },
     model: model.key,
     contents: [
       ...chat.messages.map((msg) => ({

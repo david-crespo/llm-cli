@@ -17,7 +17,6 @@ And it's easy to add more.
 
 <img width="668" alt="output of models command showing table of supported models" src="https://github.com/user-attachments/assets/95880d8a-b4fc-4095-8d08-b4a920125a11" />
 
-
 ### Beautiful output powered by markdown
 
 <img width="711" alt="image" src="https://github.com/user-attachments/assets/0acab93c-4062-46db-9779-8e48f9ccc1e9" />
@@ -29,7 +28,6 @@ And it's easy to add more.
 ### Read input from stdin
 
 <img width="668" alt="image" src="https://github.com/user-attachments/assets/84f64f93-6d56-483f-984e-42ce1eea5235" />
-
 
 ### Upload chat to GitHub Gist for sharing or permanent storage
 
@@ -45,8 +43,8 @@ No vision, no streaming responses (yet).
 
 ### API keys
 
-Set any or all of these, depending on which models you want to use. It is often
-convenient to put them in a `.env` file like below and call `source .env`.
+Set any or all of these, depending on which models you want to use. It is often convenient
+to put them in a `.env` file like below and call `source .env`.
 
 ```sh
 export OPENAI_API_KEY=abc-123
@@ -54,23 +52,24 @@ export ANTHROPIC_API_KEY=def-456
 export GEMINI_API_KEY=ghi-789
 ```
 
-The script does not automatically pick up a `.env` file; the variables need to
-be set in the environment.
+The script does not automatically pick up a `.env` file; the variables need to be set in the
+environment.
 
 ### Dependencies
 
 - [Deno](https://docs.deno.com/runtime/manual) (essential)
 - [`glow`](https://github.com/charmbracelet/glow) (terminal markdown renderer)
-  - You can do without `glow` if you like reading raw markdown or you pipe
-    output to some other tool for rendering markdown in the terminal
+  - You can do without `glow` if you like reading raw markdown or you pipe output to some
+    other tool for rendering markdown in the terminal
 - [`gh`](https://cli.github.com/) (GitHub CLI, optional)
   - Only needed if you want to upload chats as GitHub gists
-  - You'll need to be logged in ([`gh auth login`](https://cli.github.com/manual/gh_auth_login))
+  - You'll need to be logged in
+    ([`gh auth login`](https://cli.github.com/manual/gh_auth_login))
 
 ### Installation
 
-Clone the repo. Then you just need a way to run `main.ts` and pipe the output to
-`glow`. I use this function in my `.zprofile`:
+Clone the repo. Then you just need a way to run `main.ts` and pipe the output to `glow`. I
+use this function in my `.zprofile`:
 
 ```bash
 function ai() {

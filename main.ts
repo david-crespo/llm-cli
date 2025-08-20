@@ -26,6 +26,9 @@ import { genMissingSummaries } from "./summarize.ts"
 const getLastModelId = (chat: Chat) =>
   chat.messages.findLast((m) => m.role === "assistant")?.model
 
+const truncate = (str: string, maxLength: number) =>
+  str.length > maxLength ? str.slice(0, maxLength) + "..." : str
+
 /** use cliffy's table to align columns, then split on newline to get lines as strings */
 function chatPickerOptions(chats: Chat[]) {
   const table = new Table(...chats.map((chat) => {
@@ -36,8 +39,55 @@ function chatPickerOptions(chats: Chat[]) {
   return table.padding(3).toString().split("\n")
 }
 
+/** use cliffy's table to align columns for message picker, then split on newline to get lines as strings */
+function messagePickerOptions(messages: Chat["messages"]) {
+  const table = new Table(...messages.map((msg, i) => {
+    const preview = truncate(msg.content.replace(/\n/g, " "), 50)
+    const actor = msg.role === "assistant" ? msg.model : "user"
+    return [`${i + 1}`, actor, preview]
+  }))
+  return table.padding(3).toString().split("\n")
+}
+
 function getMode(opts: { raw?: boolean; verbose?: boolean }): DisplayMode {
   return opts.raw ? "raw" : opts.verbose ? "verbose" : "cli"
+}
+
+/**
+ * Generate a response for a chat with the given input and options
+ */
+async function genResponse(
+  chatInput: ChatInput,
+  displayOpts: { raw?: boolean; verbose?: boolean } = {},
+) {
+  const { raw = false, verbose = false } = displayOpts
+
+  // don't want progress spinner when piping output
+  const pb = Deno.stdout.isTerminal() && !raw ? $.progress("Thinking...") : null
+
+  try {
+    const startTime = performance.now()
+    const response = await createMessage(chatInput.model.provider, chatInput)
+    if (pb) pb.finish()
+    const timeMs = performance.now() - startTime
+    const assistantMsg = {
+      role: "assistant" as const,
+      model: chatInput.model.id,
+      timeMs,
+      ...response,
+    }
+    chatInput.chat.messages.push(assistantMsg)
+
+    await renderMd(messageContentMd(assistantMsg, getMode({ raw, verbose })), raw)
+
+    // deno-lint-ignore no-explicit-any
+  } catch (e: any) {
+    if (pb) pb.finish() // otherwise it hangs around
+    if (e.response?.status) console.log("Request error:", e.response.status)
+    if (e.response?.data) renderMd(jsonBlock(e.response.data))
+    if (e.response?.error) renderMd(jsonBlock(e.response.error))
+    if (!("response" in e)) renderMd(codeBlock(e))
+  }
 }
 
 /**
@@ -83,7 +133,7 @@ const historyCmd = new Command()
     const n = opts.all ? selected.messages.length : opts.limit
     await renderMd(chatToMd({ chat: selected, lastN: n }))
   })
-  .command("clear", "Delete current chat from localStorage")
+  .command("clear", "Delete current history from localStorage")
   .action(async () => {
     const history = History.read()
     const n = history.length
@@ -138,6 +188,57 @@ const modelsCmd = new Command()
   .option("-v, --verbose", "Show model keys")
   .action((opts) => renderMd(modelsMd(opts.verbose)))
 
+const forkCmd = new Command()
+  .description("Fork chat from a specific message with a different model")
+  .option("-m, --model <model:string>", "Select model by substring (e.g., 'sonnet')", {
+    required: true,
+  })
+  .action(async (opts) => {
+    const history = History.read()
+    const currentChat = history.at(-1) // last one is current
+    if (!currentChat || currentChat.messages.length === 0) {
+      throw new ValidationError("No chat in progress")
+    }
+
+    const selectedIdx = await $.select({
+      message: "Pick a message to fork from",
+      options: messagePickerOptions(currentChat.messages),
+      noClear: true,
+    })
+
+    const selectedMessage = currentChat.messages[selectedIdx]
+    const model = resolveModel(opts.model)
+
+    // Create new chat with messages up to the selected one
+    const newChat: Chat = {
+      createdAt: new Date(),
+      systemPrompt: currentChat.systemPrompt,
+      messages: currentChat.messages.slice(0, selectedIdx + 1),
+      summary: currentChat.summary,
+    }
+
+    // Add the new chat to history and make it current
+    history.push(newChat)
+
+    if (selectedMessage.role === "user") {
+      const chatInput: ChatInput = {
+        chat: newChat,
+        input: selectedMessage.content,
+        image_url: selectedMessage.image_url,
+        model,
+        // TODO: preserve tools so we can pass them here if applicable?
+        tools: [],
+      }
+      await genResponse(chatInput, {})
+    } else {
+      console.log(
+        `Forked on assistant message with model ${model.id}. You can now continue the chat.`,
+      )
+    }
+
+    History.write(history)
+  })
+
 await new Command()
   .name("ai")
   .description(`
@@ -150,6 +251,7 @@ the raw output to stdout.`)
   // top level subcommands
   .command("show", showCmd)
   .command("history", historyCmd)
+  .command("fork", forkCmd)
   .command("gist", gistCmd)
   .command("models", modelsCmd)
   .reset()
@@ -216,41 +318,13 @@ the raw output to stdout.`)
       throw new ValidationError("Image URLs only work for Anthropic")
     }
 
-    // don't want progress spinner when piping output
-    const pb = Deno.stdout.isTerminal() && !opts.raw ? $.progress("Thinking...") : null
+    chat.messages.push({ role: "user", content: input, image_url: opts.image })
 
-    try {
-      const startTime = performance.now()
-      const chatInput: ChatInput = {
-        chat,
-        input,
-        image_url: opts.image,
-        model,
-        tools,
-      }
-      const response = await createMessage(model.provider, chatInput)
-      if (pb) pb.finish()
-      const timeMs = performance.now() - startTime
-      const assistantMsg = {
-        role: "assistant" as const,
-        model: model.id,
-        timeMs,
-        ...response,
-      }
-      chat.messages.push(
-        { role: "user", content: input, image_url: opts.image },
-        assistantMsg,
-      )
-      if (!opts.ephemeral) History.write(history)
-      await renderMd(messageContentMd(assistantMsg, getMode(opts)), opts.raw)
+    await genResponse(
+      { chat, input, image_url: opts.image, model, tools },
+      R.pick(opts, ["raw", "verbose"]),
+    )
 
-      // deno-lint-ignore no-explicit-any
-    } catch (e: any) {
-      if (pb) pb.finish() // otherwise it hangs around
-      if (e.response?.status) console.log("Request error:", e.response.status)
-      if (e.response?.data) renderMd(jsonBlock(e.response.data))
-      if (e.response?.error) renderMd(jsonBlock(e.response.error))
-      if (!("response" in e)) renderMd(codeBlock(e))
-    }
+    if (!opts.ephemeral) History.write(history)
   })
   .parse(Deno.args)

@@ -25,7 +25,7 @@ async function summarize(chat: Chat): Promise<void> {
     },
     input:
       `Please summarize an LLM chat based on the following excerpt from the first message. Use as few words as possible. Ideally 4-6 words, but up to 10. \n\n<excerpt>${abridged}</excerpt>`,
-    model: resolveModel("groq-kimi-k2"),
+    model: resolveModel("kimi-k2"),
     tools: [],
   })
 

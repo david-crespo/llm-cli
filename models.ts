@@ -149,7 +149,7 @@ export const models: Model[] = [
   {
     provider: "groq",
     key: "moonshotai/kimi-k2-instruct",
-    id: "groq-kimi-k2",
+    id: "kimi-k2",
     input: 1.00,
     output: 3.00,
   },

@@ -31,23 +31,26 @@ const moneyFmt = Intl.NumberFormat("en-US", {
   maximumFractionDigits: 5,
 })
 
-const modelsTable = markdownTable([
-  ["ID", "Model key", "Input", "Cached", "Output"],
-  ...models
-    .map((m) => [
+const modelsTable = (verbose: boolean) =>
+  markdownTable([
+    ["Provider", "ID", ...(verbose ? ["Model key"] : []), "Input", "Cached", "Output"],
+    ...models.map((m) => [
+      m.provider,
       m.id + (m.default ? " ⭐" : ""),
-      m.key.replace(/^meta-llama\//, ""),
+      ...(verbose ? [m.key.replace(/^meta-llama\//, "")] : []),
       moneyFmt.format(m.input),
       m.input_cached ? moneyFmt.format(m.input_cached) : "",
       moneyFmt.format(m.output),
     ]),
-])
+  ])
 
 /** Split, add `"> "` to the beginning of each line, and rejoin */
 const quote = (s: string) => s.split("\n").map((line) => "> " + line).join("\n")
 
-export const modelsMd =
-  `Models are matched on ID or key. Prices are per million tokens.\n\n${modelsTable}`
+export const modelsMd = (verbose = false) =>
+  `Models are matched on ID or key. Prices are per million tokens.\n\n${
+    modelsTable(verbose)
+  }`
 
 // split from message content because we only want this in show or gist mode
 function messageHeaderMd(msg: ChatMessage, msgNum: number, msgCount: number) {

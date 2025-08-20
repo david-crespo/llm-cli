@@ -135,7 +135,8 @@ const gistCmd = new Command()
 
 const modelsCmd = new Command()
   .description("List models")
-  .action(() => renderMd(modelsMd))
+  .option("-v, --verbose", "Show model keys")
+  .action((opts) => renderMd(modelsMd(opts.verbose)))
 
 await new Command()
   .name("ai")

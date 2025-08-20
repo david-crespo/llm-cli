@@ -151,6 +151,7 @@ export const models: Model[] = [
     key: "moonshotai/kimi-k2-instruct",
     id: "kimi-k2",
     input: 1.00,
+    input_cached: 0.50,
     output: 3.00,
   },
   // technically free until they set up their paid tier but whatever.

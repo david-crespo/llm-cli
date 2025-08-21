@@ -168,7 +168,6 @@ the raw output to stdout.`)
     conflicts: ["persona"],
   })
   .option("-e, --ephemeral", "Don't save to history")
-  .option("-c, --cache", "Cache input (Anthropic only, others are automatic)")
   .option("-v, --verbose", "Include reasoning in output")
   .option("--raw", "Print LLM text directly (no metadata or reasoning)")
   .example("1)", "ai 'What is the capital of France?'")
@@ -213,9 +212,6 @@ the raw output to stdout.`)
       opts.reply && prevModelId && !opts.model ? prevModelId : opts.model,
     )
     const tools = parseTools(model.provider, opts.tools || [])
-    if (opts.cache && model.provider !== "anthropic") {
-      throw new ValidationError("Manual caching only works for Anthropic")
-    }
     if (opts.image && model.provider !== "anthropic") {
       throw new ValidationError("Image URLs only work for Anthropic")
     }
@@ -231,7 +227,6 @@ the raw output to stdout.`)
         image_url: opts.image,
         model,
         tools,
-        cache: opts.cache,
       }
       const response = await createMessage(model.provider, chatInput)
       if (pb) pb.finish()

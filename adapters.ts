@@ -1,6 +1,6 @@
 import OpenAI from "npm:openai@5.12.1"
 import Anthropic from "npm:@anthropic-ai/sdk@0.39.0"
-import { type GenerateContentConfig, GoogleGenAI } from "npm:@google/genai@1.15.0"
+import { GoogleGenAI } from "npm:@google/genai@1.15.0"
 import { ValidationError } from "jsr:@cliffy/command@1.0.0-rc.7"
 import * as R from "npm:remeda@2.19"
 
@@ -21,7 +21,6 @@ export type ChatInput = {
   image_url?: string | undefined
   model: Model
   tools: string[]
-  cache?: boolean
 }
 
 const makeOpenAIResponsesFunc =
@@ -147,16 +146,9 @@ export const openrouterCreateMessage = makeOpenAIFunc(
 function claudeMsg(
   role: "user" | "assistant",
   text: string,
-  cache?: boolean,
   image_url?: string,
 ): Anthropic.MessageParam {
-  const content: Anthropic.ContentBlockParam[] = [
-    {
-      type: "text",
-      text,
-      cache_control: cache ? { type: "ephemeral" } : undefined,
-    },
-  ]
+  const content: Anthropic.ContentBlockParam[] = [{ type: "text", text }]
 
   if (image_url) {
     content.unshift({
@@ -169,7 +161,7 @@ function claudeMsg(
 }
 
 async function claudeCreateMessage(
-  { chat, input, image_url, model, cache, tools }: ChatInput,
+  { chat, input, image_url, model, tools }: ChatInput,
 ) {
   const think = tools.length > 0 && tools.includes("think")
 
@@ -177,8 +169,8 @@ async function claudeCreateMessage(
     model: model.key,
     system: chat.systemPrompt,
     messages: [
-      ...chat.messages.map((m) => claudeMsg(m.role, m.content, m.cache)),
-      claudeMsg("user", input, cache, image_url),
+      ...chat.messages.map((m) => claudeMsg(m.role, m.content)),
+      claudeMsg("user", input, image_url),
     ],
     max_tokens: 4096,
     thinking: think ? { "type": "enabled", budget_tokens: 1024 } : undefined,
@@ -212,7 +204,6 @@ async function claudeCreateMessage(
     tokens,
     cost: getCost(model, tokens),
     stop_reason: response.stop_reason!, // always non-null in non-streaming mode
-    cache,
   }
 }
 

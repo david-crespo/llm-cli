@@ -52,6 +52,9 @@ export const modelsMd = (verbose = false) =>
     modelsTable(verbose)
   }`
 
+// Collapse very long user inputs in gists
+const LONG_INPUT_THRESHOLD = 4000 // approx 800 words * 5 chars
+
 // split from message content because we only want this in show or gist mode
 function messageHeaderMd(msg: ChatMessage, msgNum: number, msgCount: number) {
   return `# ${msg.role} (${msgNum}/${msgCount})\n\n`
@@ -109,7 +112,12 @@ export function messageContentMd(msg: ChatMessage, mode: DisplayMode) {
     }
   }
 
-  output += mode === "raw" ? msg.content : escapeThinkTags(msg.content)
+  // For long user inputs in gist mode, collapse in a details block
+  if (msg.role === "user" && mode === "gist" && msg.content.length > LONG_INPUT_THRESHOLD) {
+    output += tag("details", tag("summary", "Long input collapsed"), escapeThinkTags(msg.content))
+  } else {
+    output += mode === "raw" ? msg.content : escapeThinkTags(msg.content)
+  }
   if (msg.role === "user" && msg.image_url) {
     output += `\n\n[Image](${msg.image_url})`
   }

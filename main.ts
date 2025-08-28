@@ -258,17 +258,14 @@ the raw output to stdout.`)
   // top level `ai hello how are you` command
   .arguments("[message...]")
   .helpOption("-h, --help", "Show help")
-  .help({ hints: false }) // hides ugly (Conflicts: persona) hint
+  .help({ hints: false })
   .option("-r, --reply", "Continue existing chat")
   .option("-m, --model <model:string>", "Select model by substring (e.g., 'sonnet')")
   .option("-t, --tools <tools:string>", "Use tools (search, code, or think)", {
     collect: true,
   })
   .option("-i, --image <url:string>", "Image URL (Claude only)")
-  .option("-p, --persona <persona:string>", "Override persona in system prompt")
-  .option("-s, --system <system:string>", "Override entire system prompt", {
-    conflicts: ["persona"],
-  })
+  .option("-s, --system <system:string>", "Override entire system prompt")
   .option("-e, --ephemeral", "Don't save to history")
   .option("-v, --verbose", "Include reasoning in output")
   .option("--raw", "Print LLM text directly (no metadata or reasoning)")
@@ -290,9 +287,7 @@ the raw output to stdout.`)
     }
     const input = [stdin, msg].filter(Boolean).join("\n\n")
 
-    const persona = opts.persona ? `You are ${opts.persona}. ` : ""
-
-    const systemPrompt = opts.system || (persona + systemBase)
+    const systemPrompt = opts.system || systemBase
 
     const history = History.read()
     // if we're not continuing an existing conversation, pop a new one onto history

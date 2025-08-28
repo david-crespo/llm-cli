@@ -114,7 +114,11 @@ export function messageContentMd(msg: ChatMessage, mode: DisplayMode) {
 
   // For long user inputs in gist mode, collapse in a details block
   if (msg.role === "user" && mode === "gist" && msg.content.length > LONG_INPUT_THRESHOLD) {
-    output += tag("details", tag("summary", "Long input collapsed"), escapeThinkTags(msg.content))
+    output += tag(
+      "details",
+      tag("summary", "Long input collapsed"),
+      escapeThinkTags(msg.content),
+    )
   } else {
     output += mode === "raw" ? msg.content : escapeThinkTags(msg.content)
   }

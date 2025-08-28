@@ -1,12 +1,13 @@
 import OpenAI from "npm:openai@5.12.1"
-import Anthropic from "npm:@anthropic-ai/sdk@0.39.0"
+import Anthropic from "npm:@anthropic-ai/sdk@0.61.0"
 import { GoogleGenAI } from "npm:@google/genai@1.15.0"
 import { ValidationError } from "jsr:@cliffy/command@1.0.0-rc.7"
 import * as R from "npm:remeda@2.19"
 
 import type { Chat, TokenCounts } from "./types.ts"
-import { codeListMd } from "./display.ts"
+import { codeBlock, codeListMd } from "./display.ts"
 import { getCost, type Model } from "./models.ts"
+import { extname } from "jsr:@std/path@^1.1.2"
 
 type ModelResponse = {
   content: string
@@ -160,12 +161,54 @@ function claudeMsg(
   return { role, content }
 }
 
+type BashInput = { command: string }
+type TextEditorCodeExecInput =
+  | { command: "view"; path: string }
+  | { command: "create"; path: string; file_text: string }
+  | { command: "str_replace"; path: string; old_str: string; new_str: string }
+
+// In theory, tool call data should be stored in structured form and then it's
+// the problem of the display layer to do the below. In practice, it's too
+// annoying to think about a generic intermediate data format that could hold
+// this data, so we're just going to make it a string and deal with it.
+function renderClaudeContentBlock(msg: Anthropic.Beta.Messages.BetaContentBlock) {
+  if (msg.type === "text") {
+    return msg.text
+  } else if (msg.type === "server_tool_use") {
+    let out = `### Tool call: \`${msg.name}\`\n\n`
+    if (msg.name === "bash_code_execution") {
+      out += `**Command:** \`${(msg.input as BashInput).command}\``
+    } else if (msg.name === "text_editor_code_execution") {
+      const input = msg.input as TextEditorCodeExecInput
+      if (input.command === "view") {
+        out += `**Path:** \`${input.path}\``
+      } else if (input.command === "create") {
+        const lang = extname(input.path).substring(1)
+        out += `**Path:** \`${input.path}\`\n\n${codeBlock(input.file_text, lang)}`
+      } else if (input.command === "str_replace") {
+        out += [
+          `**Path:** \`${input.path}\``,
+          `**Old string:** \`${JSON.stringify(input.old_str)}\``,
+          `**New string:** \`${JSON.stringify(input.new_str)}\``,
+        ].join("\n\n")
+      }
+    }
+    return out
+  } else if (
+    msg.type.endsWith("_result") && "content" in msg && typeof msg.content === "object"
+  ) {
+    const c = msg.content as { stdout: string; stderr: string; return_code: number }
+    const out = [`**Exit code:** ${c.return_code}`]
+    if (c.stdout) out.push(`#### Output\n\n${codeBlock(c.stdout)}`)
+    if (c.stderr) out.push(`#### Errors\n\n${codeBlock(c.stderr)}`)
+    return out.join("\n\n") || undefined
+  }
+}
+
 async function claudeCreateMessage(
   { chat, input, image_url, model, tools }: ChatInput,
 ) {
-  const think = tools.length > 0 && tools.includes("think")
-
-  const response = await new Anthropic().messages.create({
+  const response = await new Anthropic().beta.messages.create({
     model: model.key,
     system: chat.systemPrompt,
     messages: [
@@ -173,11 +216,22 @@ async function claudeCreateMessage(
       claudeMsg("user", input, image_url),
     ],
     max_tokens: 4096,
-    thinking: think ? { "type": "enabled", budget_tokens: 1024 } : undefined,
+    thinking: tools.includes("think")
+      ? { "type": "enabled", budget_tokens: 1024 }
+      : undefined,
+    tools: tools.includes("code")
+      ? [{ type: "code_execution_20250825", name: "code_execution" }]
+      : undefined,
+    betas: ["code-execution-2025-08-25"],
   })
-  const content = response.content
-    .filter((msg) => msg.type === "text")
-    .map((msg) => msg.text)
+
+  const content = response.content.filter((msg) =>
+    msg.type === "text" ||
+    msg.type === "server_tool_use" ||
+    msg.type.endsWith("_result")
+  )
+    .map(renderClaudeContentBlock)
+    .filter((x) => x)
     .join("\n\n")
   const reasoning = response.content
     .filter((msg) => msg.type === "thinking")
@@ -198,7 +252,6 @@ async function claudeCreateMessage(
   }
 
   return {
-    // we're not doing tool use yet, so the response will always be text
     content,
     reasoning,
     tokens,
@@ -278,7 +331,7 @@ async function geminiCreateMessage({ chat, input, model, tools }: ChatInput) {
 type Tool = "search" | "code" | "think"
 const providerTools: Record<string, Tool[]> = {
   google: ["search", "code", "think"],
-  anthropic: ["think"],
+  anthropic: ["think", "code"],
   openai: ["search", "think"],
 }
 

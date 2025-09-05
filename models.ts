@@ -148,7 +148,7 @@ export const models: Model[] = [
   },
   {
     provider: "groq",
-    key: "moonshotai/kimi-k2-instruct",
+    key: "moonshotai/kimi-k2-instruct-0905",
     id: "kimi-k2",
     input: 1.00,
     input_cached: 0.50,

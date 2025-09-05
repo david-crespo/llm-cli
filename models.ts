@@ -16,10 +16,6 @@ export type Model = {
   input_cached?: number
 }
 
-// deepseek is discounted from UTC 16:30-0:30
-const utcMinutes = new Date().getUTCHours() * 60 + new Date().getUTCMinutes()
-const deepseekDiscount = utcMinutes >= ((16 * 60) + 30) || utcMinutes <= 30
-
 /**
  * The order matters: preferred models go first.
  *
@@ -117,34 +113,18 @@ export const models: Model[] = [
   {
     provider: "deepseek",
     key: "deepseek-chat",
-    id: "deepseek-v3",
-    ...(deepseekDiscount
-      ? {
-        input: 0.135,
-        input_cached: 0.035,
-        output: 0.55,
-      }
-      : {
-        input: 0.27,
-        input_cached: 0.07,
-        output: 1.10,
-      }),
+    id: "deepseek-v3.1",
+    input: 0.56,
+    input_cached: 0.07,
+    output: 1.68,
   },
   {
     provider: "deepseek",
     key: "deepseek-reasoner",
-    id: "deepseek-r1",
-    ...(deepseekDiscount
-      ? {
-        input: 0.135,
-        input_cached: 0.035,
-        output: 0.55,
-      }
-      : {
-        input: 0.55,
-        input_cached: 0.14,
-        output: 2.19,
-      }),
+    id: "deepseek-v3.1-thinking",
+    input: 0.56,
+    input_cached: 0.07,
+    output: 1.68,
   },
   {
     provider: "groq",
@@ -190,6 +170,15 @@ export const models: Model[] = [
     id: "gpt-oss-120b",
     input: 0.25,
     output: 0.69,
+  },
+  {
+    provider: "openrouter",
+    key: "qwen/qwen3-max",
+    id: "qwen-3-max",
+    // note these are $3, $0.60, and $15 over 128k but whatev
+    input: 1.20,
+    input_cached: 0.24,
+    output: 6.00,
   },
 ]
 

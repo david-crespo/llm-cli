@@ -1,11 +1,11 @@
 #! /usr/bin/env -S deno run --allow-env --allow-read --allow-net --allow-run=gh,glow
 
-import { readAll } from "jsr:@std/io@0.224"
-import { Command, ValidationError } from "jsr:@cliffy/command@1.0.0-rc.7"
-import { Table } from "jsr:@cliffy/table@1.0.0-rc.7"
-import $ from "jsr:@david/dax@0.42"
+import { readAll } from "@std/io"
+import { Command, ValidationError } from "@cliffy/command"
+import { Table } from "@cliffy/table"
+import $ from "@david/dax"
 
-import * as R from "npm:remeda@2.19"
+import * as R from "remeda"
 
 import { resolveModel, systemBase } from "./models.ts"
 import {

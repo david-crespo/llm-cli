@@ -1,5 +1,5 @@
-import $ from "jsr:@david/dax@0.42"
-import { markdownTable } from "https://esm.sh/markdown-table@3.0.4"
+import $ from "@david/dax"
+import { markdownTable } from "markdown-table"
 
 import { Chat, type ChatMessage } from "./types.ts"
 import { models, systemBase } from "./models.ts"

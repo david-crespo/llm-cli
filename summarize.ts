@@ -1,4 +1,4 @@
-import $ from "jsr:@david/dax@0.42"
+import $ from "@david/dax"
 
 import { groqCreateMessage } from "./adapters.ts"
 import { type Chat } from "./types.ts"

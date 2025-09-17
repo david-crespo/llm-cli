@@ -1,13 +1,13 @@
-import OpenAI from "npm:openai@5.12.1"
-import Anthropic from "npm:@anthropic-ai/sdk@0.61.0"
-import { GoogleGenAI } from "npm:@google/genai@1.15.0"
-import { ValidationError } from "jsr:@cliffy/command@1.0.0-rc.7"
-import * as R from "npm:remeda@2.19"
+import OpenAI from "openai"
+import Anthropic from "@anthropic-ai/sdk"
+import { GoogleGenAI } from "@google/genai"
+import { ValidationError } from "@cliffy/command"
+import * as R from "remeda"
 
 import type { Chat, TokenCounts } from "./types.ts"
 import { codeBlock, codeListMd } from "./display.ts"
 import { getCost, type Model } from "./models.ts"
-import { extname } from "jsr:@std/path@^1.1.2"
+import { extname } from "@std/path"
 
 type ModelResponse = {
   content: string

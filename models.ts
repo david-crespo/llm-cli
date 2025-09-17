@@ -1,6 +1,6 @@
-import { ValidationError } from "jsr:@cliffy/command@1.0.0-rc.7"
+import { ValidationError } from "@cliffy/command"
 import { type TokenCounts } from "./types.ts"
-import $ from "jsr:@david/dax@0.42"
+import $ from "@david/dax"
 
 // prices are per million tokens
 export type Model = {

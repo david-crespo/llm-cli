@@ -87,6 +87,11 @@ async function genResponse(
     if (e.response?.data) renderMd(jsonBlock(e.response.data))
     if (e.response?.error) renderMd(jsonBlock(e.response.error))
     if (!("response" in e)) renderMd(codeBlock(e))
+  } finally {
+    // terminal bell to indicate it's done
+    if (Deno.stdout.isTerminal() && !raw) {
+      await Deno.stdout.write(new TextEncoder().encode("\x07"))
+    }
   }
 }
 

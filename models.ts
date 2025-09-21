@@ -77,6 +77,14 @@ export const models: Model[] = [
     output: 15.00,
   },
   {
+    provider: "xai",
+    key: "grok-4-fast-reasoning",
+    id: "grok-4-fast",
+    input: 0.20,
+    input_cached: 0.05,
+    output: 0.50,
+  },
+  {
     provider: "openai",
     key: "gpt-5",
     id: "gpt-5",

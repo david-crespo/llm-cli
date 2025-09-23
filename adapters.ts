@@ -38,7 +38,7 @@ const makeOpenAIResponsesFunc =
       reasoning: {
         effort: tools.includes("think") || model.id === "gpt-5-thinking"
           ? "medium"
-          : "minimal",
+          : undefined,
       },
       instructions: chat.systemPrompt,
     })

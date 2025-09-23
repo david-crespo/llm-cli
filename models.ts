@@ -92,6 +92,14 @@ export const models: Model[] = [
     input_cached: 0.125,
     output: 10,
   },
+  {
+    provider: "openai",
+    key: "gpt-5-codex",
+    id: "gpt-5-codex",
+    input: 1.25,
+    input_cached: 0.125,
+    output: 10,
+  },
   // hack to have a thinking version as the default like gemini 2.5 pro
   {
     provider: "openai",

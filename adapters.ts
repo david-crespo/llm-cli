@@ -264,11 +264,9 @@ async function geminiCreateMessage({ chat, input, model, tools }: ChatInput) {
   const apiKey = Deno.env.get("GEMINI_API_KEY")
   if (!apiKey) throw Error("GEMINI_API_KEY missing")
 
-  const think = model.id.includes("pro") || tools.includes("think")
   const result = await new GoogleGenAI({ apiKey }).models.generateContent({
     config: {
       thinkingConfig: {
-        thinkingBudget: think ? undefined : 0,
         includeThoughts: true,
       },
       systemInstruction: chat.systemPrompt,
@@ -330,7 +328,7 @@ async function geminiCreateMessage({ chat, input, model, tools }: ChatInput) {
 
 type Tool = "search" | "code" | "think"
 const providerTools: Record<string, Tool[]> = {
-  google: ["search", "code", "think"],
+  google: ["search", "code"],
   anthropic: ["think", "code"],
   openai: ["search", "think"],
 }

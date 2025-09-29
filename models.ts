@@ -30,11 +30,12 @@ export type Model = {
 export const models: Model[] = [
   {
     provider: "anthropic",
-    key: "claude-sonnet-4-20250514",
-    id: "sonnet-4",
+    key: "claude-sonnet-4-5",
+    id: "sonnet-4.5",
     input: 3,
     input_cached: 0.30,
     output: 15,
+    default: true,
   },
   {
     provider: "anthropic",
@@ -108,7 +109,6 @@ export const models: Model[] = [
     input: 1.25,
     input_cached: 0.125,
     output: 10,
-    default: true,
   },
   {
     provider: "openai",

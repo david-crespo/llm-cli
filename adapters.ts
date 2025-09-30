@@ -215,9 +215,11 @@ async function claudeCreateMessage(
       ...chat.messages.map((m) => claudeMsg(m.role, m.content)),
       claudeMsg("user", input, image_url),
     ],
-    max_tokens: 4096,
+    max_tokens: 8192,
     thinking: tools.includes("think")
       ? { "type": "enabled", budget_tokens: 1024 }
+      : tools.includes("think2")
+      ? { "type": "enabled", budget_tokens: 4096 }
       : undefined,
     tools: tools.includes("code")
       ? [{ type: "code_execution_20250825", name: "code_execution" }]
@@ -326,10 +328,10 @@ async function geminiCreateMessage({ chat, input, model, tools }: ChatInput) {
   }
 }
 
-type Tool = "search" | "code" | "think"
+type Tool = "search" | "code" | "think" | "think2"
 const providerTools: Record<string, Tool[]> = {
   google: ["search", "code"],
-  anthropic: ["think", "code"],
+  anthropic: ["think", "think2", "code"],
   openai: ["search", "think"],
 }
 

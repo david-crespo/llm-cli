@@ -35,7 +35,6 @@ export const models: Model[] = [
     input: 3,
     input_cached: 0.30,
     output: 15,
-    default: true,
   },
   {
     provider: "anthropic",
@@ -92,6 +91,7 @@ export const models: Model[] = [
     input: 1.25,
     input_cached: 0.125,
     output: 10,
+    default: true,
   },
   {
     provider: "openai",

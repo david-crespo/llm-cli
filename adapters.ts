@@ -24,50 +24,48 @@ export type ChatInput = {
   tools: string[]
 }
 
-const makeOpenAIResponsesFunc =
-  (client: OpenAI) => async ({ chat, input, model, tools }: ChatInput) => {
-    const response = await client.responses.create({
-      model: model.key,
-      input: [
-        ...chat.messages.map((m) => ({ role: m.role, content: m.content })),
-        { role: "user" as const, content: input },
-      ],
-      tools: tools.includes("search")
-        ? [{ type: "web_search_preview" as const }]
+async function gptCreateMessage({ chat, input, model, tools }: ChatInput) {
+  const client = new OpenAI()
+  const response = await client.responses.create({
+    model: model.key,
+    input: [
+      ...chat.messages.map((m) => ({ role: m.role, content: m.content })),
+      { role: "user" as const, content: input },
+    ],
+    tools: tools.includes("search") ? [{ type: "web_search_preview" as const }] : undefined,
+    reasoning: {
+      // undefined means medium
+      effort: tools.includes("think-high")
+        ? "high"
+        : tools.includes("no-think")
+        ? "minimal"
         : undefined,
-      reasoning: {
-        // undefined means medium
-        effort: tools.includes("think-high")
-          ? "high"
-          : tools.includes("no-think")
-          ? "minimal"
-          : undefined,
-      },
-      instructions: chat.systemPrompt,
-    })
+    },
+    instructions: chat.systemPrompt,
+  })
 
-    const tokens = {
-      input: response.usage?.input_tokens || 0,
-      output: response.usage?.output_tokens || 0,
-      // @ts-expect-error openai client types are wrong, it's there
-      input_cache_hit: R.pathOr(response, [
-        "usage",
-        "input_tokens_details",
-        "cached_tokens",
-      ], 0) as number,
-    }
-    // Haven't been able to get it to give me a reasoning summary, so I don't
-    // know how those are integrated into output_text. For now, don't bother
-    // processing reasoning tokens explicitly at all. Might be nice to add a
-    // token count for reasoning tokens.
-
-    return {
-      content: response.output_text,
-      tokens,
-      cost: getCost(model, tokens),
-      stop_reason: response.status || "completed",
-    }
+  const tokens = {
+    input: response.usage?.input_tokens || 0,
+    output: response.usage?.output_tokens || 0,
+    // @ts-expect-error openai client types are wrong, it's there
+    input_cache_hit: R.pathOr(response, [
+      "usage",
+      "input_tokens_details",
+      "cached_tokens",
+    ], 0) as number,
   }
+  // Haven't been able to get it to give me a reasoning summary, so I don't
+  // know how those are integrated into output_text. For now, don't bother
+  // processing reasoning tokens explicitly at all. Might be nice to add a
+  // token count for reasoning tokens.
+
+  return {
+    content: response.output_text,
+    tokens,
+    cost: getCost(model, tokens),
+    stop_reason: response.status || "completed",
+  }
+}
 
 const makeOpenAIFunc =
   (baseURL: string, envVarName: string) => async ({ chat, input, model }: ChatInput) => {
@@ -119,8 +117,6 @@ const makeOpenAIFunc =
       stop_reason: response.choices[0].finish_reason,
     }
   }
-
-const gptCreateMessage = makeOpenAIResponsesFunc(new OpenAI())
 
 export const groqCreateMessage = makeOpenAIFunc(
   "https://api.groq.com/openai/v1",

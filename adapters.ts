@@ -215,11 +215,11 @@ async function claudeCreateMessage(
       ...chat.messages.map((m) => claudeMsg(m.role, m.content)),
       claudeMsg("user", input, image_url),
     ],
-    max_tokens: 8192,
+    max_tokens: tools.includes("think2") ? 20_000 : 8_000,
     thinking: tools.includes("think")
-      ? { "type": "enabled", budget_tokens: 1024 }
+      ? { "type": "enabled", budget_tokens: 4_000 }
       : tools.includes("think2")
-      ? { "type": "enabled", budget_tokens: 4096 }
+      ? { "type": "enabled", budget_tokens: 16_000 }
       : undefined,
     tools: tools.includes("code")
       ? [{ type: "code_execution_20250825", name: "code_execution" }]

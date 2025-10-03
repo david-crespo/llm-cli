@@ -5,31 +5,36 @@ import { type Chat } from "./types.ts"
 import { History } from "./storage.ts"
 import { resolveModel } from "./models.ts"
 
-const HALF_EXCERPT = 100
+const HALF_EXCERPT = 200
+
+function abridge(content: string): string {
+  return content.length > HALF_EXCERPT * 2
+    ? content.slice(0, HALF_EXCERPT) + "..." + content.slice(-HALF_EXCERPT)
+    : content
+}
 
 /**
- * Use a fast model to summarize a chat for display purposes. Mutate the chat
- * directly
+ * Use a fast model to summarize a chat for display purposes. Returns the
+ * summary without modifying the chat.
  */
-async function summarize(chat: Chat): Promise<void> {
-  const firstMsg = chat.messages[0].content
-  const abridged = firstMsg.length > HALF_EXCERPT * 2
-    ? firstMsg.slice(0, HALF_EXCERPT) + "..." + firstMsg.slice(-HALF_EXCERPT)
-    : firstMsg
+export async function summarize(chat: Chat): Promise<string> {
+  const abridged1 = abridge(chat.messages[0].content)
+  const msg2 = chat.messages.at(1)?.content
+  const abridged2 = msg2 ? abridge(msg2) : ""
+
   const summary = await groqCreateMessage({
     chat: {
       systemPrompt:
-        "You are summarizing LLM chats based on excerpts for use in a TUI conversation list. Be concise and accurate. Include details that help identify that chat. Only provide the summary; do not include explanation or followup questions. Do not end with a period. Do not use slashes.",
+        "You are summarizing an LLM chat in as few words as possible. Ideally 4-6 words, but up to 10 if necessary. This is for a list of chats in an LLM client UI. You will receive an excerpt of the beginning and end of the first two messages. Be concise and accurate. Only provide the summary; do not include explanation or followup questions. Do not end with a period. Do not use slashes.",
       messages: [],
       createdAt: new Date(),
     },
-    input:
-      `Please summarize an LLM chat based on the following excerpt from the first message. Use as few words as possible. Ideally 4-6 words, but up to 10. \n\n<excerpt>${abridged}</excerpt>`,
+    input: `<message-1>${abridged1}</message-1><message-2>${abridged2}</message-2`,
     model: resolveModel("kimi-k2"),
     tools: [],
   })
 
-  chat.summary = summary.content
+  return summary.content
 }
 
 /** Create and save summaries for any chat without one */
@@ -39,7 +44,11 @@ export async function genMissingSummaries(history: Chat[]) {
     return
   }
   const pb = $.progress("Summarizing...")
-  await Promise.all(history.filter((chat) => !chat.summary).map(summarize))
+  await Promise.all((history
+    .filter((chat) => !chat.summary))
+    .map(async (chat) => {
+      chat.summary = await summarize(chat)
+    }))
   History.write(history)
   pb.finish()
 }

@@ -21,7 +21,7 @@ import {
 import { type Chat } from "./types.ts"
 import { ChatInput, createMessage, parseTools } from "./adapters.ts"
 import { History } from "./storage.ts"
-import { genMissingSummaries } from "./summarize.ts"
+import { genMissingSummaries, summarize } from "./summarize.ts"
 
 const getLastModelId = (chat: Chat) =>
   chat.messages.findLast((m) => m.role === "assistant")?.model
@@ -244,6 +244,30 @@ const forkCmd = new Command()
     History.write(history)
   })
 
+const debugCmd = new Command()
+  .description("Utilities for debugging")
+  .command("summaries", "Test summarizer on recent chats")
+  .option("-n, --limit <limit:number>", "Number of chats to summarize", { default: 5 })
+  .action(async ({ limit }) => {
+    const history = History.read()
+    const chats = history.filter((c) => c.messages.length > 0).slice(-limit)
+
+    if (chats.length === 0) {
+      $.log("No non-empty chats found")
+      return
+    }
+
+    for (const chat of chats) {
+      try {
+        const newSummary = await summarize(chat)
+        $.log(`Existing: ${chat.summary || "(none)"}`)
+        $.log(`New:      ${newSummary}\n`)
+      } catch (error) {
+        $.log(`\nError: ${(error as Error).message}`)
+      }
+    }
+  })
+
 await new Command()
   .name("ai")
   .description(`
@@ -259,6 +283,7 @@ the raw output to stdout.`)
   .command("fork", forkCmd)
   .command("gist", gistCmd)
   .command("models", modelsCmd)
+  .command("debug", debugCmd)
   .reset()
   // top level `ai hello how are you` command
   .arguments("[message...]")

@@ -36,10 +36,11 @@ const makeOpenAIResponsesFunc =
         ? [{ type: "web_search_preview" as const }]
         : undefined,
       reasoning: {
+        // undefined means medium
         effort: tools.includes("think-high")
           ? "high"
-          : tools.includes("think") || model.id === "gpt-5-thinking"
-          ? "medium"
+          : tools.includes("no-think")
+          ? "minimal"
           : undefined,
       },
       instructions: chat.systemPrompt,
@@ -330,11 +331,12 @@ async function geminiCreateMessage({ chat, input, model, tools }: ChatInput) {
   }
 }
 
-type Tool = "search" | "code" | "think" | "think-high"
+type Tool = "search" | "code" | "think" | "think-high" | "no-think"
 const providerTools: Record<string, Tool[]> = {
   google: ["search", "code"],
   anthropic: ["think", "think-high", "code"],
-  openai: ["search", "think", "think-high"],
+  // openai models will reason by default. no-think sets effort: minimal
+  openai: ["search", "no-think", "think-high"],
 }
 
 function checkTools(provider: string, inputTools: string[]) {

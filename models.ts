@@ -70,22 +70,6 @@ export const models: Model[] = [
     output: .40,
   },
   {
-    provider: "xai",
-    key: "grok-4",
-    id: "grok-4",
-    input: 3.00,
-    input_cached: 0.75,
-    output: 15.00,
-  },
-  {
-    provider: "xai",
-    key: "grok-4-fast-reasoning",
-    id: "grok-4-fast",
-    input: 0.20,
-    input_cached: 0.05,
-    output: 0.50,
-  },
-  {
     provider: "openai",
     key: "gpt-5",
     id: "gpt-5",
@@ -99,23 +83,6 @@ export const models: Model[] = [
     id: "gpt-5-pro",
     input: 15, // no caching, yikes
     output: 120,
-  },
-  {
-    provider: "openai",
-    key: "gpt-5-codex",
-    id: "gpt-5-codex",
-    input: 1.25,
-    input_cached: 0.125,
-    output: 10,
-  },
-  // hack to have a thinking version as the default like gemini 2.5 pro
-  {
-    provider: "openai",
-    key: "gpt-5",
-    id: "gpt-5-thinking",
-    input: 1.25,
-    input_cached: 0.125,
-    output: 10,
   },
   {
     provider: "openai",
@@ -182,13 +149,6 @@ export const models: Model[] = [
   },
   {
     provider: "cerebras",
-    key: "qwen-3-32b",
-    id: "qwen-3-32b",
-    input: 0.40,
-    output: 0.80,
-  },
-  {
-    provider: "cerebras",
     key: "gpt-oss-120b",
     id: "gpt-oss-120b",
     input: 0.25,
@@ -202,6 +162,22 @@ export const models: Model[] = [
     input: 1.20,
     input_cached: 0.24,
     output: 6.00,
+  },
+  {
+    provider: "xai",
+    key: "grok-4",
+    id: "grok-4",
+    input: 3.00,
+    input_cached: 0.75,
+    output: 15.00,
+  },
+  {
+    provider: "xai",
+    key: "grok-4-fast-reasoning",
+    id: "grok-4-fast",
+    input: 0.20,
+    input_cached: 0.05,
+    output: 0.50,
   },
 ]
 

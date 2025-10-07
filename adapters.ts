@@ -36,7 +36,9 @@ const makeOpenAIResponsesFunc =
         ? [{ type: "web_search_preview" as const }]
         : undefined,
       reasoning: {
-        effort: tools.includes("think") || model.id === "gpt-5-thinking"
+        effort: tools.includes("think-high")
+          ? "high"
+          : tools.includes("think") || model.id === "gpt-5-thinking"
           ? "medium"
           : undefined,
       },
@@ -215,10 +217,10 @@ async function claudeCreateMessage(
       ...chat.messages.map((m) => claudeMsg(m.role, m.content)),
       claudeMsg("user", input, image_url),
     ],
-    max_tokens: tools.includes("think2") ? 20_000 : 8_000,
+    max_tokens: tools.includes("think-high") ? 20_000 : 8_000,
     thinking: tools.includes("think")
       ? { "type": "enabled", budget_tokens: 4_000 }
-      : tools.includes("think2")
+      : tools.includes("think-high")
       ? { "type": "enabled", budget_tokens: 16_000 }
       : undefined,
     tools: tools.includes("code")
@@ -328,11 +330,11 @@ async function geminiCreateMessage({ chat, input, model, tools }: ChatInput) {
   }
 }
 
-type Tool = "search" | "code" | "think" | "think2"
+type Tool = "search" | "code" | "think" | "think-high"
 const providerTools: Record<string, Tool[]> = {
   google: ["search", "code"],
-  anthropic: ["think", "think2", "code"],
-  openai: ["search", "think"],
+  anthropic: ["think", "think-high", "code"],
+  openai: ["search", "think", "think-high"],
 }
 
 function checkTools(provider: string, inputTools: string[]) {

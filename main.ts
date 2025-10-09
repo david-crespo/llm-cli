@@ -111,9 +111,9 @@ async function pickAndResume() {
   })
   // pop out the selected item and move it to the end
   const [before, after] = R.splitAt(reversed, selectedIdx)
-  const [selected, rest] = R.splitAt(after, 1)
+  const [selected, ...rest] = after
   // put it at the beginning so it's at the end after re-reversing
-  const newHistory = [...selected, ...before, ...rest]
+  const newHistory = [selected, ...before, ...rest]
   History.write(R.reverse(newHistory))
 }
 

@@ -19,7 +19,13 @@ import {
   shortDateFmt,
 } from "./display.ts"
 import { type Chat } from "./types.ts"
-import { ChatInput, createMessage, parseTools } from "./adapters.ts"
+import {
+  type ChatInput,
+  createMessage,
+  gptBg,
+  type ModelResponse,
+  parseTools,
+} from "./adapters.ts"
 import { History } from "./storage.ts"
 import { genMissingSummaries } from "./summarize.ts"
 
@@ -53,6 +59,66 @@ function getMode(opts: { raw?: boolean; verbose?: boolean }): DisplayMode {
   return opts.raw ? "raw" : opts.verbose ? "verbose" : "cli"
 }
 
+const bell = () => Deno.stdout.write(new TextEncoder().encode("\x07"))
+
+const elapsedSecs = (startTime: number) => Math.floor((Date.now() - startTime) / 1000)
+
+const makeAssMsg = (modelId: string, startTime: number, response: ModelResponse) => ({
+  role: "assistant" as const,
+  model: modelId,
+  timeMs: Date.now() - startTime,
+  ...response,
+})
+
+// deno-lint-ignore no-explicit-any
+function renderError(e: any) {
+  if (e.response?.status) console.log("Request error:", e.response.status)
+  if (e.response?.data) renderMd(jsonBlock(e.response.data))
+  if (e.response?.error) renderMd(jsonBlock(e.response.error))
+  if (!("response" in e)) renderMd(codeBlock(e))
+}
+
+async function pollBackgroundResponse(
+  chat: Chat,
+  model: { id: string; provider: string },
+  displayOpts: { raw?: boolean; verbose?: boolean },
+) {
+  if (!chat.background) throw new Error("No background response to poll")
+
+  const { id, startedAt, modelId } = chat.background
+  const showProgress = Deno.stdout.isTerminal() && !displayOpts.raw
+  const pb = showProgress ? $.progress("Waiting...") : null
+
+  try {
+    const startTime = startedAt.getTime()
+    while (true) {
+      const status = await gptBg.status(id)
+      if (status !== "queued" && status !== "in_progress") {
+        chat.background.status = status
+        break
+      }
+
+      if (pb) pb.message(`${elapsedSecs(startTime)}s`)
+      await new Promise((resolve) => setTimeout(resolve, 2000))
+    }
+
+    if (pb) pb.finish()
+
+    if (chat.background.status === "completed") {
+      const response = await gptBg.retrieve(id, resolveModel(modelId))
+      const assistantMsg = makeAssMsg(model.id, startTime, response)
+      chat.messages.push(assistantMsg)
+      delete chat.background
+      await renderMd(messageContentMd(assistantMsg, getMode(displayOpts)), displayOpts.raw)
+    } else {
+      console.log(`Background response ${chat.background.status}`)
+    }
+  } finally {
+    if (pb) pb.finish()
+    if (showProgress) await bell()
+  }
+}
+
 /**
  * Generate a response for a chat with the given input and options
  */
@@ -63,35 +129,25 @@ async function genResponse(
   const { raw = false, verbose = false } = displayOpts
 
   // don't want progress spinner when piping output
-  const pb = Deno.stdout.isTerminal() && !raw ? $.progress("Thinking...") : null
+  const showProgress = Deno.stdout.isTerminal() && !raw
+  const pb = showProgress ? $.progress("Thinking...") : null
 
   try {
-    const startTime = performance.now()
+    const startTime = Date.now()
     const response = await createMessage(chatInput.model.provider, chatInput)
     if (pb) pb.finish()
-    const timeMs = performance.now() - startTime
-    const assistantMsg = {
-      role: "assistant" as const,
-      model: chatInput.model.id,
-      timeMs,
-      ...response,
-    }
+    const assistantMsg = makeAssMsg(chatInput.model.id, startTime, response)
     chatInput.chat.messages.push(assistantMsg)
 
     await renderMd(messageContentMd(assistantMsg, getMode({ raw, verbose })), raw)
 
     // deno-lint-ignore no-explicit-any
   } catch (e: any) {
-    if (pb) pb.finish() // otherwise it hangs around
-    if (e.response?.status) console.log("Request error:", e.response.status)
-    if (e.response?.data) renderMd(jsonBlock(e.response.data))
-    if (e.response?.error) renderMd(jsonBlock(e.response.error))
-    if (!("response" in e)) renderMd(codeBlock(e))
+    renderError(e)
   } finally {
+    if (pb) pb.finish() // otherwise it hangs around
     // terminal bell to indicate it's done
-    if (Deno.stdout.isTerminal() && !raw) {
-      await Deno.stdout.write(new TextEncoder().encode("\x07"))
-    }
+    if (showProgress) await bell()
   }
 }
 
@@ -244,6 +300,51 @@ const forkCmd = new Command()
     History.write(history)
   })
 
+function exit(msg: string): never {
+  console.log(msg)
+  Deno.exit()
+}
+
+const bgCmd = new Command()
+  .description("Manage background responses")
+  .action(() => {
+    throw new ValidationError("Subcommand required")
+  })
+  .command("status", "Check status of current chat's background request")
+  .action(async () => {
+    const history = History.read()
+    const chat = history.at(-1)
+    if (!chat?.background) exit("No background task found")
+
+    const status = await gptBg.status(chat.background.id)
+    const elapsed = Math.floor((Date.now() - chat.background.startedAt.getTime()) / 1000)
+    console.log(`Status: ${status}`)
+    console.log(`Elapsed: ${elapsed}s`)
+  })
+  .command("resume", "Resume polling for current chat's background request")
+  .action(async () => {
+    const history = History.read()
+    const chat = history.at(-1)
+    if (!chat?.background) exit("No background task found")
+
+    const model = { id: chat.background.modelId, provider: chat.background.provider }
+    await pollBackgroundResponse(chat, model, {})
+    // BUG: History is only written after polling is done. Exiting in the middle
+    // leaves status un-updated. nbd because the next run will update it anyway.
+    History.write(history)
+  })
+  .command("cancel", "Cancel current chat's background request")
+  .action(async () => {
+    const history = History.read()
+    const chat = history.at(-1)
+    if (!chat?.background) exit("No background task found")
+
+    await gptBg.cancel(chat.background.id)
+    delete chat.background
+    History.write(history)
+    console.log("Background response cancelled")
+  })
+
 await new Command()
   .name("ai")
   .description(`
@@ -259,6 +360,7 @@ the raw output to stdout.`)
   .command("fork", forkCmd)
   .command("gist", gistCmd)
   .command("models", modelsCmd)
+  .command("bg", bgCmd)
   .reset()
   // top level `ai hello how are you` command
   .arguments("[message...]")
@@ -272,6 +374,7 @@ the raw output to stdout.`)
   .option("-i, --image <url:string>", "Image URL (Claude only)")
   .option("-s, --system <system:string>", "Override entire system prompt")
   .option("-e, --ephemeral", "Don't save to history")
+  .option("-b, --background", "Use background mode (OpenAI only)")
   .option("-v, --verbose", "Include reasoning in output")
   .option("--raw", "Print LLM text directly (no metadata or reasoning)")
   .example("1)", "ai 'What is the capital of France?'")
@@ -317,13 +420,32 @@ the raw output to stdout.`)
     if (opts.image && model.provider !== "anthropic") {
       throw new ValidationError("Image URLs only work for Anthropic")
     }
+    if (opts.background && model.provider !== "openai") {
+      throw new ValidationError("Background mode only works with OpenAI models")
+    }
 
     chat.messages.push({ role: "user", content: input, image_url: opts.image })
+    const chatInput: ChatInput = { chat, input, image_url: opts.image, model, tools }
 
-    await genResponse(
-      { chat, input, image_url: opts.image, model, tools },
-      R.pick(opts, ["raw", "verbose"]),
-    )
+    if (opts.background) {
+      try {
+        const { id, status } = await gptBg.initiate(chatInput)
+        chat.background = {
+          id,
+          status,
+          startedAt: new Date(),
+          provider: "openai",
+          modelId: model.id,
+        }
+        if (!opts.ephemeral) History.write(history)
+        await pollBackgroundResponse(chat, model, R.pick(opts, ["raw", "verbose"]))
+        // deno-lint-ignore no-explicit-any
+      } catch (e: any) {
+        renderError(e)
+      }
+    } else {
+      await genResponse(chatInput, R.pick(opts, ["raw", "verbose"]))
+    }
 
     if (!opts.ephemeral) History.write(history)
   })

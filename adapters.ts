@@ -1,15 +1,15 @@
 import OpenAI from "openai"
+import type { ResponseCreateParamsNonStreaming } from "openai/resources/responses/responses"
 import Anthropic from "@anthropic-ai/sdk"
 import { GoogleGenAI } from "@google/genai"
 import { ValidationError } from "@cliffy/command"
-import * as R from "remeda"
 
-import type { Chat, TokenCounts } from "./types.ts"
+import type { BackgroundStatus, Chat, TokenCounts } from "./types.ts"
 import { codeBlock, codeListMd } from "./display.ts"
 import { getCost, type Model } from "./models.ts"
 import { extname } from "@std/path"
 
-type ModelResponse = {
+export type ModelResponse = {
   content: string
   tokens: TokenCounts
   stop_reason: string
@@ -24,9 +24,27 @@ export type ChatInput = {
   tools: string[]
 }
 
-async function gptCreateMessage({ chat, input, model, tools }: ChatInput) {
-  const client = new OpenAI()
-  const response = await client.responses.create({
+function processGptResponse(
+  response: OpenAI.Responses.Response,
+  model: Model,
+): ModelResponse {
+  const tokens = {
+    input: response.usage?.input_tokens || 0,
+    output: response.usage?.output_tokens || 0,
+    input_cache_hit: response.usage?.input_tokens_details?.cached_tokens || 0,
+  }
+
+  return {
+    content: response.output_text,
+    tokens,
+    cost: getCost(model, tokens),
+    stop_reason: response.status || "completed",
+  }
+}
+
+function gptConfig(chatInput: ChatInput): ResponseCreateParamsNonStreaming {
+  const { chat, input, model, tools } = chatInput
+  return {
     model: model.key,
     input: [
       ...chat.messages.map((m) => ({ role: m.role, content: m.content })),
@@ -42,29 +60,39 @@ async function gptCreateMessage({ chat, input, model, tools }: ChatInput) {
         : undefined,
     },
     instructions: chat.systemPrompt,
-  })
-
-  const tokens = {
-    input: response.usage?.input_tokens || 0,
-    output: response.usage?.output_tokens || 0,
-    // @ts-expect-error openai client types are wrong, it's there
-    input_cache_hit: R.pathOr(response, [
-      "usage",
-      "input_tokens_details",
-      "cached_tokens",
-    ], 0) as number,
   }
-  // Haven't been able to get it to give me a reasoning summary, so I don't
-  // know how those are integrated into output_text. For now, don't bother
-  // processing reasoning tokens explicitly at all. Might be nice to add a
-  // token count for reasoning tokens.
+}
 
-  return {
-    content: response.output_text,
-    tokens,
-    cost: getCost(model, tokens),
-    stop_reason: response.status || "completed",
-  }
+async function gptCreateMessage(chatInput: ChatInput) {
+  const client = new OpenAI()
+  const response = await client.responses.create(gptConfig(chatInput))
+  return processGptResponse(response, chatInput.model)
+}
+
+export const gptBg = {
+  async initiate(chatInput: ChatInput): Promise<{ id: string; status: BackgroundStatus }> {
+    const client = new OpenAI()
+    const response = await client.responses.create({
+      ...gptConfig(chatInput),
+      background: true,
+      store: true,
+    })
+    return { id: response.id, status: response.status ?? "queued" }
+  },
+  async retrieve(responseId: string, model: Model): Promise<ModelResponse> {
+    const response = await new OpenAI().responses.retrieve(responseId)
+    return processGptResponse(response, model)
+  },
+  async status(responseId: string): Promise<BackgroundStatus> {
+    const client = new OpenAI()
+    const response = await client.responses.retrieve(responseId)
+    if (!response.status) throw new Error("Missing status for background response")
+    return response.status
+  },
+  async cancel(responseId: string): Promise<void> {
+    const client = new OpenAI()
+    await client.responses.cancel(responseId)
+  },
 }
 
 const makeOpenAIFunc =

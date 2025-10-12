@@ -8,7 +8,12 @@ export const History = {
     const contents = localStorage.getItem(HISTORY_KEY)
     if (!contents) return []
     return JSON.parse(contents, (key, value) => {
-      if (key === "createdAt") return new Date(value)
+      if (
+        (key === "createdAt" || key === "startedAt") &&
+        typeof value === "string"
+      ) {
+        return new Date(value)
+      }
       return value
     })
   },

@@ -132,8 +132,6 @@ export const models: Model[] = [
     input_cached: 0.50,
     output: 3.00,
   },
-  // technically free until they set up their paid tier but whatever.
-  // put thinking first so it's the default
   {
     provider: "cerebras",
     key: "qwen-3-coder-480b",
@@ -153,14 +151,14 @@ export const models: Model[] = [
     key: "qwen-3-235b-a22b-thinking-2507",
     id: "qwen-3-235b-thinking",
     input: 0.60,
-    output: 1.20,
+    output: 2.90,
   },
   {
     provider: "cerebras",
     key: "gpt-oss-120b",
     id: "gpt-oss-120b",
-    input: 0.25,
-    output: 0.69,
+    input: 0.35,
+    output: 0.75,
   },
   {
     provider: "openrouter",

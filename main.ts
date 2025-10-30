@@ -98,7 +98,7 @@ async function pollBackgroundResponse(
         break
       }
 
-      if (pb) pb.message(`${elapsedSecs(startTime)}s`)
+      if (pb) pb.message(`${elapsedSecs(startTime)}s (${status})`)
       await new Promise((resolve) => setTimeout(resolve, 2000))
     }
 

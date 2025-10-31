@@ -12,6 +12,7 @@ import {
   chatToMd,
   codeBlock,
   type DisplayMode,
+  formatElapsed,
   jsonBlock,
   messageContentMd,
   modelsMd,
@@ -61,8 +62,6 @@ function getMode(opts: { raw?: boolean; verbose?: boolean }): DisplayMode {
 
 const bell = () => Deno.stdout.write(new TextEncoder().encode("\x07"))
 
-const elapsedSecs = (startTime: number) => Math.floor((Date.now() - startTime) / 1000)
-
 const makeAssMsg = (modelId: string, startTime: number, response: ModelResponse) => ({
   role: "assistant" as const,
   model: modelId,
@@ -98,8 +97,9 @@ async function pollBackgroundResponse(
         break
       }
 
-      if (pb) pb.message(`${elapsedSecs(startTime)}s (${status})`)
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+      const elapsed = Date.now() - startTime
+      if (pb) pb.message(`${formatElapsed(elapsed)} (${status})`)
+      await new Promise((res) => setTimeout(res, 5000))
     }
 
     if (pb) pb.finish()
@@ -317,9 +317,8 @@ const bgCmd = new Command()
     if (!chat?.background) exit("No background task found")
 
     const status = await gptBg.status(chat.background.id)
-    const elapsed = Math.floor((Date.now() - chat.background.startedAt.getTime()) / 1000)
-    console.log(`Status: ${status}`)
-    console.log(`Elapsed: ${elapsed}s`)
+    const elapsed = Date.now() - chat.background.startedAt.getTime()
+    console.log(`${formatElapsed(elapsed)} (${status})`)
   })
   .command("resume", "Resume polling for current chat's background request")
   .action(async () => {

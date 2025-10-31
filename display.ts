@@ -62,6 +62,15 @@ function messageHeaderMd(msg: ChatMessage, msgNum: number, msgCount: number) {
 
 const timeFmt = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 })
 
+// turn time into `1m20s` string
+export function formatElapsed(ms: number) {
+  const totalSeconds = ms / 1000
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  if (minutes === 0) return `${timeFmt.format(seconds)}s`
+  return `${minutes}m${Math.floor(seconds)}s`
+}
+
 const escapeThinkTags = (content: string) =>
   content
     .replace("<think>", "\\<think>")
@@ -89,7 +98,7 @@ export function messageContentMd(msg: ChatMessage, mode: DisplayMode) {
       )
 
       output += codeMd(msg.model)
-      output += ` | ${timeFmt.format(msg.timeMs / 1000)} s`
+      output += ` | ${formatElapsed(msg.timeMs)}`
       output += ` | ${moneyFmt.format(msg.cost)}`
 
       // show cached tokens in parens if there are any

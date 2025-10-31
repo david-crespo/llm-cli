@@ -313,7 +313,7 @@ const bgCmd = new Command()
   .command("status", "Check status of current chat's background request")
   .action(async () => {
     const history = History.read()
-    const chat = history.at(-1)
+    const chat = history.findLast((c) => c.background)
     if (!chat?.background) exit("No background task found")
 
     const status = await gptBg.status(chat.background.id)
@@ -323,7 +323,7 @@ const bgCmd = new Command()
   .command("resume", "Resume polling for current chat's background request")
   .action(async () => {
     const history = History.read()
-    const chat = history.at(-1)
+    const chat = history.findLast((c) => c.background)
     if (!chat?.background) exit("No background task found")
 
     const model = { id: chat.background.modelId, provider: chat.background.provider }
@@ -335,7 +335,7 @@ const bgCmd = new Command()
   .command("cancel", "Cancel current chat's background request")
   .action(async () => {
     const history = History.read()
-    const chat = history.at(-1)
+    const chat = history.findLast((c) => c.background)
     if (!chat?.background) exit("No background task found")
 
     await gptBg.cancel(chat.background.id)

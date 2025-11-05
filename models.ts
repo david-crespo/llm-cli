@@ -134,24 +134,10 @@ export const models: Model[] = [
   },
   {
     provider: "cerebras",
-    key: "qwen-3-coder-480b",
-    id: "qwen-3-coder-480b",
-    input: 2.00,
-    output: 2.00,
-  },
-  {
-    provider: "cerebras",
-    key: "qwen-3-235b-a22b-instruct-2507",
-    id: "qwen-3-235b",
-    input: 0.60,
-    output: 1.20,
-  },
-  {
-    provider: "cerebras",
-    key: "qwen-3-235b-a22b-thinking-2507",
-    id: "qwen-3-235b-thinking",
-    input: 0.60,
-    output: 2.90,
+    key: "zai-glm-4.6",
+    id: "glm-4.6",
+    input: 2.25,
+    output: 2.75,
   },
   {
     provider: "cerebras",
@@ -168,6 +154,13 @@ export const models: Model[] = [
     input: 1.20,
     input_cached: 0.24,
     output: 6.00,
+  },
+  {
+    provider: "openrouter",
+    key: "openrouter/polaris-alpha",
+    id: "polaris-alpha",
+    input: 0,
+    output: 0,
   },
   {
     provider: "xai",

@@ -132,19 +132,30 @@ async function genResponse(
   const showProgress = Deno.stdout.isTerminal() && !raw
   const pb = showProgress ? $.progress("Thinking...") : null
 
+  // Set up abort signal for non-background requests. Let's handle SIGTERM in
+  // case it's relevant when this CLI gets called by another script.
+  const abortController = new AbortController()
+  const sigintHandler = () => abortController.abort()
+  const sigtermHandler = () => abortController.abort()
+  Deno.addSignalListener("SIGINT", sigintHandler)
+  Deno.addSignalListener("SIGTERM", sigtermHandler)
+
   try {
     const startTime = Date.now()
-    const response = await createMessage(chatInput.model.provider, chatInput)
+    const response = await createMessage(chatInput.model.provider, {
+      ...chatInput,
+      signal: abortController.signal,
+    })
     if (pb) pb.finish()
     const assistantMsg = makeAssMsg(chatInput.model.id, startTime, response)
     chatInput.chat.messages.push(assistantMsg)
 
     await renderMd(messageContentMd(assistantMsg, getMode({ raw, verbose })), raw)
-
-    // deno-lint-ignore no-explicit-any
-  } catch (e: any) {
+  } catch (e: unknown) {
     renderError(e)
   } finally {
+    Deno.removeSignalListener("SIGINT", sigintHandler)
+    Deno.removeSignalListener("SIGTERM", sigtermHandler)
     if (pb) pb.finish() // otherwise it hangs around
     // terminal bell to indicate it's done
     if (showProgress) await bell()

@@ -22,6 +22,7 @@ export type ChatInput = {
   image_url?: string | undefined
   model: Model
   tools: string[]
+  signal?: AbortSignal
 }
 
 function processGptResponse(
@@ -65,7 +66,10 @@ function gptConfig(chatInput: ChatInput): ResponseCreateParamsNonStreaming {
 
 async function gptCreateMessage(chatInput: ChatInput) {
   const client = new OpenAI()
-  const response = await client.responses.create(gptConfig(chatInput))
+  const response = await client.responses.create(
+    gptConfig(chatInput),
+    { signal: chatInput.signal },
+  )
   return processGptResponse(response, chatInput.model)
 }
 
@@ -96,7 +100,8 @@ export const gptBg = {
 }
 
 const makeOpenAIFunc =
-  (baseURL: string, envVarName: string) => async ({ chat, input, model }: ChatInput) => {
+  (baseURL: string, envVarName: string) =>
+  async ({ chat, input, model, signal }: ChatInput) => {
     const client = new OpenAI({ baseURL, apiKey: Deno.env.get(envVarName) })
     const systemMsg = chat.systemPrompt
       ? [{ role: "system" as const, content: chat.systemPrompt }]
@@ -106,7 +111,10 @@ const makeOpenAIFunc =
       ...chat.messages.map((m) => ({ role: m.role, content: m.content })),
       { role: "user" as const, content: input },
     ]
-    const response = await client.chat.completions.create({ model: model.key, messages })
+    const response = await client.chat.completions.create(
+      { model: model.key, messages },
+      { signal },
+    )
     const message = response.choices[0].message
     if (!message) throw new Error("No response found")
 
@@ -233,7 +241,7 @@ function renderClaudeContentBlock(msg: Anthropic.Beta.Messages.BetaContentBlock)
 }
 
 async function claudeCreateMessage(
-  { chat, input, image_url, model, tools }: ChatInput,
+  { chat, input, image_url, model, tools, signal }: ChatInput,
 ) {
   const response = await new Anthropic().beta.messages.create({
     model: model.key,
@@ -252,7 +260,7 @@ async function claudeCreateMessage(
       ? [{ type: "code_execution_20250825", name: "code_execution" }]
       : undefined,
     betas: ["code-execution-2025-08-25"],
-  })
+  }, { signal })
 
   const content = response.content.filter((msg) =>
     msg.type === "text" ||
@@ -289,7 +297,7 @@ async function claudeCreateMessage(
   }
 }
 
-async function geminiCreateMessage({ chat, input, model, tools }: ChatInput) {
+async function geminiCreateMessage({ chat, input, model, tools, signal }: ChatInput) {
   const apiKey = Deno.env.get("GEMINI_API_KEY")
   if (!apiKey) throw Error("GEMINI_API_KEY missing")
 
@@ -305,6 +313,7 @@ async function geminiCreateMessage({ chat, input, model, tools }: ChatInput) {
         ...(tools.includes("search") ? [{ googleSearch: {} }] : []),
         ...(tools.includes("code") ? [{ codeExecution: {} }] : []),
       ],
+      abortSignal: signal,
     },
     model: model.key,
     contents: [

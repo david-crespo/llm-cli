@@ -426,7 +426,8 @@ the raw output to stdout.`)
     chat.messages.push({ role: "user", content: input, image_url: opts.image })
     const chatInput: ChatInput = { chat, input, image_url: opts.image, model, tools }
 
-    if (opts.background) {
+    // no need to pass --background if using gpt-5-pro -- it always needs it
+    if (opts.background || model.id === "gpt-5-pro") {
       try {
         const { id, status } = await gptBg.initiate(chatInput)
         chat.background = {

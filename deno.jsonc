@@ -10,7 +10,7 @@
     "@std/io": "jsr:@std/io@^0.225.2",
     "@std/path": "jsr:@std/path@^1.1.2",
     "markdown-table": "https://esm.sh/markdown-table@3.0.4",
-    "openai": "npm:openai@6.3.0",
+    "openai": "npm:openai@6.9.0",
     "@anthropic-ai/sdk": "npm:@anthropic-ai/sdk@0.63.0",
     "@google/genai": "npm:@google/genai@1.20.0",
     "remeda": "npm:remeda@^2.31.1"

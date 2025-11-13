@@ -79,8 +79,8 @@ export const models: Model[] = [
   },
   {
     provider: "openai",
-    key: "gpt-5",
-    id: "gpt-5",
+    key: "gpt-5.1",
+    id: "gpt-5.1",
     input: 1.25,
     input_cached: 0.125,
     output: 10,

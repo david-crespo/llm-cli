@@ -24,7 +24,7 @@
     "jsr:@std/text@~1.0.7": "1.0.16",
     "npm:@anthropic-ai/sdk@0.63.0": "0.63.0",
     "npm:@google/genai@1.20.0": "1.20.0",
-    "npm:openai@6.3.0": "6.3.0",
+    "npm:openai@6.9.0": "6.9.0",
     "npm:remeda@^2.31.1": "2.31.1"
   },
   "jsr": {
@@ -244,8 +244,8 @@
         "whatwg-url"
       ]
     },
-    "openai@6.3.0": {
-      "integrity": "sha512-E6vOGtZvdcb4yXQ5jXvDlUG599OhIkb/GjBLZXS+qk0HF+PJReIldEc9hM8Ft81vn+N6dRdFRb7BZNK8bbvXrw==",
+    "openai@6.9.0": {
+      "integrity": "sha512-n2sJRYmM+xfJ0l3OfH8eNnIyv3nQY7L08gZQu3dw6wSdfPtKAk92L83M2NIP5SS8Cl/bsBBG3yKzEOjkx0O+7A==",
       "bin": true
     },
     "remeda@2.31.1": {
@@ -297,7 +297,7 @@
       "jsr:@std/path@^1.1.2",
       "npm:@anthropic-ai/sdk@0.63.0",
       "npm:@google/genai@1.20.0",
-      "npm:openai@6.3.0",
+      "npm:openai@6.9.0",
       "npm:remeda@^2.31.1"
     ]
   }

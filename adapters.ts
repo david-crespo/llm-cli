@@ -351,8 +351,8 @@ async function geminiCreateMessage({ chat, input, model, tools, signal }: ChatIn
   }
 
   // HACK for higher pricing over 200k https://ai.google.dev/pricing
-  const costModel = model.id === "gemini-2.5-pro" && tokens.input > 200_000
-    ? { ...model, input: 2.50, output: 15 }
+  const costModel = model.id === "gemini-3-pro" && tokens.input > 200_000
+    ? { ...model, input: 4.00, output: 18.00 }
     : model
 
   return {

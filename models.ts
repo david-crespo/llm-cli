@@ -35,7 +35,6 @@ export const models: Model[] = [
     input: 3,
     input_cached: 0.30,
     output: 15,
-    default: true,
   },
   {
     provider: "anthropic",
@@ -55,11 +54,12 @@ export const models: Model[] = [
   },
   {
     provider: "google",
-    key: "gemini-2.5-pro",
-    id: "gemini-2.5-pro",
-    input: 1.25,
-    input_cached: 0.31,
-    output: 10.00,
+    key: "gemini-3-pro-preview",
+    id: "gemini-3-pro",
+    input: 2.00,
+    input_cached: 0.50,
+    output: 12.00,
+    default: true,
   },
   {
     provider: "google",

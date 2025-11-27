@@ -243,6 +243,12 @@ function renderClaudeContentBlock(msg: Anthropic.Beta.Messages.BetaContentBlock)
 async function claudeCreateMessage(
   { chat, input, image_url, model, tools, signal }: ChatInput,
 ) {
+  const isOpus = model.key === "claude-opus-4-5"
+
+  const think = tools.includes("think")
+  const thinkHigh = tools.includes("think-high")
+  const noThink = tools.includes("no-think")
+
   const response = await new Anthropic().beta.messages.create({
     model: model.key,
     system: chat.systemPrompt,
@@ -251,15 +257,24 @@ async function claudeCreateMessage(
       claudeMsg("user", input, image_url),
     ],
     max_tokens: tools.includes("think-high") ? 20_000 : 8_000,
-    thinking: tools.includes("think")
-      ? { "type": "enabled", budget_tokens: 4_000 }
-      : tools.includes("think-high")
-      ? { "type": "enabled", budget_tokens: 16_000 }
+    // Opus 4.5 uses effort parameter, other models use budget_tokens
+    thinking: isOpus
+      ? (think
+        ? { type: "enabled" as const, budget_tokens: 4000 }
+        : thinkHigh
+        ? { type: "enabled" as const, budget_tokens: 16000 }
+        : noThink
+        ? { type: "disabled" as const }
+        : undefined)
       : undefined,
+    // For Opus 4.5: high is the default, so only set output_config if user specifies a tool
+    output_config: {
+      effort: isOpus && noThink ? "low" as const : undefined,
+    },
     tools: tools.includes("code")
       ? [{ type: "code_execution_20250825", name: "code_execution" }]
       : undefined,
-    betas: ["code-execution-2025-08-25"],
+    betas: ["code-execution-2025-08-25", "effort-2025-11-24"],
   }, { signal })
 
   const content = response.content.filter((msg) =>
@@ -367,7 +382,7 @@ async function geminiCreateMessage({ chat, input, model, tools, signal }: ChatIn
 type Tool = "search" | "code" | "think" | "think-high" | "no-think"
 const providerTools: Record<string, Tool[]> = {
   google: ["search", "code"],
-  anthropic: ["think", "think-high", "code"],
+  anthropic: ["think", "think-high", "no-think", "code"],
   // openai models will reason by default. no-think sets effort: minimal
   openai: ["search", "no-think", "think-high"],
 }

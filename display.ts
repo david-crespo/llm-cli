@@ -138,18 +138,29 @@ export function messageContentMd(msg: ChatMessage, mode: DisplayMode) {
   return output
 }
 
-type ChatToMd = { chat: Chat; lastN?: number; mode?: DisplayMode }
+type ChatToMd = { chat: Chat; lastN?: number; indices?: number[]; mode?: DisplayMode }
 
 const tag = (t: string, ...children: string[]) =>
   `<${t}>\n${children.join("\n")}\n</${t}>\n\n`
 
-export function chatToMd({ chat, lastN = 0, mode = "cli" }: ChatToMd): string {
-  // cap lastN at the number of messages, otherwise indexing gets weird
-  lastN = Math.min(lastN, chat.messages.length)
-  const messages = lastN ? chat.messages.slice(-lastN) : chat.messages
+export function chatToMd({ chat, lastN = 0, indices, mode = "cli" }: ChatToMd): string {
+  const msgCount = chat.messages.length
+
+  // Determine which messages to include
+  let selectedIndices: number[]
+  if (indices && indices.length > 0) {
+    selectedIndices = indices
+  } else if (lastN > 0) {
+    const cappedLastN = Math.min(lastN, msgCount)
+    selectedIndices = Array.from({ length: cappedLastN }, (_, i) => msgCount - cappedLastN + i)
+  } else {
+    selectedIndices = Array.from({ length: msgCount }, (_, i) => i)
+  }
+
+  const messages = selectedIndices.map((i) => ({ msg: chat.messages[i], idx: i }))
 
   if (mode === "raw") {
-    return messages.map((msg) => messageContentMd(msg, "raw")).join("\n\n")
+    return messages.map(({ msg }) => messageContentMd(msg, "raw")).join("\n\n")
   }
 
   let output = `**Chat started:** ${longDateFmt.format(chat.createdAt)}\n\n`
@@ -162,10 +173,8 @@ export function chatToMd({ chat, lastN = 0, mode = "cli" }: ChatToMd): string {
     output += `**System prompt:** ${chat.systemPrompt}\n\n`
   }
 
-  const msgCount = chat.messages.length
-  const skippedCount = msgCount - lastN
-  messages.forEach((msg, i) => {
-    output += messageHeaderMd(msg, skippedCount + i + 1, msgCount)
+  messages.forEach(({ msg, idx }) => {
+    output += messageHeaderMd(msg, idx + 1, msgCount)
     output += messageContentMd(msg, mode)
   })
   return output

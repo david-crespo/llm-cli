@@ -19,6 +19,7 @@ import {
   renderMd,
   shortDateFmt,
 } from "./display.ts"
+import { parseMessageSpec } from "./utils.ts"
 import { type Chat } from "./types.ts"
 import {
   type ChatInput,
@@ -237,6 +238,7 @@ const gistCmd = new Command()
   .option("-t, --title <title>", "Gist title")
   .option("-a, --all", "Include all messages")
   .option("-n, --limit <n:integer>", "Number of messages (default 1)", { default: 1 })
+  .option("-p, --pick <spec:string>", "Pick specific messages (e.g., '1,3-4,7')")
   .action(async (opts) => {
     const history = History.read()
     await genMissingSummaries(history)
@@ -250,8 +252,15 @@ const gistCmd = new Command()
     }
     const title = opts.title || lastChat.summary
     const filename = title ? `LLM chat - ${title}.md` : "LLM chat.md"
-    const n = opts.all ? lastChat.messages.length : opts.limit
-    const md = chatToMd({ chat: lastChat, lastN: n, mode: "gist" })
+
+    let md: string
+    if (opts.pick) {
+      const indices = parseMessageSpec(opts.pick, lastChat.messages.length)
+      md = chatToMd({ chat: lastChat, indices, mode: "gist" })
+    } else {
+      const n = opts.all ? lastChat.messages.length : opts.limit
+      md = chatToMd({ chat: lastChat, lastN: n, mode: "gist" })
+    }
     await $`gh gist create -f ${filename} --web`.stdinText(md)
   })
 

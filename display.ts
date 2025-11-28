@@ -152,7 +152,10 @@ export function chatToMd({ chat, lastN = 0, indices, mode = "cli" }: ChatToMd): 
     selectedIndices = indices
   } else if (lastN > 0) {
     const cappedLastN = Math.min(lastN, msgCount)
-    selectedIndices = Array.from({ length: cappedLastN }, (_, i) => msgCount - cappedLastN + i)
+    selectedIndices = Array.from(
+      { length: cappedLastN },
+      (_, i) => msgCount - cappedLastN + i,
+    )
   } else {
     selectedIndices = Array.from({ length: msgCount }, (_, i) => i)
   }

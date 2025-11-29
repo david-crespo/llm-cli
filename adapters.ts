@@ -58,7 +58,7 @@ function gptConfig(chatInput: ChatInput): ResponseCreateParamsNonStreaming {
         ? "high"
         : tools.includes("no-think")
         ? "none"
-        : undefined,
+        : "medium",
     },
     instructions: chat.systemPrompt,
   }

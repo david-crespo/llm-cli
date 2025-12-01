@@ -51,6 +51,7 @@ export const models: Model[] = [
     input: 5,
     input_cached: 0.50,
     output: 25,
+    default: true,
   },
   {
     provider: "google",
@@ -59,7 +60,6 @@ export const models: Model[] = [
     input: 2.00,
     input_cached: 0.50,
     output: 12.00,
-    default: true,
   },
   {
     provider: "google",
@@ -111,7 +111,7 @@ export const models: Model[] = [
   {
     provider: "deepseek",
     key: "deepseek-chat",
-    id: "deepseek-v3.1",
+    id: "deepseek-v3.2",
     input: 0.56,
     input_cached: 0.07,
     output: 1.68,
@@ -119,7 +119,7 @@ export const models: Model[] = [
   {
     provider: "deepseek",
     key: "deepseek-reasoner",
-    id: "deepseek-v3.1-thinking",
+    id: "deepseek-v3.2-thinking",
     input: 0.56,
     input_cached: 0.07,
     output: 1.68,
@@ -145,38 +145,6 @@ export const models: Model[] = [
     id: "gpt-oss-120b",
     input: 0.35,
     output: 0.75,
-  },
-  {
-    provider: "openrouter",
-    key: "qwen/qwen3-max",
-    id: "qwen-3-max",
-    // note these are $3, $0.60, and $15 over 128k but whatev
-    input: 1.20,
-    input_cached: 0.24,
-    output: 6.00,
-  },
-  {
-    provider: "openrouter",
-    key: "openrouter/polaris-alpha",
-    id: "polaris-alpha",
-    input: 0,
-    output: 0,
-  },
-  {
-    provider: "xai",
-    key: "grok-4",
-    id: "grok-4",
-    input: 3.00,
-    input_cached: 0.75,
-    output: 15.00,
-  },
-  {
-    provider: "xai",
-    key: "grok-4-fast-reasoning",
-    id: "grok-4-fast",
-    input: 0.20,
-    input_cached: 0.05,
-    output: 0.50,
   },
 ]
 

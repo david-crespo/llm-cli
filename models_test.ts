@@ -1,6 +1,6 @@
 import { assertEquals, assertThrows } from "@std/assert"
 import { ValidationError } from "@cliffy/command"
-import { getCost, type Model, resolveModel } from "./models.ts"
+import { getCost, type Model, models, resolveModel } from "./models.ts"
 
 // getCost tests
 
@@ -100,4 +100,8 @@ Deno.test("resolveModel - throws on unknown model", () => {
     ValidationError,
     "not found",
   )
+})
+
+Deno.test("Must have exactly one default model", () => {
+  assertEquals(models.filter((m) => m.default).length, 1)
 })

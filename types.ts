@@ -25,6 +25,7 @@ type AssistantMessage = {
   cost: number
   timeMs: number
   cache?: boolean
+  searches?: number
 }
 
 export type ChatMessage = UserMessage | AssistantMessage

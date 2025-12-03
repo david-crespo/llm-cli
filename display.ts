@@ -102,10 +102,16 @@ export function messageContentMd(msg: ChatMessage, mode: DisplayMode) {
       output += ` | ${moneyFmt.format(msg.cost)}`
 
       // show cached tokens in parens if there are any
-      const input = msg.tokens.input_cache_hit
-        ? `${msg.tokens.input} (${msg.tokens.input_cache_hit})`
-        : msg.tokens.input
-      output += ` | **Tokens:** ${input} -> ${msg.tokens.output}`
+
+      const input = msg.tokens.input +
+        (msg.tokens.input_cache_hit ? ` (${msg.tokens.input_cache_hit})` : "")
+      output += ` | ${input} -> ${msg.tokens.output}`
+
+      if (msg.searches) {
+        output += ` | 🌐`
+        if (msg.searches > 1) output += `×${msg.searches}`
+      }
+
       if (showStopReason) output += ` | **Stop reason:** ${msg.stop_reason}`
 
       output += "\n\n"

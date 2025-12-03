@@ -15,6 +15,7 @@ export type ModelResponse = {
   tokens: TokenCounts
   stop_reason: string
   cost: number
+  searches?: number
 }
 
 export type ChatInput = {
@@ -36,11 +37,14 @@ function processGptResponse(
     input_cache_hit: response.usage?.input_tokens_details?.cached_tokens || 0,
   }
 
+  const searches = response.output.filter((item) => item.type === "web_search_call").length
+
   return {
     content: response.output_text,
     tokens,
-    cost: getCost(model, tokens),
+    cost: getCost(model, tokens, searches),
     stop_reason: response.status || "completed",
+    searches: searches || undefined,
   }
 }
 
@@ -254,6 +258,8 @@ async function claudeCreateMessage(
     betas: ["effort-2025-11-24"],
   }, { signal })
 
+  const searches = response.usage.server_tool_use?.web_search_requests ?? 0
+
   const blocks = response.content.filter((msg) =>
     msg.type === "text" || msg.type === "server_tool_use"
   )
@@ -289,8 +295,9 @@ async function claudeCreateMessage(
     content,
     reasoning,
     tokens,
-    cost: getCost(model, tokens),
+    cost: getCost(model, tokens, searches),
     stop_reason: response.stop_reason!, // always non-null in non-streaming mode
+    searches: searches || undefined,
   }
 }
 
@@ -332,6 +339,7 @@ async function geminiCreateMessage({ chat, input, model, tools, signal }: ChatIn
   let content = parts.filter((p) => p.text && !p.thought).map((p) => p.text!).join("\n\n")
 
   const searchResults = result.candidates?.[0].groundingMetadata?.groundingChunks
+  const searches = searchResults && searchResults.length > 0 ? 1 : 0
   const searchResultsMd = searchResults
     ? "\n\n### Sources\n\n" + searchResults
       .filter((chunk) => chunk.web)
@@ -356,8 +364,9 @@ async function geminiCreateMessage({ chat, input, model, tools, signal }: ChatIn
     content,
     reasoning,
     tokens,
-    cost: getCost(costModel, tokens),
+    cost: getCost(costModel, tokens, searches),
     stop_reason: result.candidates?.[0].finishReason || "",
+    searches: searches || undefined,
   }
 }
 

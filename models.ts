@@ -14,6 +14,8 @@ export type Model = {
   input: number
   output: number
   input_cached?: number
+  /** Cost per web search in dollars */
+  search_cost?: number
 }
 
 /**
@@ -35,6 +37,7 @@ export const models: Model[] = [
     input: 3,
     input_cached: 0.30,
     output: 15,
+    search_cost: 0.01,
   },
   {
     provider: "anthropic",
@@ -43,6 +46,7 @@ export const models: Model[] = [
     input: 1,
     input_cached: 0.1,
     output: 5,
+    search_cost: 0.01,
   },
   {
     provider: "anthropic",
@@ -52,6 +56,7 @@ export const models: Model[] = [
     input_cached: 0.50,
     output: 25,
     default: true,
+    search_cost: 0.01,
   },
   {
     provider: "google",
@@ -60,6 +65,8 @@ export const models: Model[] = [
     input: 2.00,
     input_cached: 0.50,
     output: 12.00,
+    // 5,000 search queries per month (free), then (Coming soon) $14 / 1,000 search queries
+    search_cost: 0,
   },
   {
     provider: "google",
@@ -68,6 +75,8 @@ export const models: Model[] = [
     input: .30,
     input_cached: 0.075,
     output: 2.50,
+    // 1,500 RPD (free, limit shared with lite), then $35 / 1,000 grounded prompts
+    search_cost: 0,
   },
   {
     provider: "google",
@@ -76,6 +85,8 @@ export const models: Model[] = [
     input: .10,
     input_cached: 0.025,
     output: .40,
+    // 1,500 RPD (free, limit shared with flash), then $35 / 1,000 grounded prompts
+    search_cost: 0,
   },
   {
     provider: "openai",
@@ -84,6 +95,7 @@ export const models: Model[] = [
     input: 1.25,
     input_cached: 0.125,
     output: 10,
+    search_cost: 0.01,
   },
   {
     provider: "openai",
@@ -91,6 +103,7 @@ export const models: Model[] = [
     id: "gpt-5-pro",
     input: 15, // no caching, yikes
     output: 120,
+    search_cost: 0.01,
   },
   {
     provider: "openai",
@@ -99,6 +112,7 @@ export const models: Model[] = [
     input: .25,
     input_cached: 0.025,
     output: 2.00,
+    search_cost: 0.01,
   },
   {
     provider: "openai",
@@ -107,6 +121,7 @@ export const models: Model[] = [
     input: 0.05,
     input_cached: 0.005,
     output: 0.40,
+    search_cost: 0.01,
   },
   {
     provider: "deepseek",
@@ -174,16 +189,16 @@ export function resolveModel(modelArg: string | undefined) {
 
 const M = 1_000_000
 
-export function getCost(model: Model, tokens: TokenCounts) {
-  const { input, output, input_cached } = model
+export function getCost(model: Model, tokens: TokenCounts, searches = 0) {
+  const { input, output, input_cached, search_cost } = model
 
   // when there is caching and we have cache pricing, take it into account
-  const cost = input_cached && tokens.input_cache_hit
+  const tokenCost = input_cached && tokens.input_cache_hit
     ? (input_cached * tokens.input_cache_hit) +
       (input * (tokens.input - tokens.input_cache_hit)) + (output * tokens.output)
     : (input * tokens.input) + (output * tokens.output)
 
-  return cost / M
+  return tokenCost / M + (search_cost ?? 0) * searches
 }
 
 export const systemBase = $.dedent`

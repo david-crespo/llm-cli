@@ -4,10 +4,11 @@ import Anthropic from "@anthropic-ai/sdk"
 import { GoogleGenAI } from "@google/genai"
 import { ValidationError } from "@cliffy/command"
 
+import * as R from "remeda"
+
 import type { BackgroundStatus, Chat, TokenCounts } from "./types.ts"
-import { codeBlock, codeListMd } from "./display.ts"
+import { codeListMd } from "./display.ts"
 import { getCost, type Model } from "./models.ts"
-import { extname } from "@std/path"
 
 export type ModelResponse = {
   content: string
@@ -196,47 +197,16 @@ function claudeMsg(
   return { role, content }
 }
 
-type BashInput = { command: string }
-type TextEditorCodeExecInput =
-  | { command: "view"; path: string }
-  | { command: "create"; path: string; file_text: string }
-  | { command: "str_replace"; path: string; old_str: string; new_str: string }
-
-// In theory, tool call data should be stored in structured form and then it's
-// the problem of the display layer to do the below. In practice, it's too
-// annoying to think about a generic intermediate data format that could hold
-// this data, so we're just going to make it a string and deal with it.
 function renderClaudeContentBlock(msg: Anthropic.Beta.Messages.BetaContentBlock) {
   if (msg.type === "text") {
-    return msg.text
-  } else if (msg.type === "server_tool_use") {
-    let out = `### Tool call: \`${msg.name}\`\n\n`
-    if (msg.name === "bash_code_execution") {
-      out += `**Command:** \`${(msg.input as BashInput).command}\``
-    } else if (msg.name === "text_editor_code_execution") {
-      const input = msg.input as TextEditorCodeExecInput
-      if (input.command === "view") {
-        out += `**Path:** \`${input.path}\``
-      } else if (input.command === "create") {
-        const lang = extname(input.path).substring(1)
-        out += `**Path:** \`${input.path}\`\n\n${codeBlock(input.file_text, lang)}`
-      } else if (input.command === "str_replace") {
-        out += [
-          `**Path:** \`${input.path}\``,
-          `**Old string:** \`${JSON.stringify(input.old_str)}\``,
-          `**New string:** \`${JSON.stringify(input.new_str)}\``,
-        ].join("\n\n")
-      }
-    }
-    return out
-  } else if (
-    msg.type.endsWith("_result") && "content" in msg && typeof msg.content === "object"
-  ) {
-    const c = msg.content as { stdout: string; stderr: string; return_code: number }
-    const out = [`**Exit code:** ${c.return_code}`]
-    if (c.stdout) out.push(`#### Output\n\n${codeBlock(c.stdout)}`)
-    if (c.stderr) out.push(`#### Errors\n\n${codeBlock(c.stderr)}`)
-    return out.join("\n\n") || undefined
+    const citations = (msg.citations || [])
+      .filter((c) => c.type === "web_search_result_location")
+    if (citations.length === 0) return msg.text
+    const unique = R.uniqueBy(citations, (c) => c.url)
+    const sources = unique.map((c) => `[${c.title || c.url}](${c.url})`).join(" · ")
+    return msg.text + " (" + sources + ")"
+  } else if (msg.type === "server_tool_use" && msg.name === "web_search") {
+    return `**Search:** ${msg.input.query}`
   }
 }
 
@@ -248,6 +218,15 @@ async function claudeCreateMessage(
   const think = tools.includes("think")
   const thinkHigh = tools.includes("think-high")
   const noThink = tools.includes("no-think")
+
+  const toolsList: Anthropic.Beta.BetaToolUnion[] = []
+  if (tools.includes("search")) {
+    toolsList.push({
+      type: "web_search_20250305",
+      name: "web_search",
+      max_uses: 3,
+    })
+  }
 
   const response = await new Anthropic().beta.messages.create({
     model: model.key,
@@ -271,20 +250,23 @@ async function claudeCreateMessage(
     output_config: {
       effort: isOpus && noThink ? "low" as const : undefined,
     },
-    tools: tools.includes("code")
-      ? [{ type: "code_execution_20250825", name: "code_execution" }]
-      : undefined,
-    betas: ["code-execution-2025-08-25", "effort-2025-11-24"],
+    tools: toolsList.length > 0 ? toolsList : undefined,
+    betas: ["effort-2025-11-24"],
   }, { signal })
 
-  const content = response.content.filter((msg) =>
-    msg.type === "text" ||
-    msg.type === "server_tool_use" ||
-    msg.type.endsWith("_result")
+  const blocks = response.content.filter((msg) =>
+    msg.type === "text" || msg.type === "server_tool_use"
   )
     .map(renderClaudeContentBlock)
-    .filter((x) => x)
-    .join("\n\n")
+    .filter((x): x is string => !!x)
+
+  // Join blocks, avoiding separators around punctuation/connectors
+  const content = blocks.reduce((acc, block) => {
+    if (!acc) return block
+    if (/^[,;.!?]/.test(block)) return acc + block // no space before punctuation
+    if (/^(and|or)\b/i.test(block)) return acc + " " + block // space before connectors
+    return acc + "\n\n" + block
+  }, "")
   const reasoning = response.content
     .filter((msg) => msg.type === "thinking")
     .map((msg) => msg.thinking)
@@ -382,7 +364,7 @@ async function geminiCreateMessage({ chat, input, model, tools, signal }: ChatIn
 type Tool = "search" | "code" | "think" | "think-high" | "no-think"
 const providerTools: Record<string, Tool[]> = {
   google: ["search", "code"],
-  anthropic: ["think", "think-high", "no-think", "code"],
+  anthropic: ["search", "think", "think-high", "no-think"],
   // openai models will reason by default. no-think sets effort: minimal
   openai: ["search", "no-think", "think-high"],
 }

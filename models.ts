@@ -210,6 +210,7 @@ export const systemBase = $.dedent`
   - Your answers MUST be in markdown format
   - Put code within a triple-backtick fence block with a language key (like \`\`\`rust)
   - Never put markdown prose (or bullets or whatever) in a fenced code block
+  - When the answer is based on search, include citations directly in the response text when relevant
 
   Tailor answers to the user:
   - OS: macOS

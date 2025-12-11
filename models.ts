@@ -55,7 +55,6 @@ export const models: Model[] = [
     input: 5,
     input_cached: 0.50,
     output: 25,
-    default: true,
     search_cost: 0.01,
   },
   {
@@ -90,19 +89,20 @@ export const models: Model[] = [
   },
   {
     provider: "openai",
-    key: "gpt-5.1",
-    id: "gpt-5.1",
-    input: 1.25,
-    input_cached: 0.125,
-    output: 10,
+    key: "gpt-5.2",
+    id: "gpt-5.2",
+    input: 1.75,
+    input_cached: 0.175,
+    output: 14,
     search_cost: 0.01,
+    default: true,
   },
   {
     provider: "openai",
-    key: "gpt-5-pro",
-    id: "gpt-5-pro",
-    input: 15, // no caching, yikes
-    output: 120,
+    key: "gpt-5.2-pro",
+    id: "gpt-5.2-pro",
+    input: 21, // no caching, yikes
+    output: 168,
     search_cost: 0.01,
   },
   {

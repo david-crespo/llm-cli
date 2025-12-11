@@ -447,7 +447,7 @@ the raw output to stdout.`)
     const chatInput: ChatInput = { chat, input, image_url: opts.image, model, tools }
 
     // no need to pass --background if using gpt-5-pro -- it always needs it
-    if (opts.background || model.id === "gpt-5-pro") {
+    if (opts.background || model.id === "gpt-5.2-pro") {
       try {
         const { id, status } = await gptBg.initiate(chatInput)
         chat.background = {

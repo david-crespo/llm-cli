@@ -69,11 +69,11 @@ export const models: Model[] = [
   },
   {
     provider: "google",
-    key: "gemini-flash-latest",
-    id: "gemini-2.5-flash",
-    input: .30,
-    input_cached: 0.075,
-    output: 2.50,
+    key: "gemini-3-flash-preview",
+    id: "gemini-3-flash",
+    input: .50,
+    input_cached: 0.125,
+    output: 3.00,
     // 1,500 RPD (free, limit shared with lite), then $35 / 1,000 grounded prompts
     search_cost: 0,
   },

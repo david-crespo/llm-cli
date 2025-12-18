@@ -1,7 +1,7 @@
 import OpenAI from "openai"
 import type { ResponseCreateParamsNonStreaming } from "openai/resources/responses/responses"
 import Anthropic from "@anthropic-ai/sdk"
-import { GoogleGenAI } from "@google/genai"
+import { GoogleGenAI, ThinkingLevel } from "@google/genai"
 import { ValidationError } from "@cliffy/command"
 
 import * as R from "remeda"
@@ -305,10 +305,18 @@ async function geminiCreateMessage({ chat, input, model, tools, signal }: ChatIn
   const apiKey = Deno.env.get("GEMINI_API_KEY")
   if (!apiKey) throw Error("GEMINI_API_KEY missing")
 
+  const noThink = tools.includes("no-think")
+  const isFlash = model.key.includes("flash")
+
   const result = await new GoogleGenAI({ apiKey }).models.generateContent({
     config: {
+      // https://ai.google.dev/gemini-api/docs/thinking
       thinkingConfig: {
         includeThoughts: true,
+        thinkingLevel: noThink
+          // Flash supports "minimal", Pro only goes down to "low"
+          ? (isFlash ? ThinkingLevel.MINIMAL : ThinkingLevel.LOW)
+          : undefined, // default to dynamic
       },
       systemInstruction: chat.systemPrompt,
       tools: [
@@ -372,7 +380,7 @@ async function geminiCreateMessage({ chat, input, model, tools, signal }: ChatIn
 
 type Tool = "search" | "code" | "think" | "think-high" | "no-think"
 const providerTools: Record<string, Tool[]> = {
-  google: ["search", "code"],
+  google: ["search", "code", "no-think"],
   anthropic: ["search", "think", "think-high", "no-think"],
   // openai models will reason by default. no-think sets effort: minimal
   openai: ["search", "no-think", "think-high"],

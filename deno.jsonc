@@ -13,7 +13,7 @@
     "markdown-table": "https://esm.sh/markdown-table@3.0.4",
     "openai": "npm:openai@6.9.1",
     "@anthropic-ai/sdk": "npm:@anthropic-ai/sdk@0.71.0",
-    "@google/genai": "npm:@google/genai@1.30.0",
+    "@google/genai": "npm:@google/genai@1.34.0",
     "remeda": "npm:remeda@^2.32.0"
   }
 }

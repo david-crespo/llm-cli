@@ -78,16 +78,6 @@ export const models: Model[] = [
     search_cost: 0,
   },
   {
-    provider: "google",
-    key: "gemini-flash-lite-latest",
-    id: "gemini-2.5-flash-lite",
-    input: .10,
-    input_cached: 0.025,
-    output: .40,
-    // 1,500 RPD (free, limit shared with flash), then $35 / 1,000 grounded prompts
-    search_cost: 0,
-  },
-  {
     provider: "openai",
     key: "gpt-5.2",
     id: "gpt-5.2",

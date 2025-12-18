@@ -23,7 +23,7 @@
     "jsr:@std/path@^1.1.3": "1.1.3",
     "jsr:@std/text@~1.0.7": "1.0.16",
     "npm:@anthropic-ai/sdk@0.71.0": "0.71.0",
-    "npm:@google/genai@1.30.0": "1.30.0",
+    "npm:@google/genai@1.34.0": "1.34.0",
     "npm:openai@6.9.1": "6.9.1",
     "npm:remeda@^2.32.0": "2.32.0"
   },
@@ -133,8 +133,8 @@
     "@babel/runtime@7.28.4": {
       "integrity": "sha512-Q/N6JNWvIvPnLDvjlE1OUBLPQHH6l3CltCEsHIujp45zQUSSh8K+gHnaEX45yAT1nyngnINhvWtzN+Nb9D8RAQ=="
     },
-    "@google/genai@1.30.0": {
-      "integrity": "sha512-3MRcgczBFbUat1wIlZoLJ0vCCfXgm7Qxjh59cZi2X08RgWLtm9hKOspzp7TOg1TV2e26/MLxR2GR5yD5GmBV2w==",
+    "@google/genai@1.34.0": {
+      "integrity": "sha512-vu53UMPvjmb7PGzlYu6Tzxso8Dfhn+a7eQFaS2uNemVtDZKwzSpJ5+ikqBbXplF7RGB1STcVDqCkPvquiwb2sw==",
       "dependencies": [
         "google-auth-library",
         "ws"
@@ -348,8 +348,8 @@
         "safe-buffer"
       ]
     },
-    "jws@4.0.0": {
-      "integrity": "sha512-KDncfTmOZoOMTFG4mBlG0qUIOlc03fmzH+ru6RgYVZhPkyiy/92Owlt/8UEN+a4TXR1FQetfIpJE8ApdvdVxTg==",
+    "jws@4.0.1": {
+      "integrity": "sha512-EKI/M/yqPncGUUh44xz0PxSidXFr/+r0pA70+gIYhjv+et7yxM+s29Y+VGDkovRofQem0fs7Uvf4+YmAdyRduA==",
       "dependencies": [
         "jwa",
         "safe-buffer"
@@ -504,7 +504,7 @@
       "jsr:@std/io@~0.225.2",
       "jsr:@std/path@^1.1.3",
       "npm:@anthropic-ai/sdk@0.71.0",
-      "npm:@google/genai@1.30.0",
+      "npm:@google/genai@1.34.0",
       "npm:openai@6.9.1",
       "npm:remeda@^2.32.0"
     ]

@@ -206,6 +206,29 @@ const historyCmd = new Command()
     const n = opts.all ? selected.messages.length : opts.limit
     await renderMd(chatToMd({ chat: selected, lastN: n }))
   })
+  .command("delete", "Pick a recent chat to delete")
+  .action(async () => {
+    const history = History.read()
+    await genMissingSummaries(history)
+    const reversed = R.reverse(history)
+    const selectedIdx = await $.select({
+      message: "Pick a chat to delete",
+      options: chatPickerOptions(reversed),
+      noClear: true,
+    })
+    const selected = reversed[selectedIdx]
+    const yes = await $.maybeConfirm(
+      `Delete chat "${selected.summary || "Untitled"}"?`,
+      { noClear: true },
+    )
+    if (!yes) {
+      console.log("No changes made")
+      return
+    }
+    const newHistory = history.filter((_, i) => i !== (history.length - 1 - selectedIdx))
+    History.write(newHistory)
+    console.log("Deleted chat")
+  })
   .command("clear", "Delete current history from localStorage")
   .action(async () => {
     const history = History.read()

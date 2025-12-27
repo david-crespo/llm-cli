@@ -163,23 +163,26 @@ async function genResponse(
   }
 }
 
-/**
- * 1. pick a conversation with `$.select`
- * 2. pull it out of the list and put it on top
- * 3. write history
- */
-async function pickAndResume() {
+async function pickChat(message: string) {
   const history = History.read()
   await genMissingSummaries(history)
+  if (history.length === 0) throw new ValidationError("No chat history")
+
   const reversed = R.reverse(history)
   const selectedIdx = await $.select({
-    message: "Pick a chat to resume",
+    message,
     options: chatPickerOptions(reversed),
     noClear: true,
   })
+  const selected = reversed[selectedIdx]
+  return { history, reversed, selectedIdx, selected }
+}
+
+async function pickAndResume() {
+  const { reversed, selectedIdx, selected } = await pickChat("Pick a chat to resume")
   // pop out the selected item and move it to the end
   const [before, after] = R.splitAt(reversed, selectedIdx)
-  const [selected, ...rest] = after
+  const [, ...rest] = after
   // put it at the beginning so it's at the end after re-reversing
   const newHistory = [selected, ...before, ...rest]
   History.write(R.reverse(newHistory))
@@ -194,38 +197,20 @@ const historyCmd = new Command()
   .option("-a, --all", "Show all messages")
   .option("-n, --limit <n:integer>", "Number of messages (default 1)", { default: 1 })
   .action(async (opts) => {
-    const history = History.read()
-    await genMissingSummaries(history)
-    const reversed = R.reverse(history)
-    const selectedIdx = await $.select({
-      message: "Pick a chat to show",
-      options: chatPickerOptions(reversed),
-      noClear: true,
-    })
-    const selected = reversed[selectedIdx]
+    const { selected } = await pickChat("Pick a chat to show")
     const n = opts.all ? selected.messages.length : opts.limit
     await renderMd(chatToMd({ chat: selected, lastN: n }))
   })
   .command("delete", "Pick a recent chat to delete")
   .action(async () => {
-    const history = History.read()
-    await genMissingSummaries(history)
-    const reversed = R.reverse(history)
-    const selectedIdx = await $.select({
-      message: "Pick a chat to delete",
-      options: chatPickerOptions(reversed),
-      noClear: true,
-    })
-    const selected = reversed[selectedIdx]
-    const yes = await $.maybeConfirm(
-      `Delete chat "${selected.summary || "Untitled"}"?`,
-      { noClear: true },
+    const { history, selectedIdx, selected } = await pickChat(
+      "Pick a chat to delete",
     )
-    if (!yes) {
-      console.log("No changes made")
-      return
-    }
-    const newHistory = history.filter((_, i) => i !== (history.length - 1 - selectedIdx))
+    const msg = `Delete chat "${selected.summary || "Untitled"}"?`
+    const yes = await $.maybeConfirm(msg, { noClear: true })
+    if (!yes) return
+    const idxInHistory = history.length - 1 - selectedIdx
+    const newHistory = history.filter((_, i) => i !== idxInHistory)
     History.write(newHistory)
     console.log("Deleted chat")
   })
@@ -234,10 +219,7 @@ const historyCmd = new Command()
     const history = History.read()
     const n = history.length
     const yes = await $.maybeConfirm(`Delete ${n} chats?`, { noClear: true })
-    if (!yes) {
-      console.log("No changes made")
-      return
-    }
+    if (!yes) return
     History.clear()
     console.log("Deleted history from localStorage")
   })

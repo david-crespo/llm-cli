@@ -239,17 +239,17 @@ async function claudeCreateMessage(
       ...chat.messages.map((m) => claudeMsg(m.role, m.content)),
       claudeMsg("user", input, image_url),
     ],
-    max_tokens: tools.includes("think-high") ? 20_000 : 8_000,
+    max_tokens: thinkHigh ? 20_000 : 8_000,
     // Opus 4.5 uses effort parameter, other models use budget_tokens
     thinking: isOpus
-      ? (think
+      ? undefined
+      : (think
         ? { type: "enabled" as const, budget_tokens: 4000 }
         : thinkHigh
         ? { type: "enabled" as const, budget_tokens: 16000 }
         : noThink
         ? { type: "disabled" as const }
-        : undefined)
-      : undefined,
+        : undefined),
     // For Opus 4.5: high is the default, so only set output_config if user specifies a tool
     output_config: {
       effort: isOpus && noThink ? "low" as const : undefined,

@@ -26,7 +26,10 @@ import {
   createMessage,
   gptBg,
   type ModelResponse,
-  parseTools,
+  searchProviders,
+  thinkProviders,
+  type ToolConfig,
+  validateConfig,
 } from "./adapters.ts"
 import { History } from "./storage.ts"
 import { genMissingSummaries } from "./summarize.ts"
@@ -269,10 +272,45 @@ const gistCmd = new Command()
     await $`gh gist create -f ${filename} --web`.stdinText(md)
   })
 
+function modelInfoMd(modelArg: string) {
+  const model = resolveModel(modelArg)
+  const { provider, key, id } = model
+
+  const lines = [`**${id}** (${provider})`, `key: \`${key}\``]
+
+  if (searchProviders.has(provider)) {
+    lines.push("search: yes")
+  }
+
+  if (thinkProviders.has(provider)) {
+    if (provider === "anthropic") {
+      if (key === "claude-opus-4-5") {
+        lines.push("think: high by default, --quick for low")
+      } else {
+        lines.push("think: --think (4k), --think-hard (16k)")
+      }
+    } else if (provider === "openai") {
+      lines.push("think: medium by default, --think-hard for high, --quick for none")
+    } else if (provider === "google") {
+      const level = key.includes("flash") ? "minimal" : "low"
+      lines.push(`think: dynamic by default, --quick for ${level}`)
+    }
+  }
+
+  return lines.join("\n")
+}
+
 const modelsCmd = new Command()
-  .description("List models")
+  .description("List models or show info for a specific model")
+  .arguments("[model:string]")
   .option("-v, --verbose", "Show model keys")
-  .action((opts) => renderMd(modelsMd(opts.verbose)))
+  .action((opts, modelArg) => {
+    if (modelArg) {
+      renderMd(modelInfoMd(modelArg))
+    } else {
+      renderMd(modelsMd(opts.verbose))
+    }
+  })
 
 const forkCmd = new Command()
   .description("Fork chat from a specific message with a different model")
@@ -312,8 +350,7 @@ const forkCmd = new Command()
         input: selectedMessage.content,
         image_url: selectedMessage.image_url,
         model,
-        // TODO: preserve tools so we can pass them here if applicable?
-        tools: [],
+        config: { search: false, think: undefined },
       }
       await genResponse(chatInput, {})
     } else {
@@ -392,11 +429,12 @@ the raw output to stdout.`)
   .help({ hints: false })
   .option("-r, --reply", "Continue existing chat")
   .option("-m, --model <model:string>", "Select model by substring (e.g., 'sonnet')")
-  .option("-t, --tools <tools:string>", "Use tools (search, code, or think)", {
-    collect: true,
-  })
+  .option("-s, --search", "Enable web search")
+  .option("--think", "Enable thinking")
+  .option("--think-hard", "Enable maximum thinking")
+  .option("-q, --quick", "Minimize thinking")
   .option("-i, --image <url:string>", "Image URL (Claude only)")
-  .option("-s, --system <system:string>", "Override entire system prompt")
+  .option("--system <system:string>", "Override entire system prompt")
   .option("-e, --ephemeral", "Don't save to history")
   .option("-b, --background", "Use background mode (OpenAI only)")
   .option("-v, --verbose", "Include reasoning in output")
@@ -440,7 +478,12 @@ the raw output to stdout.`)
     const model = resolveModel(
       opts.reply && prevModelId && !opts.model ? prevModelId : opts.model,
     )
-    const tools = parseTools(model.provider, opts.tools || [])
+    const config: ToolConfig = {
+      search: opts.search ?? false,
+      think: opts.quick ? "off" : opts.thinkHard ? "high" : opts.think ? "on" : undefined,
+    }
+    validateConfig(model.provider, config)
+
     if (opts.image && model.provider !== "anthropic") {
       throw new ValidationError("Image URLs only work for Anthropic")
     }
@@ -449,7 +492,7 @@ the raw output to stdout.`)
     }
 
     chat.messages.push({ role: "user", content: input, image_url: opts.image })
-    const chatInput: ChatInput = { chat, input, image_url: opts.image, model, tools }
+    const chatInput: ChatInput = { chat, input, image_url: opts.image, model, config }
 
     // no need to pass --background if using gpt-5-pro -- it always needs it
     if (opts.background || model.id === "gpt-5.2-pro") {

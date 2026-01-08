@@ -31,7 +31,7 @@ export async function summarize(chat: Chat): Promise<string> {
     },
     input: `<message-1>${abridged1}</message-1><message-2>${abridged2}</message-2`,
     model: resolveModel("kimi-k2"),
-    tools: [],
+    config: { search: false, think: undefined },
   })
 
   return summary.content

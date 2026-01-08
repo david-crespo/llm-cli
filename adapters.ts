@@ -7,7 +7,6 @@ import { ValidationError } from "@cliffy/command"
 import * as R from "remeda"
 
 import type { BackgroundStatus, Chat, TokenCounts } from "./types.ts"
-import { codeListMd } from "./display.ts"
 import { getCost, type Model } from "./models.ts"
 
 export type ModelResponse = {
@@ -18,12 +17,19 @@ export type ModelResponse = {
   searches?: number
 }
 
+export type ThinkLevel = "on" | "high" | "off" | undefined
+
+export type ToolConfig = {
+  search: boolean
+  think: ThinkLevel
+}
+
 export type ChatInput = {
   chat: Chat
   input: string
   image_url?: string | undefined
   model: Model
-  tools: string[]
+  config: ToolConfig
   signal?: AbortSignal
 }
 
@@ -49,21 +55,16 @@ function processGptResponse(
 }
 
 function gptConfig(chatInput: ChatInput): ResponseCreateParamsNonStreaming {
-  const { chat, input, model, tools } = chatInput
+  const { chat, input, model, config } = chatInput
   return {
     model: model.key,
     input: [
       ...chat.messages.map((m) => ({ role: m.role, content: m.content })),
       { role: "user" as const, content: input },
     ],
-    tools: tools.includes("search") ? [{ type: "web_search_preview" as const }] : undefined,
+    tools: config.search ? [{ type: "web_search_preview" as const }] : undefined,
     reasoning: {
-      // undefined means medium
-      effort: tools.includes("think-high")
-        ? "high"
-        : tools.includes("no-think")
-        ? "none"
-        : "medium",
+      effort: config.think === "high" ? "high" : config.think === "off" ? "none" : "medium",
     },
     instructions: chat.systemPrompt,
   }
@@ -215,16 +216,12 @@ function renderClaudeContentBlock(msg: Anthropic.Beta.Messages.BetaContentBlock)
 }
 
 async function claudeCreateMessage(
-  { chat, input, image_url, model, tools, signal }: ChatInput,
+  { chat, input, image_url, model, config, signal }: ChatInput,
 ) {
   const isOpus = model.key === "claude-opus-4-5"
 
-  const think = tools.includes("think")
-  const thinkHigh = tools.includes("think-high")
-  const noThink = tools.includes("no-think")
-
   const toolsList: Anthropic.Beta.BetaToolUnion[] = []
-  if (tools.includes("search")) {
+  if (config.search) {
     toolsList.push({
       type: "web_search_20250305",
       name: "web_search",
@@ -239,20 +236,20 @@ async function claudeCreateMessage(
       ...chat.messages.map((m) => claudeMsg(m.role, m.content)),
       claudeMsg("user", input, image_url),
     ],
-    max_tokens: thinkHigh ? 20_000 : 8_000,
+    max_tokens: config.think === "high" ? 20_000 : 8_000,
     // Opus 4.5 uses effort parameter, other models use budget_tokens
     thinking: isOpus
       ? undefined
-      : (think
-        ? { type: "enabled" as const, budget_tokens: 4000 }
-        : thinkHigh
-        ? { type: "enabled" as const, budget_tokens: 16000 }
-        : noThink
-        ? { type: "disabled" as const }
-        : undefined),
-    // For Opus 4.5: high is the default, so only set output_config if user specifies a tool
+      : config.think === "on"
+      ? { type: "enabled" as const, budget_tokens: 4000 }
+      : config.think === "high"
+      ? { type: "enabled" as const, budget_tokens: 16000 }
+      : config.think === "off"
+      ? { type: "disabled" as const }
+      : undefined,
+    // For Opus 4.5: high is the default, so only set output_config if user specifies off
     output_config: {
-      effort: isOpus && noThink ? "low" as const : undefined,
+      effort: isOpus && config.think === "off" ? "low" as const : undefined,
     },
     tools: toolsList.length > 0 ? toolsList : undefined,
     betas: ["effort-2025-11-24"],
@@ -301,11 +298,10 @@ async function claudeCreateMessage(
   }
 }
 
-async function geminiCreateMessage({ chat, input, model, tools, signal }: ChatInput) {
+async function geminiCreateMessage({ chat, input, model, config, signal }: ChatInput) {
   const apiKey = Deno.env.get("GEMINI_API_KEY")
   if (!apiKey) throw Error("GEMINI_API_KEY missing")
 
-  const noThink = tools.includes("no-think")
   const isFlash = model.key.includes("flash")
 
   const result = await new GoogleGenAI({ apiKey }).models.generateContent({
@@ -313,7 +309,7 @@ async function geminiCreateMessage({ chat, input, model, tools, signal }: ChatIn
       // https://ai.google.dev/gemini-api/docs/thinking
       thinkingConfig: {
         includeThoughts: true,
-        thinkingLevel: noThink
+        thinkingLevel: config.think === "off"
           // Flash supports "minimal", Pro only goes down to "low"
           ? (isFlash ? ThinkingLevel.MINIMAL : ThinkingLevel.LOW)
           : undefined, // default to dynamic
@@ -322,8 +318,7 @@ async function geminiCreateMessage({ chat, input, model, tools, signal }: ChatIn
       tools: [
         // always include URL context. it was designed to be used this way
         { urlContext: {} },
-        ...(tools.includes("search") ? [{ googleSearch: {} }] : []),
-        ...(tools.includes("code") ? [{ codeExecution: {} }] : []),
+        ...(config.search ? [{ googleSearch: {} }] : []),
       ],
       abortSignal: signal,
     },
@@ -378,34 +373,16 @@ async function geminiCreateMessage({ chat, input, model, tools, signal }: ChatIn
   }
 }
 
-type Tool = "search" | "code" | "think" | "think-high" | "no-think"
-const providerTools: Record<string, Tool[]> = {
-  google: ["search", "code", "no-think"],
-  anthropic: ["search", "think", "think-high", "no-think"],
-  // openai models will reason by default. no-think sets effort: minimal
-  openai: ["search", "no-think", "think-high"],
-}
+export const searchProviders = new Set(["anthropic", "openai", "google"])
+export const thinkProviders = new Set(["anthropic", "openai", "google"])
 
-function checkTools(provider: string, inputTools: string[]) {
-  const allowedTools = providerTools[provider]
-  const badTools = inputTools.filter((t) => !(allowedTools as string[]).includes(t))
-  if (badTools.length > 0) {
-    throw new ValidationError(
-      `Invalid tools: ${
-        codeListMd(badTools)
-      }. Valid tools for ${provider} models are: ${allowedTools}`,
-    )
+export function validateConfig(provider: string, config: ToolConfig) {
+  if (config.search && !searchProviders.has(provider)) {
+    throw new ValidationError(`Search not supported for ${provider}`)
   }
-}
-
-export function parseTools(provider: string, tools: string[]): Tool[] {
-  if (tools.length === 0) return []
-
-  if (!(provider in providerTools)) {
-    throw new ValidationError("Tools can only be used with Google and Anthropic models")
+  if (config.think !== undefined && !thinkProviders.has(provider)) {
+    throw new ValidationError(`Thinking control not supported for ${provider}`)
   }
-  checkTools(provider, tools)
-  return tools as Tool[]
 }
 
 export function createMessage(provider: string, input: ChatInput): Promise<ModelResponse> {

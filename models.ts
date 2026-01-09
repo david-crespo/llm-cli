@@ -139,8 +139,8 @@ export const models: Model[] = [
   },
   {
     provider: "cerebras",
-    key: "zai-glm-4.6",
-    id: "glm-4.6",
+    key: "zai-glm-4.7",
+    id: "glm-4.7",
     input: 2.25,
     output: 2.75,
   },

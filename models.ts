@@ -56,6 +56,7 @@ export const models: Model[] = [
     input_cached: 0.50,
     output: 25,
     search_cost: 0.01,
+    default: true,
   },
   {
     provider: "google",
@@ -85,7 +86,6 @@ export const models: Model[] = [
     input_cached: 0.175,
     output: 14,
     search_cost: 0.01,
-    default: true,
   },
   {
     provider: "openai",

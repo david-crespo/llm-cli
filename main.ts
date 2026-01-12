@@ -347,8 +347,6 @@ const forkCmd = new Command()
     if (selectedMessage.role === "user") {
       const chatInput: ChatInput = {
         chat: newChat,
-        input: selectedMessage.content,
-        image_url: selectedMessage.image_url,
         model,
         config: { search: false, think: undefined },
       }
@@ -492,7 +490,7 @@ the raw output to stdout.`)
     }
 
     chat.messages.push({ role: "user", content: input, image_url: opts.image })
-    const chatInput: ChatInput = { chat, input, image_url: opts.image, model, config }
+    const chatInput: ChatInput = { chat, model, config }
 
     // no need to pass --background if using gpt-5-pro -- it always needs it
     if (opts.background || model.id === "gpt-5.2-pro") {

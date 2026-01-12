@@ -26,8 +26,6 @@ export type ToolConfig = {
 
 export type ChatInput = {
   chat: Chat
-  input: string
-  image_url?: string | undefined
   model: Model
   config: ToolConfig
   signal?: AbortSignal
@@ -55,13 +53,10 @@ function processGptResponse(
 }
 
 function gptConfig(chatInput: ChatInput): ResponseCreateParamsNonStreaming {
-  const { chat, input, model, config } = chatInput
+  const { chat, model, config } = chatInput
   return {
     model: model.key,
-    input: [
-      ...chat.messages.map((m) => ({ role: m.role, content: m.content })),
-      { role: "user" as const, content: input },
-    ],
+    input: chat.messages.map((m) => ({ role: m.role, content: m.content })),
     tools: config.search ? [{ type: "web_search_preview" as const }] : undefined,
     reasoning: {
       effort: config.think === "high" ? "high" : config.think === "off" ? "none" : "medium",
@@ -106,8 +101,7 @@ export const gptBg = {
 }
 
 const makeOpenAIFunc =
-  (baseURL: string, envVarName: string) =>
-  async ({ chat, input, model, signal }: ChatInput) => {
+  (baseURL: string, envVarName: string) => async ({ chat, model, signal }: ChatInput) => {
     const client = new OpenAI({ baseURL, apiKey: Deno.env.get(envVarName) })
     const systemMsg = chat.systemPrompt
       ? [{ role: "system" as const, content: chat.systemPrompt }]
@@ -115,7 +109,6 @@ const makeOpenAIFunc =
     const messages = [
       ...systemMsg,
       ...chat.messages.map((m) => ({ role: m.role, content: m.content })),
-      { role: "user" as const, content: input },
     ]
     const response = await client.chat.completions.create(
       { model: model.key, messages },
@@ -216,7 +209,7 @@ function renderClaudeContentBlock(msg: Anthropic.Beta.Messages.BetaContentBlock)
 }
 
 async function claudeCreateMessage(
-  { chat, input, image_url, model, config, signal }: ChatInput,
+  { chat, model, config, signal }: ChatInput,
 ) {
   const isOpus = model.key === "claude-opus-4-5"
 
@@ -232,10 +225,9 @@ async function claudeCreateMessage(
   const response = await new Anthropic().beta.messages.create({
     model: model.key,
     system: chat.systemPrompt,
-    messages: [
-      ...chat.messages.map((m) => claudeMsg(m.role, m.content)),
-      claudeMsg("user", input, image_url),
-    ],
+    messages: chat.messages.map((m) =>
+      claudeMsg(m.role, m.content, m.role === "user" ? m.image_url : undefined)
+    ),
     max_tokens: config.think === "high" ? 20_000 : 8_000,
     // Opus 4.5 uses effort parameter, other models use budget_tokens
     thinking: isOpus
@@ -298,7 +290,7 @@ async function claudeCreateMessage(
   }
 }
 
-async function geminiCreateMessage({ chat, input, model, config, signal }: ChatInput) {
+async function geminiCreateMessage({ chat, model, config, signal }: ChatInput) {
   const apiKey = Deno.env.get("GEMINI_API_KEY")
   if (!apiKey) throw Error("GEMINI_API_KEY missing")
 
@@ -323,14 +315,11 @@ async function geminiCreateMessage({ chat, input, model, config, signal }: ChatI
       abortSignal: signal,
     },
     model: model.key,
-    contents: [
-      ...chat.messages.map((msg) => ({
-        // gemini uses model instead of assistant
-        role: msg.role === "assistant" ? "model" : "user",
-        parts: [{ text: msg.content }],
-      })),
-      { role: "user", parts: [{ text: input }] },
-    ],
+    contents: chat.messages.map((msg) => ({
+      // gemini uses model instead of assistant
+      role: msg.role === "assistant" ? "model" : "user",
+      parts: [{ text: msg.content }],
+    })),
   })
 
   // console.log(JSON.stringify(result, null, 2))

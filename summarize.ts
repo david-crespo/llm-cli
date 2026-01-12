@@ -22,14 +22,14 @@ export async function summarize(chat: Chat): Promise<string> {
   const msg2 = chat.messages.at(1)?.content
   const abridged2 = msg2 ? abridge(msg2) : ""
 
+  const content = `<message-1>${abridged1}</message-1><message-2>${abridged2}</message-2>`
   const summary = await groqCreateMessage({
     chat: {
       systemPrompt:
         "You are summarizing an LLM chat in as few words as possible. Ideally 4-6 words, but up to 10 if necessary. This is for a list of chats in an LLM client UI. You will receive an excerpt of the beginning and end of the first two messages. Be concise and accurate. Only provide the summary; do not include explanation or followup questions. Do not end with a period. Do not use slashes.",
-      messages: [],
+      messages: [{ role: "user", content }],
       createdAt: new Date(),
     },
-    input: `<message-1>${abridged1}</message-1><message-2>${abridged2}</message-2`,
     model: resolveModel("kimi-k2"),
     config: { search: false, think: undefined },
   })

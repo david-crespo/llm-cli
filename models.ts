@@ -89,6 +89,15 @@ export const models: Model[] = [
   },
   {
     provider: "openai",
+    key: "gpt-5.2-codex",
+    id: "gpt-5.2-codex",
+    input: 1.75,
+    input_cached: 0.175,
+    output: 14,
+    search_cost: 0.01,
+  },
+  {
+    provider: "openai",
     key: "gpt-5.2-pro",
     id: "gpt-5.2-pro",
     input: 21, // no caching, yikes

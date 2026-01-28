@@ -147,6 +147,13 @@ export const models: Model[] = [
     output: 3.00,
   },
   {
+    provider: "openrouter",
+    key: "moonshotai/kimi-k2.5",
+    id: "kimi-k2.5",
+    input: 0.60,
+    output: 3.00,
+  },
+  {
     provider: "cerebras",
     key: "zai-glm-4.7",
     id: "glm-4.7",

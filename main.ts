@@ -302,7 +302,7 @@ function modelInfoMd(modelArg: string) {
 
 const modelsCmd = new Command()
   .description("List models or show info for a specific model")
-  .arguments("[model:string]")
+  .argument("[model:string]", "Model key or substring")
   .option("-v, --verbose", "Show model keys")
   .action((opts, modelArg) => {
     if (modelArg) {
@@ -422,7 +422,7 @@ the raw output to stdout.`)
   .command("bg", bgCmd)
   .reset()
   // top level `ai hello how are you` command
-  .arguments("[message...]")
+  .argument("[message...]", "Message to send to the LLM")
   .helpOption("-h, --help", "Show help")
   .help({ hints: false })
   .option("-r, --reply", "Continue existing chat")

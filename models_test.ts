@@ -86,7 +86,7 @@ Deno.test("resolveModel - substring match on id", () => {
 
 Deno.test("resolveModel - substring match on key", () => {
   const model = resolveModel("claude-opus")
-  assertEquals(model.id, "opus-4.5")
+  assertEquals(model.id, "opus-4.6")
 })
 
 Deno.test("resolveModel - case insensitive", () => {

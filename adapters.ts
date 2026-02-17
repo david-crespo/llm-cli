@@ -204,7 +204,9 @@ function renderClaudeContentBlock(msg: Anthropic.Beta.Messages.BetaContentBlock)
     const sources = unique.map((c) => `[${c.title || c.url}](${c.url})`).join(" · ")
     return msg.text + " (" + sources + ")"
   } else if (msg.type === "server_tool_use" && msg.name === "web_search") {
-    return `**Search:** ${msg.input.query}`
+    return `**Search:** ${(msg.input as { query: string }).query}`
+  } else if (msg.type === "server_tool_use" && msg.name === "web_fetch") {
+    return `**Fetch:** ${(msg.input as { url: string }).url}`
   }
 }
 
@@ -215,11 +217,9 @@ async function claudeCreateMessage(
 
   const toolsList: Anthropic.Beta.BetaToolUnion[] = []
   if (config.search) {
-    toolsList.push({
-      type: "web_search_20250305",
-      name: "web_search",
-      max_uses: 3,
-    })
+    toolsList.push({ type: "web_search_20260209", name: "web_search", max_uses: 5 })
+    toolsList.push({ type: "web_fetch_20260209", name: "web_fetch" })
+    toolsList.push({ type: "code_execution_20260120", name: "code_execution" })
   }
 
   const response = await new Anthropic().beta.messages.create({
@@ -244,7 +244,7 @@ async function claudeCreateMessage(
       effort: isOpus && config.think === "off" ? "low" as const : undefined,
     },
     tools: toolsList.length > 0 ? toolsList : undefined,
-    betas: ["effort-2025-11-24"],
+    betas: ["code-execution-web-tools-2026-02-09"],
   }, { signal })
 
   const searches = response.usage.server_tool_use?.web_search_requests ?? 0

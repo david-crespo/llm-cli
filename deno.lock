@@ -24,7 +24,7 @@
     "jsr:@std/path@^1.1.4": "1.1.4",
     "jsr:@std/semver@^1.0.8": "1.0.8",
     "jsr:@std/text@^1.0.17": "1.0.17",
-    "npm:@anthropic-ai/sdk@0.71.0": "0.71.0",
+    "npm:@anthropic-ai/sdk@0.75.0": "0.75.0",
     "npm:@google/genai@1.34.0": "1.34.0",
     "npm:openai@6.9.1": "6.9.1",
     "npm:remeda@^2.32.0": "2.32.0"
@@ -142,15 +142,15 @@
     }
   },
   "npm": {
-    "@anthropic-ai/sdk@0.71.0": {
-      "integrity": "sha512-go1XeWXmpxuiTkosSXpb8tokLk2ZLkIRcXpbWVwJM6gH5OBtHOVsfPfGuqI1oW7RRt4qc59EmYbrXRZ0Ng06Jw==",
+    "@anthropic-ai/sdk@0.75.0": {
+      "integrity": "sha512-Xr/BESTYMOnpyOK7Gxie2LWc+G5f9+xZEYVAuWtDdYDtINocoe046gszFMeRJZ2FfySyGxdF3OHKYwB6/+p4uQ==",
       "dependencies": [
         "json-schema-to-ts"
       ],
       "bin": true
     },
-    "@babel/runtime@7.28.4": {
-      "integrity": "sha512-Q/N6JNWvIvPnLDvjlE1OUBLPQHH6l3CltCEsHIujp45zQUSSh8K+gHnaEX45yAT1nyngnINhvWtzN+Nb9D8RAQ=="
+    "@babel/runtime@7.28.6": {
+      "integrity": "sha512-05WQkdpL9COIMz4LjTxGpPNCdlpyimKppYNoJ5Di5EUObifl8t4tuLuUBBZEpoLYOmfvIWrsp9fCl0HoPRVTdA=="
     },
     "@google/genai@1.34.0": {
       "integrity": "sha512-vu53UMPvjmb7PGzlYu6Tzxso8Dfhn+a7eQFaS2uNemVtDZKwzSpJ5+ikqBbXplF7RGB1STcVDqCkPvquiwb2sw==",
@@ -300,6 +300,7 @@
         "package-json-from-dist",
         "path-scurry"
       ],
+      "deprecated": true,
       "bin": true
     },
     "google-auth-library@10.5.0": {
@@ -522,7 +523,7 @@
       "jsr:@std/assert@^1.0.16",
       "jsr:@std/io@~0.225.2",
       "jsr:@std/path@^1.1.3",
-      "npm:@anthropic-ai/sdk@0.71.0",
+      "npm:@anthropic-ai/sdk@0.75.0",
       "npm:@google/genai@1.34.0",
       "npm:openai@6.9.1",
       "npm:remeda@^2.32.0"

@@ -32,8 +32,8 @@ export type Model = {
 export const models: Model[] = [
   {
     provider: "anthropic",
-    key: "claude-sonnet-4-5",
-    id: "sonnet-4.5",
+    key: "claude-sonnet-4-6",
+    id: "sonnet-4.6",
     input: 3,
     input_cached: 0.30,
     output: 15,

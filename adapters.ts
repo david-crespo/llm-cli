@@ -213,7 +213,8 @@ function renderClaudeContentBlock(msg: Anthropic.Beta.Messages.BetaContentBlock)
 async function claudeCreateMessage(
   { chat, model, config, signal }: ChatInput,
 ) {
-  const isOpus = model.key === "claude-opus-4-5"
+  // Haiku doesn't support effort; Opus/Sonnet use effort + adaptive thinking
+  const supportsEffort = !model.key.includes("haiku")
 
   const toolsList: Anthropic.Beta.BetaToolUnion[] = []
   if (config.search) {
@@ -229,9 +230,13 @@ async function claudeCreateMessage(
       claudeMsg(m.role, m.content, m.role === "user" ? m.image_url : undefined)
     ),
     max_tokens: config.think === "high" ? 20_000 : 8_000,
-    // Opus 4.5 uses effort parameter, other models use budget_tokens
-    thinking: isOpus
-      ? undefined
+    // Opus/Sonnet use effort + adaptive thinking; Haiku uses budget_tokens
+    thinking: supportsEffort
+      ? config.think === "off"
+        ? { type: "disabled" as const }
+        : config.think !== undefined
+        ? { type: "adaptive" as const }
+        : undefined
       : config.think === "on"
       ? { type: "enabled" as const, budget_tokens: 4000 }
       : config.think === "high"
@@ -239,10 +244,17 @@ async function claudeCreateMessage(
       : config.think === "off"
       ? { type: "disabled" as const }
       : undefined,
-    // For Opus 4.5: high is the default, so only set output_config if user specifies off
-    output_config: {
-      effort: isOpus && config.think === "off" ? "low" as const : undefined,
-    },
+    output_config: supportsEffort
+      ? {
+        effort: config.think === "on"
+          ? "medium" as const
+          : config.think === "high"
+          ? "high" as const
+          : config.think === "off"
+          ? "low" as const
+          : undefined,
+      }
+      : undefined,
     tools: toolsList.length > 0 ? toolsList : undefined,
     betas: ["code-execution-web-tools-2026-02-09"],
   }, { signal })

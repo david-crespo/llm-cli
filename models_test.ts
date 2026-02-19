@@ -69,19 +69,19 @@ Deno.test("resolveModel - returns default when undefined", () => {
 })
 
 Deno.test("resolveModel - exact match on id", () => {
-  const model = resolveModel("sonnet-4.5")
-  assertEquals(model.id, "sonnet-4.5")
-  assertEquals(model.key, "claude-sonnet-4-5")
+  const model = resolveModel("sonnet-4.6")
+  assertEquals(model.id, "sonnet-4.6")
+  assertEquals(model.key, "claude-sonnet-4-6")
 })
 
 Deno.test("resolveModel - exact match on key", () => {
-  const model = resolveModel("claude-sonnet-4-5")
-  assertEquals(model.id, "sonnet-4.5")
+  const model = resolveModel("claude-sonnet-4-6")
+  assertEquals(model.id, "sonnet-4.6")
 })
 
 Deno.test("resolveModel - substring match on id", () => {
   const model = resolveModel("sonnet")
-  assertEquals(model.id, "sonnet-4.5")
+  assertEquals(model.id, "sonnet-4.6")
 })
 
 Deno.test("resolveModel - substring match on key", () => {
@@ -91,7 +91,7 @@ Deno.test("resolveModel - substring match on key", () => {
 
 Deno.test("resolveModel - case insensitive", () => {
   const model = resolveModel("SONNET")
-  assertEquals(model.id, "sonnet-4.5")
+  assertEquals(model.id, "sonnet-4.6")
 })
 
 Deno.test("resolveModel - throws on unknown model", () => {

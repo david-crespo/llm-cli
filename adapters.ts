@@ -225,6 +225,7 @@ async function claudeCreateMessage(
 
   const response = await new Anthropic().beta.messages.create({
     model: model.key,
+    cache_control: { type: "ephemeral" },
     system: chat.systemPrompt,
     messages: chat.messages.map((m) =>
       claudeMsg(m.role, m.content, m.role === "user" ? m.image_url : undefined)

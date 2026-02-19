@@ -24,7 +24,7 @@
     "jsr:@std/path@^1.1.4": "1.1.4",
     "jsr:@std/semver@^1.0.8": "1.0.8",
     "jsr:@std/text@^1.0.17": "1.0.17",
-    "npm:@anthropic-ai/sdk@0.75.0": "0.75.0",
+    "npm:@anthropic-ai/sdk@0.78.0": "0.78.0",
     "npm:@google/genai@1.34.0": "1.34.0",
     "npm:openai@6.9.1": "6.9.1",
     "npm:remeda@^2.32.0": "2.32.0"
@@ -142,8 +142,8 @@
     }
   },
   "npm": {
-    "@anthropic-ai/sdk@0.75.0": {
-      "integrity": "sha512-Xr/BESTYMOnpyOK7Gxie2LWc+G5f9+xZEYVAuWtDdYDtINocoe046gszFMeRJZ2FfySyGxdF3OHKYwB6/+p4uQ==",
+    "@anthropic-ai/sdk@0.78.0": {
+      "integrity": "sha512-PzQhR715td/m1UaaN5hHXjYB8Gl2lF9UVhrrGrZeysiF6Rb74Wc9GCB8hzLdzmQtBd1qe89F9OptgB9Za1Ib5w==",
       "dependencies": [
         "json-schema-to-ts"
       ],
@@ -523,7 +523,7 @@
       "jsr:@std/assert@^1.0.16",
       "jsr:@std/io@~0.225.2",
       "jsr:@std/path@^1.1.3",
-      "npm:@anthropic-ai/sdk@0.75.0",
+      "npm:@anthropic-ai/sdk@0.78.0",
       "npm:@google/genai@1.34.0",
       "npm:openai@6.9.1",
       "npm:remeda@^2.32.0"

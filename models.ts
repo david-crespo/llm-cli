@@ -32,6 +32,16 @@ export type Model = {
 export const models: Model[] = [
   {
     provider: "anthropic",
+    key: "claude-opus-4-6",
+    id: "opus-4.6",
+    input: 5,
+    input_cached: 0.50,
+    output: 25,
+    search_cost: 0.01,
+    default: true,
+  },
+  {
+    provider: "anthropic",
     key: "claude-sonnet-4-6",
     id: "sonnet-4.6",
     input: 3,
@@ -47,16 +57,6 @@ export const models: Model[] = [
     input_cached: 0.1,
     output: 5,
     search_cost: 0.01,
-  },
-  {
-    provider: "anthropic",
-    key: "claude-opus-4-6",
-    id: "opus-4.6",
-    input: 5,
-    input_cached: 0.50,
-    output: 25,
-    search_cost: 0.01,
-    default: true,
   },
   {
     provider: "google",
@@ -89,27 +89,20 @@ export const models: Model[] = [
   },
   {
     provider: "openai",
+    key: "gpt-5.4-mini",
+    id: "gpt-5.4-mini",
+    input: 0.75,
+    input_cached: 0.075,
+    output: 4.50,
+    search_cost: 0.01,
+  },
+  {
+    provider: "openai",
     key: "gpt-5.4-pro",
     id: "gpt-5.4-pro",
     input: 30, // no caching, yikes
     output: 180,
     search_cost: 0.01,
-  },
-  {
-    provider: "deepseek",
-    key: "deepseek-chat",
-    id: "deepseek-v3.2",
-    input: 0.56,
-    input_cached: 0.07,
-    output: 1.68,
-  },
-  {
-    provider: "deepseek",
-    key: "deepseek-reasoner",
-    id: "deepseek-v3.2-thinking",
-    input: 0.56,
-    input_cached: 0.07,
-    output: 1.68,
   },
   {
     provider: "groq",

@@ -1,6 +1,6 @@
 import $ from "@david/dax"
 
-import { groqCreateMessage } from "./adapters.ts"
+import { createMessage } from "./adapters.ts"
 import { type Chat } from "./types.ts"
 import { History } from "./storage.ts"
 import { resolveModel } from "./models.ts"
@@ -21,17 +21,18 @@ export async function summarize(chat: Chat): Promise<string> {
   const abridged1 = abridge(chat.messages[0].content)
   const msg2 = chat.messages.at(1)?.content
   const abridged2 = msg2 ? abridge(msg2) : ""
-
-  const content = `<message-1>${abridged1}</message-1><message-2>${abridged2}</message-2>`
-  const summary = await groqCreateMessage({
+  const summary = await createMessage({
     chat: {
       systemPrompt:
         "You are summarizing an LLM chat in as few words as possible. Ideally 4-6 words, but up to 10 if necessary. This is for a list of chats in an LLM client UI. You will receive an excerpt of the beginning and end of the first two messages. Be concise and accurate. Only provide the summary; do not include explanation or followup questions. Do not end with a period. Do not use slashes.",
-      messages: [{ role: "user", content }],
+      messages: [{
+        role: "user",
+        content: `<message-1>${abridged1}</message-1><message-2>${abridged2}</message-2>`,
+      }],
       createdAt: new Date(),
     },
-    model: resolveModel("kimi-k2"),
-    config: { search: false, think: undefined },
+    model: resolveModel("flash"),
+    config: { search: false, think: "off" },
   })
 
   return summary.content
@@ -39,10 +40,6 @@ export async function summarize(chat: Chat): Promise<string> {
 
 /** Create and save summaries for any chat without one */
 export async function genMissingSummaries(history: Chat[]) {
-  if (!Deno.env.get("GROQ_API_KEY")) {
-    $.logWarn("Skipping summarization:", "GROQ_API_KEY not found")
-    return
-  }
   const pb = $.progress("Summarizing...")
   await Promise.all((history
     .filter((chat) => !chat.summary))

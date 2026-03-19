@@ -387,7 +387,8 @@ export function validateConfig(provider: string, config: ToolConfig) {
   }
 }
 
-export function createMessage(provider: string, input: ChatInput): Promise<ModelResponse> {
+export function createMessage(input: ChatInput): Promise<ModelResponse> {
+  const { provider } = input.model
   if (provider === "anthropic") return claudeCreateMessage(input)
   if (provider === "google") return geminiCreateMessage(input)
   if (provider === "deepseek") return deepseekCreateMessage(input)

@@ -146,7 +146,7 @@ async function genResponse(
 
   try {
     const startTime = Date.now()
-    const response = await createMessage(chatInput.model.provider, {
+    const response = await createMessage({
       ...chatInput,
       signal: abortController.signal,
     })

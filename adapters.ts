@@ -314,7 +314,11 @@ async function geminiCreateMessage({ chat, model, config, signal }: ChatInput) {
       // https://ai.google.dev/gemini-api/docs/thinking
       thinkingConfig: {
         includeThoughts: true,
-        thinkingLevel: config.think === "off"
+        thinkingLevel: config.think === "high"
+          ? ThinkingLevel.HIGH
+          : config.think === "on"
+          ? ThinkingLevel.MEDIUM
+          : config.think === "off"
           // Flash supports "minimal", Pro only goes down to "low"
           ? (isFlash ? ThinkingLevel.MINIMAL : ThinkingLevel.LOW)
           : undefined, // default to dynamic

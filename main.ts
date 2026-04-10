@@ -1,4 +1,4 @@
-#! /usr/bin/env -S deno run --allow-env --allow-read --allow-net --allow-run=gh,glow
+#! /usr/bin/env -S deno run --allow-env --allow-read --allow-net --allow-run=gh
 
 import { readAll } from "@std/io"
 import { Command, ValidationError } from "@cliffy/command"
@@ -113,6 +113,7 @@ async function pollBackgroundResponse(
       const assistantMsg = makeAssMsg(model.id, startTime, response)
       chat.messages.push(assistantMsg)
       delete chat.background
+      if (!displayOpts.raw) console.log()
       await renderMd(messageContentMd(assistantMsg, getMode(displayOpts)), displayOpts.raw)
     } else {
       console.log(`Background response ${chat.background.status}`)
@@ -154,6 +155,7 @@ async function genResponse(
     const assistantMsg = makeAssMsg(chatInput.model.id, startTime, response)
     chatInput.chat.messages.push(assistantMsg)
 
+    if (!raw) console.log()
     await renderMd(messageContentMd(assistantMsg, getMode({ raw, verbose })), raw)
   } catch (e: unknown) {
     renderError(e)

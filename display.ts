@@ -1,17 +1,12 @@
-import $ from "@david/dax"
 import { markdownTable } from "markdown-table"
 
 import { Chat, type ChatMessage } from "./types.ts"
 import { models, systemBase } from "./models.ts"
-
-const RENDERER = "glow"
+import { renderMarkdown } from "./md-render.ts"
 
 export async function renderMd(md: string, raw = false) {
-  if ($.commandExistsSync(RENDERER) && Deno.stdout.isTerminal() && !raw) {
-    // When the terminal width is < 80, glow by default seems to use a width of
-    // 80, causing unsightly wrapping. Plus sometimes we want wider than 80.
-    const width = Math.min(Deno.consoleSize().columns, 100)
-    await $`${RENDERER} --width ${width}`.stdinText(md)
+  if (Deno.stdout.isTerminal() && !raw) {
+    console.log(await renderMarkdown(md))
   } else {
     console.log(md)
   }

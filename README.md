@@ -4,8 +4,7 @@ A simple but full-featured CLI powered by Deno for chatting with LLMs.
 
 Thanks to [Justin Bennett](https://github.com/zephraph) for the
 [script](https://github.com/zephraph/deno.run/blob/0972d0cd3d8f050cb11c3a6d1c1c201608d100a9/chat-gpt.ts)
-that inspired this as well as the idea of piping markdown output to
-[`glow`](https://github.com/charmbracelet/glow).
+that inspired this.
 
 <img width="664" alt="image" src="https://github.com/user-attachments/assets/4f45bb8a-7568-43b6-a1b0-5ce76fd8fc1b" />
 
@@ -58,9 +57,6 @@ environment.
 ### Dependencies
 
 - [Deno](https://docs.deno.com/runtime/manual) (essential)
-- [`glow`](https://github.com/charmbracelet/glow) (terminal markdown renderer)
-  - You can do without `glow` if you like reading raw markdown or you pipe output to some
-    other tool for rendering markdown in the terminal
 - [`gh`](https://cli.github.com/) (GitHub CLI, optional)
   - Only needed if you want to upload chats as GitHub gists
   - You'll need to be logged in
@@ -68,8 +64,8 @@ environment.
 
 ### Installation
 
-Clone the repo. Then you just need a way to run `main.ts` and pipe the output to `glow`. I
-use this function in my `.zprofile`:
+Clone the repo. Then you just need a way to run `main.ts`. I use this function in my
+`.zprofile`:
 
 ```bash
 function ai() {
@@ -78,7 +74,7 @@ function ai() {
 }
 ```
 
-The `"$@:"` means pipe all command-line arguments to `ai` straight to `main.ts`.
+The `"$@"` passes all command-line arguments to `main.ts`.
 
 You'll need to `chmod +x` the script in order to be able to execute it directly like above.
 Otherwise, you could run it with `deno run path/to/main.ts`, but that is less convenient

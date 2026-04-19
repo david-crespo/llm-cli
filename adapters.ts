@@ -210,18 +210,62 @@ function renderClaudeContentBlock(msg: Anthropic.Beta.Messages.BetaContentBlock)
   }
 }
 
+type ClaudeThinkParams = {
+  thinking: Anthropic.Beta.BetaThinkingConfigParam | undefined
+  output_config: Anthropic.Beta.BetaOutputConfig | undefined
+  max_tokens: number
+}
+
+function claudeThinkParams(key: string, think: ThinkLevel): ClaudeThinkParams {
+  const adaptive = key === "claude-opus-4-7" || key === "claude-sonnet-4-6" ||
+    key === "claude-opus-4-6"
+  const xhigh = key === "claude-opus-4-7"
+
+  // --think-hard needs headroom so thinking + tool turns don't bump max_tokens.
+  const max_tokens = think === "high" ? (xhigh ? 64_000 : 20_000) : 8_000
+
+  if (think === undefined) {
+    return { thinking: undefined, output_config: undefined, max_tokens }
+  }
+
+  if (!adaptive) {
+    const thinking: Anthropic.Beta.BetaThinkingConfigParam = think === "on"
+      ? { type: "enabled", budget_tokens: 4000 }
+      : think === "high"
+      ? { type: "enabled", budget_tokens: 16000 }
+      : { type: "disabled" }
+    return { thinking, output_config: undefined, max_tokens }
+  }
+
+  // Force display: "summarized" so --verbose shows reasoning. Opus 4.7 otherwise
+  // defaults to "omitted" and blanks the text.
+  const thinking: Anthropic.Beta.BetaThinkingConfigParam = think === "off"
+    ? { type: "disabled" }
+    : { type: "adaptive", display: "summarized" }
+
+  const effort = think === "on"
+    ? "medium" as const
+    : think === "high"
+    ? xhigh ? "xhigh" as const : "high" as const
+    : "low" as const
+
+  return { thinking, output_config: { effort }, max_tokens }
+}
+
 async function claudeCreateMessage(
   { chat, model, config, signal }: ChatInput,
 ) {
-  // Haiku doesn't support effort; Opus/Sonnet use effort + adaptive thinking
-  const supportsEffort = !model.key.includes("haiku")
-
   const toolsList: Anthropic.Beta.BetaToolUnion[] = []
   if (config.search) {
     toolsList.push({ type: "web_search_20260209", name: "web_search", max_uses: 5 })
     toolsList.push({ type: "web_fetch_20260209", name: "web_fetch" })
     toolsList.push({ type: "code_execution_20260120", name: "code_execution" })
   }
+
+  const { thinking, output_config, max_tokens } = claudeThinkParams(
+    model.key,
+    config.think,
+  )
 
   const response = await new Anthropic().beta.messages.create({
     model: model.key,
@@ -230,32 +274,9 @@ async function claudeCreateMessage(
     messages: chat.messages.map((m) =>
       claudeMsg(m.role, m.content, m.role === "user" ? m.image_url : undefined)
     ),
-    max_tokens: config.think === "high" ? 20_000 : 8_000,
-    // Opus/Sonnet use effort + adaptive thinking; Haiku uses budget_tokens
-    thinking: supportsEffort
-      ? config.think === "off"
-        ? { type: "disabled" as const }
-        : config.think !== undefined
-        ? { type: "adaptive" as const }
-        : undefined
-      : config.think === "on"
-      ? { type: "enabled" as const, budget_tokens: 4000 }
-      : config.think === "high"
-      ? { type: "enabled" as const, budget_tokens: 16000 }
-      : config.think === "off"
-      ? { type: "disabled" as const }
-      : undefined,
-    output_config: supportsEffort
-      ? {
-        effort: config.think === "on"
-          ? "medium" as const
-          : config.think === "high"
-          ? "high" as const
-          : config.think === "off"
-          ? "low" as const
-          : undefined,
-      }
-      : undefined,
+    max_tokens,
+    thinking,
+    output_config,
     tools: toolsList.length > 0 ? toolsList : undefined,
     betas: ["code-execution-web-tools-2026-02-09"],
   }, { signal })

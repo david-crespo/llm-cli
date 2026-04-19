@@ -18,7 +18,7 @@
     "markdown-exit": "npm:markdown-exit@^1.0.0-beta.9",
     "markdown-table": "https://esm.sh/markdown-table@3.0.4",
     "openai": "npm:openai@6.9.1",
-    "@anthropic-ai/sdk": "npm:@anthropic-ai/sdk@0.78.0",
+    "@anthropic-ai/sdk": "npm:@anthropic-ai/sdk@0.90.0",
     "@google/genai": "npm:@google/genai@1.34.0",
     "remeda": "npm:remeda@^2.32.0",
     "string-width": "https://esm.sh/string-width@7.2.0",

@@ -11,7 +11,10 @@ Deno.test("renderMarkdown reflows long blockquote text", async () => {
   const output = stripAnsi(await renderMarkdown(`> ${long}`))
   const lines = output.split("\n")
   assert(lines.length > 1, "long blockquote should wrap to multiple lines")
-  assert(lines.every((l) => l.startsWith(" │ ")), "every line should have blockquote prefix")
+  assert(
+    lines.every((l) => l.startsWith(" │ ")),
+    "every line should have blockquote prefix",
+  )
 })
 
 Deno.test("renderMarkdown handles nested blockquotes", async () => {

@@ -156,9 +156,7 @@ function postProcessBlockquotes(text: string, width: number): string {
 
 function postProcessTables(text: string): string {
   const extractCells = (row: string) =>
-    [...row.matchAll(/\x00CELL\x00([\s\S]*?)\x00\/CELL\x00/g)].map((m) =>
-      m[1].trim()
-    )
+    [...row.matchAll(/\x00CELL\x00([\s\S]*?)\x00\/CELL\x00/g)].map((m) => m[1].trim())
 
   return text.replace(
     /\x00TABLE\x00([\s\S]*?)\x00\/TABLE\x00/g,
@@ -166,14 +164,11 @@ function postProcessTables(text: string): string {
       const rows = [...content.matchAll(/\x00TR\x00([\s\S]*?)\x00\/TR\x00/g)]
         .map((m) => extractCells(m[1]))
       const thead = content.match(/\x00THEAD\x00([\s\S]*?)\x00\/THEAD\x00/)
-      const headerRows = thead
-        ? [...thead[1].matchAll(/\x00TR\x00/g)].length
-        : 0
+      const headerRows = thead ? [...thead[1].matchAll(/\x00TR\x00/g)].length : 0
       return renderTable(rows, headerRows) + "\n\n"
     },
   )
 }
-
 
 function reflowParagraphs(text: string, columns: number, width: number): string {
   if (columns <= 80) return text

@@ -219,10 +219,10 @@ type ClaudeThinkParams = {
 function claudeThinkParams(key: string, think: ThinkLevel): ClaudeThinkParams {
   const adaptive = key === "claude-opus-4-7" || key === "claude-sonnet-4-6" ||
     key === "claude-opus-4-6"
-  const xhigh = key === "claude-opus-4-7"
 
-  // --think-hard needs headroom so thinking + tool turns don't bump max_tokens.
-  const max_tokens = think === "high" ? (xhigh ? 64_000 : 20_000) : 8_000
+  // SDK's non-streaming guard throws when max_tokens > ~21_333 (it assumes
+  // 128k tokens/hour and refuses requests estimated to take >10 min).
+  const max_tokens = think === "high" ? 20_000 : 8_000
 
   if (think === undefined) {
     return { thinking: undefined, output_config: undefined, max_tokens }
@@ -243,10 +243,9 @@ function claudeThinkParams(key: string, think: ThinkLevel): ClaudeThinkParams {
     ? { type: "disabled" }
     : { type: "adaptive", display: "summarized" }
 
-  const effort = think === "on"
-    ? "medium" as const
-    : think === "high"
-    ? xhigh ? "xhigh" as const : "high" as const
+  const effort = think === "on" ? "medium" as const : think === "high"
+    // opus 4.7 could do xhigh here but high should be enough
+    ? "high" as const
     : "low" as const
 
   return { thinking, output_config: { effort }, max_tokens }

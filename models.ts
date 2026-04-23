@@ -124,10 +124,13 @@ export const models: Model[] = [
   },
   {
     provider: "openrouter",
-    key: "moonshotai/kimi-k2.5",
-    id: "kimi-k2.5",
-    input: 0.60,
-    output: 3.00,
+    key: "moonshotai/kimi-k2.6",
+    id: "kimi-k2.6",
+    // prices actually vary but let's go with moonshot's own as a middle ground
+    // https://openrouter.ai/moonshotai/kimi-k2.6
+    input: 0.95,
+    input_cached: 0.16,
+    output: 4.00,
   },
   {
     provider: "cerebras",

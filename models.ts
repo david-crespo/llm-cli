@@ -90,11 +90,11 @@ export const models: Model[] = [
   },
   {
     provider: "openai",
-    key: "gpt-5.4",
-    id: "gpt-5.4",
-    input: 2.50,
-    input_cached: 0.25,
-    output: 15,
+    key: "gpt-5.5",
+    id: "gpt-5.5",
+    input: 5.00,
+    input_cached: 0.50,
+    output: 30,
     search_cost: 0.01,
   },
   {

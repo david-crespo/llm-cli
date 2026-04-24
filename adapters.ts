@@ -217,8 +217,7 @@ type ClaudeThinkParams = {
 }
 
 function claudeThinkParams(key: string, think: ThinkLevel): ClaudeThinkParams {
-  const adaptive = key === "claude-opus-4-7" || key === "claude-sonnet-4-6" ||
-    key === "claude-opus-4-6"
+  const adaptive = key === "claude-opus-4-7" || key === "claude-sonnet-4-6"
 
   // SDK's non-streaming guard throws when max_tokens > ~21_333 (it assumes
   // 128k tokens/hour and refuses requests estimated to take >10 min).

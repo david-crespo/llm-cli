@@ -33,6 +33,7 @@ import {
 } from "./adapters.ts"
 import { History } from "./storage.ts"
 import { genMissingSummaries } from "./summarize.ts"
+import { parseType } from "./schema.ts"
 
 const getLastModelId = (chat: Chat) =>
   chat.messages.findLast((m) => m.role === "assistant")?.model
@@ -439,6 +440,7 @@ the raw output to stdout.`)
   .option("-b, --background", "Use background mode (OpenAI only)")
   .option("-v, --verbose", "Include reasoning in output")
   .option("--raw", "Print LLM text directly (no metadata or reasoning)")
+  .option("-o, --output-schema <schema:string>", "ArkType schema for structured output")
   .example("1)", "ai 'What is the capital of France?'")
   .example("2)", "cat main.ts | ai 'what is this?'")
   .example("3)", "echo 'what are you?' | ai")
@@ -446,6 +448,19 @@ the raw output to stdout.`)
   .example("5)", "ai -m 4o 'What are generic types?'")
   .example("6)", "ai gist -t 'Generic types'")
   .action(async (opts, ...args) => {
+    // Temporary: parse --output-schema and print the resulting JSON Schema,
+    // then exit. Will be wired to providers in a follow-up.
+    if (opts.outputSchema) {
+      try {
+        const t = parseType(opts.outputSchema)
+        console.log(JSON.stringify(t.toJsonSchema(), null, 2))
+      } catch (e) {
+        console.error(e instanceof Error ? e.message : String(e))
+        Deno.exit(1)
+      }
+      return
+    }
+
     const msg = args.join(" ")
     const stdin = Deno.stdin.isTerminal()
       ? null

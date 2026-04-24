@@ -122,6 +122,9 @@ export function messageContentMd(msg: ChatMessage, mode: DisplayMode) {
     }
   }
 
+  if (msg.role === "user" && msg.outputSchema && mode !== "raw") {
+    output += `**Schema:** \`${msg.outputSchema}\`\n\n`
+  }
   // For long user inputs in gist mode, collapse in a details block
   if (msg.role === "user" && mode === "gist" && msg.content.length > LONG_INPUT_THRESHOLD) {
     output += tag(

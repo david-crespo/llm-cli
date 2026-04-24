@@ -3,6 +3,7 @@ import type { ResponseCreateParamsNonStreaming } from "openai/resources/response
 import Anthropic from "@anthropic-ai/sdk"
 import { GoogleGenAI, ThinkingLevel } from "@google/genai"
 import { ValidationError } from "@cliffy/command"
+import type { Type } from "arktype"
 
 import * as R from "remeda"
 
@@ -29,6 +30,7 @@ export type ChatInput = {
   model: Model
   config: ToolConfig
   signal?: AbortSignal
+  outputSchema?: Type
 }
 
 function processGptResponse(
@@ -250,8 +252,24 @@ function claudeThinkParams(key: string, think: ThinkLevel): ClaudeThinkParams {
   return { thinking, output_config: { effort }, max_tokens }
 }
 
+/**
+ * Anthropic requires `additionalProperties: false` on every object type in an
+ * output schema. arktype's `toJsonSchema()` doesn't emit it, so we add it
+ * recursively before sending.
+ */
+function closeObjects(schema: unknown): unknown {
+  if (schema === null || typeof schema !== "object") return schema
+  if (Array.isArray(schema)) return schema.map(closeObjects)
+  const out: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(schema)) out[k] = closeObjects(v)
+  if (out.type === "object" && out.additionalProperties === undefined) {
+    out.additionalProperties = false
+  }
+  return out
+}
+
 async function claudeCreateMessage(
-  { chat, model, config, signal }: ChatInput,
+  { chat, model, config, signal, outputSchema }: ChatInput,
 ) {
   const toolsList: Anthropic.Beta.BetaToolUnion[] = []
   if (config.search) {
@@ -265,6 +283,13 @@ async function claudeCreateMessage(
     config.think,
   )
 
+  const output_format: Anthropic.Beta.BetaJSONOutputFormat | undefined = outputSchema
+    ? {
+      type: "json_schema",
+      schema: closeObjects(outputSchema.toJsonSchema()) as Record<string, unknown>,
+    }
+    : undefined
+
   const response = await new Anthropic().beta.messages.create({
     model: model.key,
     cache_control: { type: "ephemeral" },
@@ -275,6 +300,7 @@ async function claudeCreateMessage(
     max_tokens,
     thinking,
     output_config,
+    output_format,
     tools: toolsList.length > 0 ? toolsList : undefined,
     betas: ["code-execution-web-tools-2026-02-09"],
   }, { signal })
@@ -288,12 +314,22 @@ async function claudeCreateMessage(
     .filter((x): x is string => !!x)
 
   // Join blocks, avoiding separators around punctuation/connectors
-  const content = blocks.reduce((acc, block) => {
+  let content = blocks.reduce((acc, block) => {
     if (!acc) return block
     if (/^[,;.!?]/.test(block)) return acc + block // no space before punctuation
     if (/^(and|or)\b/i.test(block)) return acc + " " + block // space before connectors
     return acc + "\n\n" + block
   }, "")
+
+  // When a structured-output schema is used, Claude returns JSON. Strip the
+  // outer quotes on bare-string results so shell consumers see `yes` not
+  // `"yes"`. Leave objects/arrays/numbers/booleans alone.
+  if (outputSchema) {
+    try {
+      const parsed = JSON.parse(content)
+      if (typeof parsed === "string") content = parsed
+    } catch { /* not JSON, leave as-is */ }
+  }
   const reasoning = response.content
     .filter((msg) => msg.type === "thinking")
     .map((msg) => msg.thinking)
@@ -412,6 +448,9 @@ export function validateConfig(provider: string, config: ToolConfig) {
 
 export function createMessage(input: ChatInput): Promise<ModelResponse> {
   const { provider } = input.model
+  if (input.outputSchema && provider !== "anthropic") {
+    throw new ValidationError("--output-schema only supported for Anthropic models so far")
+  }
   if (provider === "anthropic") return claudeCreateMessage(input)
   if (provider === "google") return geminiCreateMessage(input)
   if (provider === "deepseek") return deepseekCreateMessage(input)

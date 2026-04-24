@@ -11,6 +11,8 @@ type UserMessage = {
   content: string
   image_url?: string
   cache?: boolean
+  /** arktype canonical expression of the requested output schema, if any */
+  outputSchema?: string
 }
 
 type AssistantMessage = {

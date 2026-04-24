@@ -448,17 +448,14 @@ the raw output to stdout.`)
   .example("5)", "ai -m 4o 'What are generic types?'")
   .example("6)", "ai gist -t 'Generic types'")
   .action(async (opts, ...args) => {
-    // Temporary: parse --output-schema and print the resulting JSON Schema,
-    // then exit. Will be wired to providers in a follow-up.
+    let outputSchema: ReturnType<typeof parseType> | undefined
     if (opts.outputSchema) {
       try {
-        const t = parseType(opts.outputSchema)
-        console.log(JSON.stringify(t.toJsonSchema(), null, 2))
+        outputSchema = parseType(opts.outputSchema)
       } catch (e) {
         console.error(e instanceof Error ? e.message : String(e))
         Deno.exit(1)
       }
-      return
     }
 
     const msg = args.join(" ")
@@ -506,8 +503,13 @@ the raw output to stdout.`)
       throw new ValidationError("Background mode only works with OpenAI models")
     }
 
-    chat.messages.push({ role: "user", content: input, image_url: opts.image })
-    const chatInput: ChatInput = { chat, model, config }
+    chat.messages.push({
+      role: "user",
+      content: input,
+      image_url: opts.image,
+      outputSchema: outputSchema?.expression,
+    })
+    const chatInput: ChatInput = { chat, model, config, outputSchema }
 
     // no need to pass --background if using gpt-5-pro -- it always needs it
     if (opts.background || model.id === "gpt-5.2-pro") {

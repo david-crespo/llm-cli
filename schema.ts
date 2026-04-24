@@ -1,24 +1,12 @@
 import { type Type, type as arkType } from "arktype"
 import JSON5 from "json5"
 
-/**
- * Parse a `--output-schema` argument with arktype.
- *
- * Inputs starting with `{` or `[` are parsed as JSON5 (permits single quotes,
- * unquoted keys, trailing commas) and passed to arktype as an object/tuple
- * definition. Everything else is passed directly to arktype's string DSL,
- * which handles primitives, unions, arrays (`string[]`), refinements
- * (`number > 0`), etc.
- *
- * JSON5 is used instead of `eval` so malformed input produces a readable
- * parse error and no arbitrary JS can run.
- */
-// arktype's `type` is heavily overloaded on string literals. For our dynamic
-// input we route through a loosely-typed alias to avoid deep instantiation.
-// deno-lint-ignore no-explicit-any
-const ark = arkType as unknown as (def: any) => Type
-
+/** Parse a `--output-schema` argument with arktype. */
 export function parseType(input: string): Type {
+  // Object/tuple definitions are parsed as JSON5 (single quotes, unquoted keys,
+  // trailing commas) and passed to arktype as data. Everything else is passed to
+  // arktype's string DSL for primitives, unions, arrays, and refinements.
+  //
   // The naive order here would be "if input starts with `{` or `[`, parse
   // as JSON5, else pass to arktype's string DSL." We invert that: try JSON5
   // first, and only commit to it if the result is an object/array. This is more
@@ -37,9 +25,15 @@ export function parseType(input: string): Type {
       const msg = e instanceof Error ? e.message : String(e)
       throw new Error(`Failed to parse output schema as JSON5: ${msg}`)
     }
-    return ark(input)
+    return arkType.raw(input)
   }
-  return parsed !== null && typeof parsed === "object" ? ark(parsed) : ark(input)
+  return parsed !== null && typeof parsed === "object"
+    ? arkType.raw(parsed)
+    : arkType.raw(input)
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
 }
 
 /**
@@ -66,11 +60,8 @@ function forceAllRequired(s: unknown): unknown {
   if (Array.isArray(s)) return s.map(forceAllRequired)
   const out: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(s)) out[k] = forceAllRequired(v)
-  if (
-    out.type === "object" && out.properties &&
-    typeof out.properties === "object" && !Array.isArray(out.properties)
-  ) {
-    out.required = Object.keys(out.properties as Record<string, unknown>)
+  if (out.type === "object" && isRecord(out.properties)) {
+    out.required = Object.keys(out.properties)
   }
   return out
 }
@@ -118,10 +109,8 @@ export function postprocessSchemaContent(content: string, wrapped: boolean): str
   } catch {
     return content
   }
-  if (
-    wrapped && parsed !== null && typeof parsed === "object" && "value" in parsed
-  ) {
-    parsed = (parsed as { value: unknown }).value
+  if (wrapped && isRecord(parsed) && "value" in parsed) {
+    parsed = parsed.value
   }
   if (typeof parsed === "string") return parsed
   // re-stringify only if we unwrapped; otherwise preserve provider's formatting

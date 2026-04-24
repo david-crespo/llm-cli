@@ -1,7 +1,7 @@
 import { assertEquals, assertThrows } from "@std/assert"
 import { parseType, postprocessSchemaContent, prepareSchema } from "./schema.ts"
 
-function schema(input: string) {
+function schema(input: string): Record<string, unknown> {
   const { $schema: _, ...rest } = parseType(input).toJsonSchema() as Record<
     string,
     unknown
@@ -9,27 +9,18 @@ function schema(input: string) {
   return rest
 }
 
-Deno.test("parseType - boolean primitive", () => {
-  assertEquals(schema("boolean"), { type: "boolean" })
-})
+Deno.test("parseType - string DSL schemas", () => {
+  const cases: Array<[string, Record<string, unknown>]> = [
+    ["boolean", { type: "boolean" }],
+    ["string", { type: "string" }],
+    ["number", { type: "number" }],
+    ["'yes' | 'no'", { enum: ["no", "yes"] }],
+    ["string[]", { type: "array", items: { type: "string" } }],
+  ]
 
-Deno.test("parseType - string primitive", () => {
-  assertEquals(schema("string"), { type: "string" })
-})
-
-Deno.test("parseType - number primitive", () => {
-  assertEquals(schema("number"), { type: "number" })
-})
-
-Deno.test("parseType - string literal union", () => {
-  assertEquals(schema("'yes' | 'no'"), { enum: ["no", "yes"] })
-})
-
-Deno.test("parseType - string array", () => {
-  assertEquals(schema("string[]"), {
-    type: "array",
-    items: { type: "string" },
-  })
+  for (const [input, expected] of cases) {
+    assertEquals(schema(input), expected)
+  }
 })
 
 Deno.test("parseType - object with optional field", () => {
@@ -84,129 +75,44 @@ Deno.test("parseType - refinement (number > 0)", () => {
   assertEquals(s.exclusiveMinimum, 0)
 })
 
-Deno.test("parseType - unresolvable string", () => {
-  assertThrows(
-    () => parseType("blargh"),
-    Error,
-    "'blargh' is unresolvable",
-  )
-})
+Deno.test("parseType - parse errors", () => {
+  const cases = [
+    ["blargh", "'blargh' is unresolvable"],
+    ["'yes' |", "Token '|' requires a right operand"],
+    ["{ x: 'nonsense' }", "'nonsense' is unresolvable"],
+    ["{ x: ", "Failed to parse output schema as JSON5"],
+    ["{ x: 1 + 2 }", "Failed to parse output schema as JSON5"],
+    ["{ x: 'number' } foo", "Failed to parse output schema as JSON5"],
+  ] as const
 
-Deno.test("parseType - dangling union operator", () => {
-  assertThrows(
-    () => parseType("'yes' |"),
-    Error,
-    "Token '|' requires a right operand",
-  )
-})
-
-Deno.test("parseType - unresolvable value inside object", () => {
-  assertThrows(
-    () => parseType("{ x: 'nonsense' }"),
-    Error,
-    "'nonsense' is unresolvable",
-  )
-})
-
-Deno.test("parseType - truncated object literal", () => {
-  assertThrows(
-    () => parseType("{ x: "),
-    Error,
-    "Failed to parse output schema as JSON5",
-  )
-})
-
-Deno.test("parseType - expressions in object literals are rejected", () => {
-  // JSON5 rejects `1 + 2`, so arbitrary JS can't sneak in
-  assertThrows(
-    () => parseType("{ x: 1 + 2 }"),
-    Error,
-    "Failed to parse output schema as JSON5",
-  )
-})
-
-Deno.test("parseType - trailing garbage after object literal", () => {
-  assertThrows(
-    () => parseType("{ x: 'number' } foo"),
-    Error,
-    "Failed to parse output schema as JSON5",
-  )
+  for (const [input, expectedError] of cases) {
+    assertThrows(() => parseType(input), Error, expectedError)
+  }
 })
 
 // Red-team: things `new Function` / eval would have accepted must now be
 // rejected by JSON5. All of these should fail before arktype ever sees them.
 
-Deno.test("red-team - function call in value is rejected", () => {
-  assertThrows(
-    () => parseType("{ x: Date.now() }"),
-    Error,
-    "Failed to parse output schema as JSON5",
-  )
-})
+Deno.test("red-team - object literal expressions are rejected", () => {
+  const cases = [
+    "{ x: Date.now() }",
+    "{ x: Deno }",
+    "{ x: (() => 'string')() }",
+    "{ x: `string` }",
+    "{ x: /foo/ }",
+    "{ x: new Date() }",
+    "{ ...{ x: 'string' } }",
+    "{ x: 'foo'.repeat(3) }",
+    "{ x: (0, 'string') }",
+  ]
 
-Deno.test("red-team - bare identifier reference is rejected", () => {
-  assertThrows(
-    () => parseType("{ x: Deno }"),
-    Error,
-    "Failed to parse output schema as JSON5",
-  )
-})
-
-Deno.test("red-team - IIFE is rejected", () => {
-  assertThrows(
-    () => parseType("{ x: (() => 'string')() }"),
-    Error,
-    "Failed to parse output schema as JSON5",
-  )
-})
-
-Deno.test("red-team - template literal is rejected", () => {
-  assertThrows(
-    () => parseType("{ x: `string` }"),
-    Error,
-    "Failed to parse output schema as JSON5",
-  )
-})
-
-Deno.test("red-team - regex literal is rejected", () => {
-  assertThrows(
-    () => parseType("{ x: /foo/ }"),
-    Error,
-    "Failed to parse output schema as JSON5",
-  )
-})
-
-Deno.test("red-team - new expression is rejected", () => {
-  assertThrows(
-    () => parseType("{ x: new Date() }"),
-    Error,
-    "Failed to parse output schema as JSON5",
-  )
-})
-
-Deno.test("red-team - spread is rejected", () => {
-  assertThrows(
-    () => parseType("{ ...{ x: 'string' } }"),
-    Error,
-    "Failed to parse output schema as JSON5",
-  )
-})
-
-Deno.test("red-team - method call on string is rejected", () => {
-  assertThrows(
-    () => parseType("{ x: 'foo'.repeat(3) }"),
-    Error,
-    "Failed to parse output schema as JSON5",
-  )
-})
-
-Deno.test("red-team - sequence operator is rejected", () => {
-  // with eval: (sideEffect(), 'string') returns 'string' — fully exploitable
-  assertThrows(
-    () => parseType("{ x: (0, 'string') }"),
-    Error,
-    "Failed to parse output schema as JSON5",
-  )
+  for (const input of cases) {
+    assertThrows(
+      () => parseType(input),
+      Error,
+      "Failed to parse output schema as JSON5",
+    )
+  }
 })
 
 Deno.test("prepareSchema - closes nested objects", () => {
@@ -260,6 +166,32 @@ Deno.test("prepareSchema - can force all properties required", () => {
   assertEquals(schema.required, ["urgent", "reason"])
 })
 
+Deno.test("prepareSchema - normalizes objects inside arrays", () => {
+  const { schema } = prepareSchema(
+    parseType("{ users: [{ name: 'string', 'age?': 'number' }, '[]'] }"),
+    { allRequired: true },
+  )
+  assertEquals(schema, {
+    type: "object",
+    properties: {
+      users: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            name: { type: "string" },
+            age: { type: "number" },
+          },
+          required: ["name", "age"],
+          additionalProperties: false,
+        },
+      },
+    },
+    required: ["users"],
+    additionalProperties: false,
+  })
+})
+
 Deno.test("postprocessSchemaContent - unwraps primitive wrapper", () => {
   assertEquals(postprocessSchemaContent(`{"value":"hello"}`, true), "hello")
   assertEquals(postprocessSchemaContent(`{"value":3}`, true), "3")
@@ -274,6 +206,11 @@ Deno.test("postprocessSchemaContent - preserves non-wrapped JSON formatting", ()
   const content = `{
   "answer": "yes"
 }`
+  assertEquals(postprocessSchemaContent(content, false), content)
+})
+
+Deno.test("postprocessSchemaContent - preserves non-wrapped value property", () => {
+  const content = `{"value":"hello"}`
   assertEquals(postprocessSchemaContent(content, false), content)
 })
 

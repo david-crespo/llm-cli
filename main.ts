@@ -446,7 +446,11 @@ the raw output to stdout.`)
   .example("3)", "echo 'what are you?' | ai")
   .example("4)", "ai -r 'elaborate on that'")
   .example("5)", "ai -m 4o 'What are generic types?'")
-  .example("6)", "ai gist -t 'Generic types'")
+  .example(
+    "6)",
+    "ai -o '{ urgent: \"boolean\", reason: \"string\" }' 'is this urgent? server is down'",
+  )
+  .example("7)", "ai gist -t 'Generic types'")
   .action(async (opts, ...args) => {
     let outputSchema
     if (opts.outputSchema) {

@@ -448,7 +448,7 @@ the raw output to stdout.`)
   .example("5)", "ai -m 4o 'What are generic types?'")
   .example("6)", "ai gist -t 'Generic types'")
   .action(async (opts, ...args) => {
-    let outputSchema: ReturnType<typeof parseType> | undefined
+    let outputSchema
     if (opts.outputSchema) {
       try {
         outputSchema = parseType(opts.outputSchema)
@@ -502,6 +502,9 @@ the raw output to stdout.`)
     if (opts.background && model.provider !== "openai") {
       throw new ValidationError("Background mode only works with OpenAI models")
     }
+    if (outputSchema && (opts.background || model.id === "gpt-5.4-pro")) {
+      throw new ValidationError("Structured output is not supported in background mode")
+    }
 
     chat.messages.push({
       role: "user",
@@ -512,7 +515,7 @@ the raw output to stdout.`)
     const chatInput: ChatInput = { chat, model, config, outputSchema }
 
     // no need to pass --background if using gpt-5-pro -- it always needs it
-    if (opts.background || model.id === "gpt-5.2-pro") {
+    if (opts.background || model.id === "gpt-5.4-pro") {
       try {
         const { id, status } = await gptBg.initiate(chatInput)
         chat.background = {

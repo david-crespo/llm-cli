@@ -1,5 +1,5 @@
 import { assertEquals, assertThrows } from "@std/assert"
-import { parseType } from "./schema.ts"
+import { parseType, postprocessSchemaContent, prepareSchema } from "./schema.ts"
 
 function schema(input: string) {
   const { $schema: _, ...rest } = parseType(input).toJsonSchema() as Record<
@@ -207,4 +207,76 @@ Deno.test("red-team - sequence operator is rejected", () => {
     Error,
     "Failed to parse output schema as JSON5",
   )
+})
+
+Deno.test("prepareSchema - closes nested objects", () => {
+  const { schema, wrapped } = prepareSchema(
+    parseType("{ user: { name: 'string', age: 'number' }, tags: 'string[]' }"),
+  )
+  assertEquals(wrapped, false)
+  assertEquals(schema, {
+    type: "object",
+    properties: {
+      user: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          age: { type: "number" },
+        },
+        required: ["age", "name"],
+        additionalProperties: false,
+      },
+      tags: {
+        type: "array",
+        items: { type: "string" },
+      },
+    },
+    required: ["tags", "user"],
+    additionalProperties: false,
+  })
+})
+
+Deno.test("prepareSchema - wraps primitive roots", () => {
+  const { schema, wrapped } = prepareSchema(parseType("'yes' | 'no'"), {
+    wrapPrimitives: true,
+    allRequired: true,
+  })
+  assertEquals(wrapped, true)
+  assertEquals(schema, {
+    type: "object",
+    properties: {
+      value: { enum: ["no", "yes"] },
+    },
+    additionalProperties: false,
+    required: ["value"],
+  })
+})
+
+Deno.test("prepareSchema - can force all properties required", () => {
+  const { schema } = prepareSchema(
+    parseType("{ urgent: 'boolean', 'reason?': 'string' }"),
+    { allRequired: true },
+  )
+  assertEquals(schema.required, ["urgent", "reason"])
+})
+
+Deno.test("postprocessSchemaContent - unwraps primitive wrapper", () => {
+  assertEquals(postprocessSchemaContent(`{"value":"hello"}`, true), "hello")
+  assertEquals(postprocessSchemaContent(`{"value":3}`, true), "3")
+  assertEquals(postprocessSchemaContent(`{"value":["a","b"]}`, true), `["a","b"]`)
+})
+
+Deno.test("postprocessSchemaContent - removes bare string quotes", () => {
+  assertEquals(postprocessSchemaContent(`"hello"`, false), "hello")
+})
+
+Deno.test("postprocessSchemaContent - preserves non-wrapped JSON formatting", () => {
+  const content = `{
+  "answer": "yes"
+}`
+  assertEquals(postprocessSchemaContent(content, false), content)
+})
+
+Deno.test("postprocessSchemaContent - preserves malformed JSON", () => {
+  assertEquals(postprocessSchemaContent("not json", true), "not json")
 })

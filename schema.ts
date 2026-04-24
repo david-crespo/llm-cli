@@ -51,7 +51,9 @@ function closeObjects(schema: unknown): unknown {
   if (schema === null || typeof schema !== "object") return schema
   if (Array.isArray(schema)) return schema.map(closeObjects)
   const out: Record<string, unknown> = {}
-  for (const [k, v] of Object.entries(schema)) out[k] = closeObjects(v)
+  for (const [k, v] of Object.entries(schema)) {
+    if (k !== "$schema") out[k] = closeObjects(v)
+  }
   if (out.type === "object" && out.additionalProperties === undefined) {
     out.additionalProperties = false
   }

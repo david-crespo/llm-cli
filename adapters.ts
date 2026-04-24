@@ -65,6 +65,13 @@ function gptConfig(
   chatInput: ChatInput,
 ): { params: ResponseCreateParamsNonStreaming; wrapped: boolean } {
   const { chat, model, config, outputSchema } = chatInput
+  // OpenAI strict mode has two quirks the other providers don't impose:
+  //   1. Root schema must be `object` — primitives, unions, and arrays at the
+  //      top level are rejected. `wrapPrimitives` wraps non-object roots as
+  //      `{ value: <schema> }`; the response is unwrapped in postprocess.
+  //   2. Every property must appear in `required` — optional fields are not
+  //      allowed. `allRequired` forces all keys into `required`.
+  // We keep strict mode on because it's what makes structured output reliable.
   const prep = outputSchema
     ? prepareSchema(outputSchema, { wrapPrimitives: true, allRequired: true })
     : undefined
@@ -143,9 +150,10 @@ const makeOpenAIFunc =
       ...systemMsg,
       ...chat.messages.map((m) => ({ role: m.role, content: m.content })),
     ]
-    // Third-party OpenAI-compatible providers vary in strict-mode support;
-    // wrap primitives and force-require fields so we're at least consistent
-    // with the standard OpenAI strict schema.
+    // Same strict-mode shape as the OpenAI Responses path (see gptConfig):
+    // object-only roots and all-properties-required. Third-party compatible
+    // providers vary in how strictly they enforce this, but matching OpenAI's
+    // shape keeps behavior consistent without a per-provider matrix.
     const prep = outputSchema
       ? prepareSchema(outputSchema, { wrapPrimitives: true, allRequired: true })
       : undefined
@@ -311,7 +319,7 @@ async function claudeCreateMessage(
   )
 
   const prep = outputSchema ? prepareSchema(outputSchema) : undefined
-  const output_format: Anthropic.Beta.BetaJSONOutputFormat | undefined = prep
+  const format: Anthropic.Beta.BetaJSONOutputFormat | undefined = prep
     ? { type: "json_schema", schema: prep.schema }
     : undefined
 
@@ -324,8 +332,7 @@ async function claudeCreateMessage(
     ),
     max_tokens,
     thinking,
-    output_config,
-    output_format,
+    output_config: format ? { ...output_config, format } : output_config,
     tools: toolsList.length > 0 ? toolsList : undefined,
     betas: ["code-execution-web-tools-2026-02-09"],
   }, { signal })
@@ -333,7 +340,7 @@ async function claudeCreateMessage(
   const searches = response.usage.server_tool_use?.web_search_requests ?? 0
 
   const blocks = response.content.filter((msg) =>
-    msg.type === "text" || msg.type === "server_tool_use"
+    msg.type === "text" || (!prep && msg.type === "server_tool_use")
   )
     .map(renderClaudeContentBlock)
     .filter((x): x is string => !!x)
@@ -401,8 +408,7 @@ async function geminiCreateMessage(
           : undefined, // default to dynamic
       },
       systemInstruction: chat.systemPrompt,
-      // Schema-constrained output and tools are mutually exclusive on Gemini.
-      tools: prep ? undefined : [
+      tools: [
         // always include URL context. it was designed to be used this way
         { urlContext: {} },
         ...(config.search ? [{ googleSearch: {} }] : []),
@@ -435,7 +441,7 @@ async function geminiCreateMessage(
       .map((chunk) => `- [${chunk.web!.title}](${chunk.web!.uri})`).join("\n")
     : ""
 
-  content += searchResultsMd
+  if (!prep) content += searchResultsMd
 
   if (prep) content = postprocessSchemaContent(content, prep.wrapped)
 

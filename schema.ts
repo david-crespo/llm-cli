@@ -41,3 +41,87 @@ export function parseType(input: string): Type {
   }
   return parsed !== null && typeof parsed === "object" ? ark(parsed) : ark(input)
 }
+
+/**
+ * Add `additionalProperties: false` to every object type in a JSON schema.
+ * Required by Anthropic (always) and OpenAI (in strict mode). arktype's
+ * `toJsonSchema()` doesn't emit it, so we add it recursively.
+ */
+function closeObjects(schema: unknown): unknown {
+  if (schema === null || typeof schema !== "object") return schema
+  if (Array.isArray(schema)) return schema.map(closeObjects)
+  const out: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(schema)) out[k] = closeObjects(v)
+  if (out.type === "object" && out.additionalProperties === undefined) {
+    out.additionalProperties = false
+  }
+  return out
+}
+
+/** OpenAI strict mode requires every object property to be in `required`. */
+function forceAllRequired(s: unknown): unknown {
+  if (s === null || typeof s !== "object") return s
+  if (Array.isArray(s)) return s.map(forceAllRequired)
+  const out: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(s)) out[k] = forceAllRequired(v)
+  if (
+    out.type === "object" && out.properties &&
+    typeof out.properties === "object" && !Array.isArray(out.properties)
+  ) {
+    out.required = Object.keys(out.properties as Record<string, unknown>)
+  }
+  return out
+}
+
+/**
+ * Build a JSON schema suitable for a provider's structured-output API.
+ *
+ * `wrapPrimitives`: wrap non-object roots in `{ value: <schema> }`. Required
+ * by OpenAI strict mode, which only accepts object roots.
+ * `allRequired`: mark every object property required. Also required by
+ * OpenAI strict mode.
+ *
+ * Returns `wrapped: true` when wrapping was applied, so callers can unwrap
+ * the response.
+ */
+export function prepareSchema(
+  t: Type,
+  opts: { wrapPrimitives?: boolean; allRequired?: boolean } = {},
+): { schema: Record<string, unknown>; wrapped: boolean } {
+  let schema = closeObjects(t.toJsonSchema()) as Record<string, unknown>
+  const wrapped = !!opts.wrapPrimitives && schema.type !== "object"
+  if (wrapped) {
+    schema = {
+      type: "object",
+      properties: { value: schema },
+      additionalProperties: false,
+      required: ["value"],
+    }
+  }
+  if (opts.allRequired) schema = forceAllRequired(schema) as Record<string, unknown>
+  return { schema, wrapped }
+}
+
+/**
+ * Post-process structured-output content for shell use:
+ * - if wrapped, extract `.value`
+ * - if the result is a bare string, drop the JSON quotes
+ * - otherwise leave as-is (JSON objects/arrays/numbers/booleans already
+ *   serialize to shell-friendly forms)
+ */
+export function postprocessSchemaContent(content: string, wrapped: boolean): string {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(content)
+  } catch {
+    return content
+  }
+  if (
+    wrapped && parsed !== null && typeof parsed === "object" && "value" in parsed
+  ) {
+    parsed = (parsed as { value: unknown }).value
+  }
+  if (typeof parsed === "string") return parsed
+  // re-stringify only if we unwrapped; otherwise preserve provider's formatting
+  return wrapped ? JSON.stringify(parsed) : content
+}

@@ -5,6 +5,8 @@ import { GoogleGenAI, ThinkingLevel } from "@google/genai"
 import { ValidationError } from "@cliffy/command"
 import type { Type } from "arktype"
 
+import { postprocessSchemaContent, prepareSchema } from "./schema.ts"
+
 import * as R from "remeda"
 
 import type { BackgroundStatus, Chat, TokenCounts } from "./types.ts"
@@ -36,6 +38,7 @@ export type ChatInput = {
 function processGptResponse(
   response: OpenAI.Responses.Response,
   model: Model,
+  wrapped = false,
 ): ModelResponse {
   const tokens = {
     input: response.usage?.input_tokens || 0,
@@ -45,8 +48,12 @@ function processGptResponse(
 
   const searches = response.output.filter((item) => item.type === "web_search_call").length
 
+  const content = wrapped
+    ? postprocessSchemaContent(response.output_text, true)
+    : response.output_text
+
   return {
-    content: response.output_text,
+    content,
     tokens,
     cost: getCost(model, tokens, searches),
     stop_reason: response.status || "completed",
@@ -54,33 +61,54 @@ function processGptResponse(
   }
 }
 
-function gptConfig(chatInput: ChatInput): ResponseCreateParamsNonStreaming {
-  const { chat, model, config } = chatInput
+function gptConfig(
+  chatInput: ChatInput,
+): { params: ResponseCreateParamsNonStreaming; wrapped: boolean } {
+  const { chat, model, config, outputSchema } = chatInput
+  const prep = outputSchema
+    ? prepareSchema(outputSchema, { wrapPrimitives: true, allRequired: true })
+    : undefined
   return {
-    model: model.key,
-    input: chat.messages.map((m) => ({ role: m.role, content: m.content })),
-    tools: config.search ? [{ type: "web_search_preview" as const }] : undefined,
-    reasoning: {
-      effort: config.think === "high" ? "high" : config.think === "off" ? "none" : "medium",
+    params: {
+      model: model.key,
+      input: chat.messages.map((m) => ({ role: m.role, content: m.content })),
+      tools: config.search ? [{ type: "web_search_preview" as const }] : undefined,
+      reasoning: {
+        effort: config.think === "high"
+          ? "high"
+          : config.think === "off"
+          ? "none"
+          : "medium",
+      },
+      instructions: chat.systemPrompt,
+      text: prep
+        ? {
+          format: {
+            type: "json_schema",
+            name: "output",
+            schema: prep.schema,
+            strict: true,
+          },
+        }
+        : undefined,
     },
-    instructions: chat.systemPrompt,
+    wrapped: prep?.wrapped ?? false,
   }
 }
 
 async function gptCreateMessage(chatInput: ChatInput) {
   const client = new OpenAI()
-  const response = await client.responses.create(
-    gptConfig(chatInput),
-    { signal: chatInput.signal },
-  )
-  return processGptResponse(response, chatInput.model)
+  const { params, wrapped } = gptConfig(chatInput)
+  const response = await client.responses.create(params, { signal: chatInput.signal })
+  return processGptResponse(response, chatInput.model, wrapped)
 }
 
 export const gptBg = {
   async initiate(chatInput: ChatInput): Promise<{ id: string; status: BackgroundStatus }> {
     const client = new OpenAI()
+    const { params } = gptConfig(chatInput)
     const response = await client.responses.create({
-      ...gptConfig(chatInput),
+      ...params,
       background: true,
       store: true,
     })
@@ -88,7 +116,9 @@ export const gptBg = {
   },
   async retrieve(responseId: string, model: Model): Promise<ModelResponse> {
     const response = await new OpenAI().responses.retrieve(responseId)
-    return processGptResponse(response, model)
+    // Background retrieve: schema wrap info isn't reconstructed here. Structured
+    // output via `-b` + `-o` isn't supported yet.
+    return processGptResponse(response, model, false)
   },
   async status(responseId: string): Promise<BackgroundStatus> {
     const client = new OpenAI()
@@ -103,7 +133,8 @@ export const gptBg = {
 }
 
 const makeOpenAIFunc =
-  (baseURL: string, envVarName: string) => async ({ chat, model, signal }: ChatInput) => {
+  (baseURL: string, envVarName: string) =>
+  async ({ chat, model, signal, outputSchema }: ChatInput) => {
     const client = new OpenAI({ baseURL, apiKey: Deno.env.get(envVarName) })
     const systemMsg = chat.systemPrompt
       ? [{ role: "system" as const, content: chat.systemPrompt }]
@@ -112,10 +143,22 @@ const makeOpenAIFunc =
       ...systemMsg,
       ...chat.messages.map((m) => ({ role: m.role, content: m.content })),
     ]
-    const response = await client.chat.completions.create(
-      { model: model.key, messages },
-      { signal },
-    )
+    // Third-party OpenAI-compatible providers vary in strict-mode support;
+    // wrap primitives and force-require fields so we're at least consistent
+    // with the standard OpenAI strict schema.
+    const prep = outputSchema
+      ? prepareSchema(outputSchema, { wrapPrimitives: true, allRequired: true })
+      : undefined
+    const response = await client.chat.completions.create({
+      model: model.key,
+      messages,
+      response_format: prep
+        ? {
+          type: "json_schema",
+          json_schema: { name: "output", schema: prep.schema, strict: true },
+        }
+        : undefined,
+    }, { signal })
     const message = response.choices[0].message
     if (!message) throw new Error("No response found")
 
@@ -147,7 +190,7 @@ const makeOpenAIFunc =
       input_cache_hit: response.usage?.prompt_tokens_details?.cached_tokens || 0,
     }
     return {
-      content,
+      content: prep ? postprocessSchemaContent(content, prep.wrapped) : content,
       reasoning,
       tokens,
       cost: getCost(model, tokens),
@@ -252,22 +295,6 @@ function claudeThinkParams(key: string, think: ThinkLevel): ClaudeThinkParams {
   return { thinking, output_config: { effort }, max_tokens }
 }
 
-/**
- * Anthropic requires `additionalProperties: false` on every object type in an
- * output schema. arktype's `toJsonSchema()` doesn't emit it, so we add it
- * recursively before sending.
- */
-function closeObjects(schema: unknown): unknown {
-  if (schema === null || typeof schema !== "object") return schema
-  if (Array.isArray(schema)) return schema.map(closeObjects)
-  const out: Record<string, unknown> = {}
-  for (const [k, v] of Object.entries(schema)) out[k] = closeObjects(v)
-  if (out.type === "object" && out.additionalProperties === undefined) {
-    out.additionalProperties = false
-  }
-  return out
-}
-
 async function claudeCreateMessage(
   { chat, model, config, signal, outputSchema }: ChatInput,
 ) {
@@ -283,11 +310,9 @@ async function claudeCreateMessage(
     config.think,
   )
 
-  const output_format: Anthropic.Beta.BetaJSONOutputFormat | undefined = outputSchema
-    ? {
-      type: "json_schema",
-      schema: closeObjects(outputSchema.toJsonSchema()) as Record<string, unknown>,
-    }
+  const prep = outputSchema ? prepareSchema(outputSchema) : undefined
+  const output_format: Anthropic.Beta.BetaJSONOutputFormat | undefined = prep
+    ? { type: "json_schema", schema: prep.schema }
     : undefined
 
   const response = await new Anthropic().beta.messages.create({
@@ -321,15 +346,7 @@ async function claudeCreateMessage(
     return acc + "\n\n" + block
   }, "")
 
-  // When a structured-output schema is used, Claude returns JSON. Strip the
-  // outer quotes on bare-string results so shell consumers see `yes` not
-  // `"yes"`. Leave objects/arrays/numbers/booleans alone.
-  if (outputSchema) {
-    try {
-      const parsed = JSON.parse(content)
-      if (typeof parsed === "string") content = parsed
-    } catch { /* not JSON, leave as-is */ }
-  }
+  if (prep) content = postprocessSchemaContent(content, prep.wrapped)
   const reasoning = response.content
     .filter((msg) => msg.type === "thinking")
     .map((msg) => msg.thinking)
@@ -358,11 +375,16 @@ async function claudeCreateMessage(
   }
 }
 
-async function geminiCreateMessage({ chat, model, config, signal }: ChatInput) {
+async function geminiCreateMessage(
+  { chat, model, config, signal, outputSchema }: ChatInput,
+) {
   const apiKey = Deno.env.get("GEMINI_API_KEY")
   if (!apiKey) throw Error("GEMINI_API_KEY missing")
 
   const isFlash = model.key.includes("flash")
+
+  // Gemini accepts primitive roots; no wrap needed.
+  const prep = outputSchema ? prepareSchema(outputSchema) : undefined
 
   const result = await new GoogleGenAI({ apiKey }).models.generateContent({
     config: {
@@ -379,11 +401,14 @@ async function geminiCreateMessage({ chat, model, config, signal }: ChatInput) {
           : undefined, // default to dynamic
       },
       systemInstruction: chat.systemPrompt,
-      tools: [
+      // Schema-constrained output and tools are mutually exclusive on Gemini.
+      tools: prep ? undefined : [
         // always include URL context. it was designed to be used this way
         { urlContext: {} },
         ...(config.search ? [{ googleSearch: {} }] : []),
       ],
+      responseMimeType: prep ? "application/json" : undefined,
+      responseJsonSchema: prep?.schema,
       abortSignal: signal,
     },
     model: model.key,
@@ -411,6 +436,8 @@ async function geminiCreateMessage({ chat, model, config, signal }: ChatInput) {
     : ""
 
   content += searchResultsMd
+
+  if (prep) content = postprocessSchemaContent(content, prep.wrapped)
 
   const tokens = {
     input: result.usageMetadata?.promptTokenCount || 0,
@@ -448,9 +475,6 @@ export function validateConfig(provider: string, config: ToolConfig) {
 
 export function createMessage(input: ChatInput): Promise<ModelResponse> {
   const { provider } = input.model
-  if (input.outputSchema && provider !== "anthropic") {
-    throw new ValidationError("--output-schema only supported for Anthropic models so far")
-  }
   if (provider === "anthropic") return claudeCreateMessage(input)
   if (provider === "google") return geminiCreateMessage(input)
   if (provider === "deepseek") return deepseekCreateMessage(input)

@@ -62,10 +62,34 @@ Deno.test("parseMessageSpec - invalid number throws", () => {
   )
 })
 
+Deno.test("parseMessageSpec - invalid number suffix throws", () => {
+  assertThrows(
+    () => parseMessageSpec("1abc", 5),
+    ValidationError,
+    'Invalid message number: "1abc"',
+  )
+})
+
+Deno.test("parseMessageSpec - decimal number throws", () => {
+  assertThrows(
+    () => parseMessageSpec("1.5", 5),
+    ValidationError,
+    'Invalid message number: "1.5"',
+  )
+})
+
 Deno.test("parseMessageSpec - invalid range throws", () => {
   assertThrows(
     () => parseMessageSpec("a-b", 5),
     ValidationError,
     "Invalid range",
+  )
+})
+
+Deno.test("parseMessageSpec - invalid range suffix throws", () => {
+  assertThrows(
+    () => parseMessageSpec("1-2-3", 5),
+    ValidationError,
+    'Invalid range: "1-2-3"',
   )
 })

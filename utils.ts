@@ -2,23 +2,23 @@ import { ValidationError } from "@cliffy/command"
 import * as R from "remeda"
 
 const parsePart = (part: string): number[] => {
-  if (part.includes("-")) {
+  if (/^\d+-\d+$/.test(part)) {
     const [startStr, endStr] = part.split("-")
-    const start = parseInt(startStr, 10)
-    const end = parseInt(endStr, 10)
-    if (isNaN(start) || isNaN(end)) {
-      throw new ValidationError(`Invalid range: "${part}"`)
-    }
+    const start = Number(startStr)
+    const end = Number(endStr)
     if (start > end) {
       throw new ValidationError(`Invalid range: start > end in "${part}"`)
     }
     return R.range(start, end + 1)
   }
-  const num = parseInt(part, 10)
-  if (isNaN(num)) {
-    throw new ValidationError(`Invalid message number: "${part}"`)
+
+  if (/^\d+$/.test(part)) {
+    return [Number(part)]
   }
-  return [num]
+
+  throw new ValidationError(
+    part.includes("-") ? `Invalid range: "${part}"` : `Invalid message number: "${part}"`,
+  )
 }
 
 /**

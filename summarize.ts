@@ -1,6 +1,6 @@
 import $ from "@david/dax"
 
-import { createMessage } from "./adapters.ts"
+import { createMessage } from "./adapters/mod.ts"
 import { type Chat } from "./types.ts"
 import { History } from "./storage.ts"
 import { resolveModel } from "./models.ts"

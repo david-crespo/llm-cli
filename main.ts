@@ -30,7 +30,7 @@ import {
   thinkProviders,
   type ToolConfig,
   validateConfig,
-} from "./adapters.ts"
+} from "./adapters/mod.ts"
 import { History } from "./storage.ts"
 import { genMissingSummaries } from "./summarize.ts"
 import { parseType } from "./schema.ts"

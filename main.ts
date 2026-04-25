@@ -488,6 +488,11 @@ the raw output to stdout.`)
     // now we're guaranteed to have one on hand, and that's our current one.
     // we modify it by reference
     const chat: Chat = history.at(-1)!
+    if (opts.reply && chat.background) {
+      throw new ValidationError(
+        "Current chat has a pending background response. Run `ai bg resume` or `ai bg cancel` before replying.",
+      )
+    }
 
     // -r uses same model as last response, but only if there is one and no model is specified
     const prevModelId = getLastModelId(chat)

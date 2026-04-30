@@ -23,6 +23,7 @@ export async function summarize(chat: Chat): Promise<string> {
   const abridged2 = msg2 ? abridge(msg2) : ""
   const summary = await createMessage({
     chat: {
+      id: crypto.randomUUID(),
       systemPrompt:
         "You are summarizing an LLM chat in as few words as possible. Ideally 4-6 words, but up to 10 if necessary. This is for a list of chats in an LLM client UI. You will receive an excerpt of the beginning and end of the first two messages. Be concise and accurate. Only provide the summary; do not include explanation or followup questions. Do not end with a period. Do not use slashes.",
       messages: [{

@@ -35,7 +35,8 @@
     "npm:openai@6.34.0": "6.34.0",
     "npm:remeda@^2.32.0": "2.32.0",
     "npm:supports-hyperlinks@4.4.0": "4.4.0",
-    "npm:supports-hyperlinks@^4.4.0": "4.4.0"
+    "npm:supports-hyperlinks@^4.4.0": "4.4.0",
+    "npm:ts-pattern@^5.9.0": "5.9.0"
   },
   "jsr": {
     "@cliffy/command@1.0.0": {
@@ -683,6 +684,9 @@
     "ts-algebra@2.0.0": {
       "integrity": "sha512-FPAhNPFMrkwz76P7cdjdmiShwMynZYN6SgOujD1urY4oNm80Ou9oMdmbR45LotcKOXoy7wSmHkRFE6Mxbrhefw=="
     },
+    "ts-pattern@5.9.0": {
+      "integrity": "sha512-6s5V71mX8qBUmlgbrfL33xDUwO0fq48rxAu2LBE11WBeGdpCPOsXksQbZJHvHwhrd3QjUusd3mAOM5Gg0mFBLg=="
+    },
     "type-fest@4.41.0": {
       "integrity": "sha512-TeTSQ6H5YHvpqVwBRcnLDCBnDOHWYu7IvGbHT6N8AOymcr9PJGjc1GTtiWZTYg0NCgYwvnYWEkVChQAr9bjfwA=="
     },
@@ -793,7 +797,8 @@
       "npm:markdown-exit@^1.0.0-beta.9",
       "npm:openai@6.34.0",
       "npm:remeda@^2.32.0",
-      "npm:supports-hyperlinks@^4.4.0"
+      "npm:supports-hyperlinks@^4.4.0",
+      "npm:ts-pattern@^5.9.0"
     ]
   }
 }

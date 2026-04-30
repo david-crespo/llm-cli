@@ -15,6 +15,15 @@ type UserMessage = {
   outputSchema?: string
 }
 
+/** Provider-specific assistant-message data. Discriminated on `type` so we
+ * can add fields for other providers without widening every consumer. */
+export type ProviderData = {
+  type: "openai"
+  /** Responses API response.id, used as previous_response_id on the next turn
+   * so reasoning items carry over and prompt caching hits. */
+  responseId: string
+}
+
 type AssistantMessage = {
   role: "assistant"
   model: string
@@ -28,6 +37,7 @@ type AssistantMessage = {
   timeMs: number
   cache?: boolean
   searches?: number
+  provider?: ProviderData
 }
 
 export type ChatMessage = UserMessage | AssistantMessage
@@ -35,6 +45,9 @@ export type ChatMessage = UserMessage | AssistantMessage
 export type BackgroundStatus = OpenAI.Responses.ResponseStatus
 
 export type Chat = {
+  /** Stable per-chat ID. Used as OpenAI prompt_cache_key for reliable cache
+   * routing across turns. */
+  id: string
   // For now we don't allow system prompt to be changed in the middle
   // of a chat. Otherwise we'd have to annotate each message with it.
   systemPrompt: string

@@ -338,6 +338,7 @@ const forkCmd = new Command()
 
     // Create new chat with messages up to the selected one
     const newChat: Chat = {
+      id: crypto.randomUUID(),
       createdAt: new Date(),
       systemPrompt: currentChat.systemPrompt,
       messages: currentChat.messages.slice(0, selectedIdx + 1),
@@ -479,6 +480,7 @@ the raw output to stdout.`)
     // if we're not continuing an existing conversation, pop a new one onto history
     if (!opts.reply || history.length === 0) {
       history.push({
+        id: crypto.randomUUID(),
         createdAt: new Date(),
         systemPrompt,
         messages: [],

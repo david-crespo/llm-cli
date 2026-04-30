@@ -7,7 +7,7 @@ export const History = {
   read(): Chat[] {
     const contents = localStorage.getItem(HISTORY_KEY)
     if (!contents) return []
-    return JSON.parse(contents, (key, value) => {
+    const chats: Chat[] = JSON.parse(contents, (key, value) => {
       if (
         (key === "createdAt" || key === "startedAt") &&
         typeof value === "string"
@@ -16,6 +16,12 @@ export const History = {
       }
       return value
     })
+    // Backfill id for chats stored before we started writing it. Persisted on
+    // the next History.write().
+    for (const chat of chats) {
+      if (!chat.id) chat.id = crypto.randomUUID()
+    }
+    return chats
   },
   write(history: Chat[]) {
     // keep only the most recent N

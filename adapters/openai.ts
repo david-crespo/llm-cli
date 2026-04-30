@@ -1,5 +1,6 @@
 import OpenAI from "openai"
 import type { ResponseCreateParamsNonStreaming } from "openai/resources/responses/responses"
+import { match, P } from "ts-pattern"
 
 import { postprocessSchemaContent, prepareSchema } from "../schema.ts"
 import type { BackgroundStatus } from "../types.ts"
@@ -29,6 +30,7 @@ function processGptResponse(
     cost: getCost(model, tokens, searches),
     stop_reason: response.status || "completed",
     searches: searches || undefined,
+    provider: { type: "openai", responseId: response.id },
   }
 }
 
@@ -46,10 +48,28 @@ function gptConfig(
   const prep = outputSchema
     ? prepareSchema(outputSchema, { wrapPrimitives: true, allRequired: true })
     : undefined
+
+  // If the most recent assistant turn was an OpenAI Responses call we have its
+  // response.id — chain via previous_response_id so encrypted reasoning items
+  // carry over and we only need to send the new user message.
+  // https://developers.openai.com/api/docs/guides/conversation-state
+  const lastAssistantMessage = chat.messages
+    .filter((m) => m.role === "assistant")
+    .at(-1)
+  const previous_response_id = match(lastAssistantMessage?.provider)
+    .with({ type: "openai" }, (p) => p.responseId)
+    .with(P.nullish, () => undefined)
+    .exhaustive()
+  const inputMessages = previous_response_id ? chat.messages.slice(-1) : chat.messages
+
   return {
     params: {
       model: model.key,
-      input: chat.messages.map((m) => ({ role: m.role, content: m.content })),
+      input: inputMessages.map((m) => ({ role: m.role, content: m.content })),
+      previous_response_id,
+      // Stable per-chat key so multi-turn requests route to the same backend
+      // and hit the prompt cache reliably.
+      prompt_cache_key: chat.id,
       tools: config.search ? [{ type: "web_search_preview" as const }] : undefined,
       reasoning: {
         effort: config.think === "high"

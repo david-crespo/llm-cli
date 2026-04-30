@@ -23,6 +23,7 @@
     "json5": "npm:json5@^2.2.3",
     "@google/genai": "npm:@google/genai@1.50.1",
     "remeda": "npm:remeda@^2.32.0",
+    "ts-pattern": "npm:ts-pattern@^5.9.0",
     "string-width": "https://esm.sh/string-width@7.2.0",
     "supports-hyperlinks": "npm:supports-hyperlinks@^4.4.0",
     "wrap-ansi": "https://esm.sh/wrap-ansi@9.0.0"

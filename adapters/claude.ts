@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk"
 import * as R from "remeda"
+import { match } from "ts-pattern"
 
 import { postprocessSchemaContent, prepareSchema } from "../schema.ts"
 import { getCost } from "../models.ts"
@@ -55,11 +56,12 @@ function claudeThinkParams(key: string, think: ThinkLevel): ClaudeThinkParams {
   }
 
   if (!adaptive) {
-    const thinking: Anthropic.Beta.BetaThinkingConfigParam = think === "on"
-      ? { type: "enabled", budget_tokens: 4000 }
-      : think === "high"
-      ? { type: "enabled", budget_tokens: 16000 }
-      : { type: "disabled" }
+    const thinking = match(think)
+      .returnType<Anthropic.Beta.BetaThinkingConfigParam>()
+      .with("on", () => ({ type: "enabled", budget_tokens: 4000 }))
+      .with("high", () => ({ type: "enabled", budget_tokens: 16000 }))
+      .with("off", () => ({ type: "disabled" }))
+      .exhaustive()
     return { thinking, output_config: undefined, max_tokens }
   }
 
@@ -69,10 +71,12 @@ function claudeThinkParams(key: string, think: ThinkLevel): ClaudeThinkParams {
     ? { type: "disabled" }
     : { type: "adaptive", display: "summarized" }
 
-  const effort = think === "on" ? "medium" as const : think === "high"
-    // opus 4.7 could do xhigh here but high should be enough
-    ? "high" as const
-    : "low" as const
+  // opus 4.7 could do xhigh on "high" but high should be enough
+  const effort = match(think)
+    .with("on", () => "medium" as const)
+    .with("high", () => "high" as const)
+    .with("off", () => "low" as const)
+    .exhaustive()
 
   return { thinking, output_config: { effort }, max_tokens }
 }

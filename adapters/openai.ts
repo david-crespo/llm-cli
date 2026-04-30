@@ -72,11 +72,11 @@ function gptConfig(
       prompt_cache_key: chat.id,
       tools: config.search ? [{ type: "web_search_preview" as const }] : undefined,
       reasoning: {
-        effort: config.think === "high"
-          ? "high"
-          : config.think === "off"
-          ? "none"
-          : "medium",
+        effort: match(config.think)
+          .with("high", () => "high" as const)
+          .with("off", () => "none" as const)
+          .with("on", P.nullish, () => "medium" as const)
+          .exhaustive(),
       },
       instructions: chat.systemPrompt,
       text: prep

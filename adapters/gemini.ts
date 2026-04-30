@@ -1,4 +1,5 @@
 import { GoogleGenAI, ThinkingLevel } from "@google/genai"
+import { match, P } from "ts-pattern"
 
 import { postprocessSchemaContent, prepareSchema } from "../schema.ts"
 import { getCost } from "../models.ts"
@@ -20,14 +21,13 @@ export async function geminiCreateMessage(
       // https://ai.google.dev/gemini-api/docs/thinking
       thinkingConfig: {
         includeThoughts: true,
-        thinkingLevel: config.think === "high"
-          ? ThinkingLevel.HIGH
-          : config.think === "on"
-          ? ThinkingLevel.MEDIUM
-          : config.think === "off"
+        thinkingLevel: match(config.think)
+          .with("high", () => ThinkingLevel.HIGH)
+          .with("on", () => ThinkingLevel.MEDIUM)
           // Flash supports "minimal", Pro only goes down to "low"
-          ? (isFlash ? ThinkingLevel.MINIMAL : ThinkingLevel.LOW)
-          : undefined, // default to dynamic
+          .with("off", () => isFlash ? ThinkingLevel.MINIMAL : ThinkingLevel.LOW)
+          .with(P.nullish, () => undefined) // default to dynamic
+          .exhaustive(),
       },
       systemInstruction: chat.systemPrompt,
       tools: [

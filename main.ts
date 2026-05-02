@@ -250,6 +250,7 @@ const gistCmd = new Command()
   .option("-a, --all", "Include all messages")
   .option("-n, --limit <n:integer>", "Number of messages (default 1)", { default: 1 })
   .option("-p, --pick <spec:string>", "Pick specific messages (e.g., '1,3-4,7')")
+  .option("--id <id:string>", "Replace contents of an existing gist by ID")
   .action(async (opts) => {
     const history = History.read()
     await genMissingSummaries(history)
@@ -261,8 +262,6 @@ const gistCmd = new Command()
         "Creating a gist requires the `gh` CLI (https://cli.github.com/)",
       )
     }
-    const title = opts.title || lastChat.summary
-    const filename = title ? `LLM chat - ${title}.md` : "LLM chat.md"
 
     let md: string
     if (opts.pick) {
@@ -272,7 +271,14 @@ const gistCmd = new Command()
       const n = opts.all ? lastChat.messages.length : opts.limit
       md = chatToMd({ chat: lastChat, lastN: n, mode: "gist" })
     }
-    await $`gh gist create -f ${filename} --web`.stdinText(md)
+
+    if (opts.id) {
+      await $`gh gist edit ${opts.id} -`.stdinText(md)
+    } else {
+      const title = opts.title || lastChat.summary
+      const filename = title ? `LLM chat - ${title}.md` : "LLM chat.md"
+      await $`gh gist create -f ${filename} --web`.stdinText(md)
+    }
   })
 
 function modelInfoMd(modelArg: string) {

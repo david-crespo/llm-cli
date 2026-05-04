@@ -6,7 +6,7 @@ Thanks to [Justin Bennett](https://github.com/zephraph) for the
 [script](https://github.com/zephraph/deno.run/blob/0972d0cd3d8f050cb11c3a6d1c1c201608d100a9/chat-gpt.ts)
 that inspired this.
 
-<img width="664" alt="image" src="https://github.com/user-attachments/assets/4f45bb8a-7568-43b6-a1b0-5ce76fd8fc1b" />
+<img width="693" height="862" alt="Screenshot 2026-05-04 at 5 43 51 PM" src="https://github.com/user-attachments/assets/a9de8f7a-c719-45d4-a020-649c5798df48" />
 
 ## Features
 
@@ -14,7 +14,7 @@ that inspired this.
 
 And it's easy to add more.
 
-<img width="668" alt="output of models command showing table of supported models" src="https://github.com/user-attachments/assets/95880d8a-b4fc-4095-8d08-b4a920125a11" />
+<img width="512" height="329" alt="Screenshot 2026-05-04 at 5 45 01 PM" src="https://github.com/user-attachments/assets/5602c814-c9fd-46cf-af87-5cb165ab4752" />
 
 ### Beautiful output powered by markdown
 

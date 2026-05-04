@@ -184,9 +184,15 @@ function reflowParagraphs(text: string, columns: number, width: number): string 
 
 export type TerminalEnv = { codeTheme?: string }
 
+function getColumns(): number {
+  return Deno.stdout.isTerminal() ? Deno.consoleSize().columns : 80
+}
+
+function getWidth(): number {
+  return Math.min(getColumns(), 100)
+}
+
 export default function terminalPlugin(md: MarkdownExit): void {
-  const columns = Deno.stdout.isTerminal() ? Deno.consoleSize().columns : 80
-  const width = Math.min(columns, 100)
 
   const rules: Record<string, RenderRule> = {
     // Inline
@@ -238,7 +244,7 @@ export default function terminalPlugin(md: MarkdownExit): void {
       if (s.blockquoteDepth > 0) return "\x00BQ_PARA\x00"
       return "\n\n"
     },
-    hr: () => gray("─".repeat(width)) + "\n\n",
+    hr: () => gray("─".repeat(getWidth())) + "\n\n",
     blockquote_open: (_tokens, _idx, _options, env) => {
       const s = getState(env)
       s.blockquoteDepth++
@@ -344,8 +350,8 @@ export default function terminalPlugin(md: MarkdownExit): void {
     let output = await origRenderAsync(src, env ?? {})
     output = postProcessLinks(output)
     output = postProcessTables(output)
-    output = postProcessBlockquotes(output, width)
-    output = reflowParagraphs(output, columns, width)
+    output = postProcessBlockquotes(output, getWidth())
+    output = reflowParagraphs(output, getColumns(), getWidth())
     return output.trimEnd()
   }
 }

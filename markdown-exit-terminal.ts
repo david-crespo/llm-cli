@@ -170,8 +170,7 @@ function postProcessTables(text: string): string {
   )
 }
 
-function reflowParagraphs(text: string, columns: number, width: number): string {
-  if (columns <= 80) return text
+function reflowParagraphs(text: string, width: number): string {
   return text.replace(/^([^\n]+)\n\n/gm, (match, para) => {
     if (/^(\s*(#|[*\-]|\d+\.)|│|╭|├|╰| {4})/.test(stripAnsi(para))) {
       return match
@@ -193,11 +192,14 @@ function getWidth(): number {
 }
 
 export default function terminalPlugin(md: MarkdownExit): void {
-
   const rules: Record<string, RenderRule> = {
     // Inline
     text: (tokens, idx) => tokens[idx].content,
-    code_inline: (tokens, idx) => codespan(` ${tokens[idx].content} `),
+    // Pad and replace internal spaces with NBSP so wrap-ansi treats the
+    // codespan as a single unbreakable word. Splitting inside a styled span
+    // either leaks bg color to the end of the line (BCE) or leaves a lone
+    // styled space stranded on the previous line.
+    code_inline: (tokens, idx) => codespan(` ${tokens[idx].content.replace(/ /g, " ")} `),
     strong_open: () => bold.open,
     strong_close: () => bold.close,
     em_open: () => italic.open,
@@ -351,7 +353,7 @@ export default function terminalPlugin(md: MarkdownExit): void {
     output = postProcessLinks(output)
     output = postProcessTables(output)
     output = postProcessBlockquotes(output, getWidth())
-    output = reflowParagraphs(output, getColumns(), getWidth())
+    output = reflowParagraphs(output, getWidth())
     return output.trimEnd()
   }
 }

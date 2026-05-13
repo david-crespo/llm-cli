@@ -47,8 +47,12 @@ export const modelsMd = (verbose = false) =>
     modelsTable(verbose)
   }`
 
-// Collapse very long user inputs in gists
-const LONG_INPUT_THRESHOLD = 4000 // approx 800 words * 5 chars
+// Collapse long user inputs in gists, unless the input already contains a
+// <details> block (e.g., from `cb`), in which case the user has already
+// decided what to hide and we leave it alone rather than nesting.
+const COLLAPSE_LINES = 40
+// only match beginning of line to avoid mentions in prose
+const hasDetails = (s: string) => /^<details[\s>]/m.test(s)
 
 // split from message content because we only want this in show or gist mode
 function messageHeaderMd(msg: ChatMessage, msgNum: number, msgCount: number) {
@@ -126,7 +130,11 @@ export function messageContentMd(msg: ChatMessage, mode: DisplayMode) {
     output += `**Schema:** \`${msg.outputSchema}\`\n\n`
   }
   // For long user inputs in gist mode, collapse in a details block
-  if (msg.role === "user" && mode === "gist" && msg.content.length > LONG_INPUT_THRESHOLD) {
+  if (
+    msg.role === "user" && mode === "gist" &&
+    !hasDetails(msg.content) &&
+    msg.content.split("\n").length > COLLAPSE_LINES
+  ) {
     output += tag(
       "details",
       tag("summary", "Long input collapsed"),

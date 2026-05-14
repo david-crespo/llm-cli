@@ -17,11 +17,7 @@ function claudeMsg(
   if (image_url) {
     const dataUrl = parseDataUrl(image_url)
     const source: Anthropic.ImageBlockParam["source"] = dataUrl
-      ? {
-        type: "base64",
-        media_type: dataUrl.mediaType as Anthropic.Base64ImageSource["media_type"],
-        data: dataUrl.data,
-      }
+      ? { type: "base64", media_type: dataUrl.mediaType, data: dataUrl.data }
       : { type: "url", url: image_url }
     content.unshift({ type: "image", source })
   }

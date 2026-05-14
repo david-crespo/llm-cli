@@ -48,7 +48,19 @@ export function parseMessageSpec(spec: string, msgCount: number): number[] {
   return R.map(indices, (n) => n - 1) // make 0-indexed
 }
 
-const EXT_MIME: Record<string, string> = {
+const IMAGE_MIME_TYPES = [
+  "image/png",
+  "image/jpeg",
+  "image/gif",
+  "image/webp",
+] as const
+export type ImageMimeType = typeof IMAGE_MIME_TYPES[number]
+
+function isImageMimeType(s: string): s is ImageMimeType {
+  return (IMAGE_MIME_TYPES as readonly string[]).includes(s)
+}
+
+const EXT_MIME: Record<string, ImageMimeType> = {
   png: "image/png",
   jpg: "image/jpeg",
   jpeg: "image/jpeg",
@@ -56,10 +68,14 @@ const EXT_MIME: Record<string, string> = {
   webp: "image/webp",
 }
 
-/** Parse a data URL into media type and raw base64 payload, or null. */
-export function parseDataUrl(url: string): { mediaType: string; data: string } | null {
+/** Parse a data URL into image media type and raw base64 payload, or null.
+ * Returns null for non-data URLs or unsupported media types. */
+export function parseDataUrl(
+  url: string,
+): { mediaType: ImageMimeType; data: string } | null {
   const m = /^data:([^;]+);base64,(.+)$/s.exec(url)
-  return m ? { mediaType: m[1], data: m[2] } : null
+  if (!m || !isImageMimeType(m[1])) return null
+  return { mediaType: m[1], data: m[2] }
 }
 
 /**

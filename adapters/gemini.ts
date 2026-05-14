@@ -1,9 +1,24 @@
-import { GoogleGenAI, ThinkingLevel } from "@google/genai"
+import { GoogleGenAI, type Part, ThinkingLevel } from "@google/genai"
+import { encodeBase64 } from "@std/encoding/base64"
 import { match, P } from "ts-pattern"
 
 import { postprocessSchemaContent, prepareSchema } from "../schema.ts"
 import { getCost } from "../models.ts"
+import { parseDataUrl } from "../utils.ts"
 import type { ChatInput } from "./types.ts"
+
+/** Gemini doesn't accept image URLs directly; inline as bytes either way. */
+async function imageToInlinePart(image_url: string): Promise<Part> {
+  const parsed = parseDataUrl(image_url)
+  if (parsed) {
+    return { inlineData: { mimeType: parsed.mediaType, data: parsed.data } }
+  }
+  const res = await fetch(image_url)
+  if (!res.ok) throw new Error(`Failed to fetch image: ${res.status}`)
+  const buf = new Uint8Array(await res.arrayBuffer())
+  const mimeType = res.headers.get("content-type")?.split(";")[0] || "image/png"
+  return { inlineData: { mimeType, data: encodeBase64(buf) } }
+}
 
 export async function geminiCreateMessage(
   { chat, model, config, signal, outputSchema }: ChatInput,
@@ -40,10 +55,16 @@ export async function geminiCreateMessage(
       abortSignal: signal,
     },
     model: model.key,
-    contents: chat.messages.map((msg) => ({
-      // gemini uses model instead of assistant
-      role: msg.role === "assistant" ? "model" : "user",
-      parts: [{ text: msg.content }],
+    contents: await Promise.all(chat.messages.map(async (msg) => {
+      const parts: Part[] = [{ text: msg.content }]
+      if (msg.role === "user" && msg.image_url) {
+        parts.unshift(await imageToInlinePart(msg.image_url))
+      }
+      return {
+        // gemini uses model instead of assistant
+        role: msg.role === "assistant" ? "model" : "user",
+        parts,
+      }
     })),
   })
 

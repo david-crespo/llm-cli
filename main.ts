@@ -1,4 +1,4 @@
-#! /usr/bin/env -S deno run --allow-env --allow-read --allow-net --allow-run=gh
+#! /usr/bin/env -S deno run --allow-env --allow-read --allow-write=/tmp --allow-net --allow-run=gh,osascript
 
 import { readAll } from "@std/io"
 import { Command, ValidationError } from "@cliffy/command"
@@ -19,12 +19,13 @@ import {
   renderMd,
   shortDateFmt,
 } from "./display.ts"
-import { parseMessageSpec } from "./utils.ts"
+import { parseMessageSpec, resolveImage } from "./utils.ts"
 import { type Chat } from "./types.ts"
 import {
   type ChatInput,
   createMessage,
   gptBg,
+  imageProviders,
   type ModelResponse,
   searchProviders,
   thinkProviders,
@@ -441,7 +442,10 @@ the raw output to stdout.`)
   .option("--think", "Enable thinking")
   .option("--think-hard", "Enable maximum thinking")
   .option("-q, --quick", "Minimize thinking")
-  .option("-i, --image <url:string>", "Image URL (Claude only)")
+  .option(
+    "-i, --image <value:string>",
+    "Image: URL, local file path, or 'clipboard' (macOS)",
+  )
   .option("--system <system:string>", "Override entire system prompt")
   .option("-e, --ephemeral", "Don't save to history")
   .option("-b, --background", "Use background mode (OpenAI only)")
@@ -513,9 +517,10 @@ the raw output to stdout.`)
     }
     validateConfig(model.provider, config)
 
-    if (opts.image && model.provider !== "anthropic") {
-      throw new ValidationError("Image URLs only work for Anthropic")
+    if (opts.image && !imageProviders.has(model.provider)) {
+      throw new ValidationError(`Images not supported for ${model.provider}`)
     }
+    const image_url = opts.image ? await resolveImage(opts.image) : undefined
     if (opts.background && model.provider !== "openai") {
       throw new ValidationError("Background mode only works with OpenAI models")
     }
@@ -526,7 +531,7 @@ the raw output to stdout.`)
     chat.messages.push({
       role: "user",
       content: input,
-      image_url: opts.image,
+      image_url,
       outputSchema: outputSchema?.expression,
     })
     const chatInput: ChatInput = { chat, model, config, outputSchema }

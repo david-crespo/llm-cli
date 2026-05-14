@@ -1,6 +1,6 @@
 import { assertEquals, assertThrows } from "@std/assert"
 import { ValidationError } from "@cliffy/command"
-import { parseMessageSpec } from "./utils.ts"
+import { parseDataUrl, parseMessageSpec, resolveImage } from "./utils.ts"
 
 Deno.test("parseMessageSpec - single number", () => {
   assertEquals(parseMessageSpec("3", 5), [2])
@@ -92,4 +92,41 @@ Deno.test("parseMessageSpec - invalid range suffix throws", () => {
     ValidationError,
     'Invalid range: "1-2-3"',
   )
+})
+
+Deno.test("parseDataUrl - valid png data URL", () => {
+  assertEquals(
+    parseDataUrl("data:image/png;base64,iVBORw0KGgo="),
+    { mediaType: "image/png", data: "iVBORw0KGgo=" },
+  )
+})
+
+Deno.test("parseDataUrl - base64 payload with newlines", () => {
+  // /s flag must be set on the regex so . matches newlines
+  assertEquals(
+    parseDataUrl("data:image/jpeg;base64,AAAA\nBBBB\nCCCC"),
+    { mediaType: "image/jpeg", data: "AAAA\nBBBB\nCCCC" },
+  )
+})
+
+Deno.test("parseDataUrl - non-data URL returns null", () => {
+  assertEquals(parseDataUrl("https://example.com/foo.png"), null)
+})
+
+Deno.test("parseDataUrl - missing base64 marker returns null", () => {
+  assertEquals(parseDataUrl("data:image/png,iVBORw0KGgo="), null)
+})
+
+Deno.test("parseDataUrl - empty string returns null", () => {
+  assertEquals(parseDataUrl(""), null)
+})
+
+Deno.test("resolveImage - http URL passes through", async () => {
+  const url = "http://example.com/cat.png"
+  assertEquals(await resolveImage(url), url)
+})
+
+Deno.test("resolveImage - https URL passes through", async () => {
+  const url = "https://example.com/cat.png"
+  assertEquals(await resolveImage(url), url)
 })

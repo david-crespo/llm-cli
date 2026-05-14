@@ -4,6 +4,7 @@ import { match } from "ts-pattern"
 
 import { postprocessSchemaContent, prepareSchema } from "../schema.ts"
 import { getCost } from "../models.ts"
+import { parseDataUrl } from "../utils.ts"
 import type { ChatInput, ThinkLevel } from "./types.ts"
 
 function claudeMsg(
@@ -14,10 +15,15 @@ function claudeMsg(
   const content: Anthropic.ContentBlockParam[] = [{ type: "text", text }]
 
   if (image_url) {
-    content.unshift({
-      type: "image",
-      source: { type: "url", url: image_url },
-    })
+    const dataUrl = parseDataUrl(image_url)
+    const source: Anthropic.ImageBlockParam["source"] = dataUrl
+      ? {
+        type: "base64",
+        media_type: dataUrl.mediaType as Anthropic.Base64ImageSource["media_type"],
+        data: dataUrl.data,
+      }
+      : { type: "url", url: image_url }
+    content.unshift({ type: "image", source })
   }
 
   return { role, content }

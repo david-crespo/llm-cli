@@ -17,6 +17,7 @@ export { gptBg } from "./openai.ts"
 
 export const searchProviders = new Set(["anthropic", "openai", "google"])
 export const thinkProviders = new Set(["anthropic", "openai", "google"])
+export const imageProviders = new Set(["anthropic", "openai", "google"])
 
 export function validateConfig(provider: string, config: ToolConfig) {
   if (config.search && !searchProviders.has(provider)) {

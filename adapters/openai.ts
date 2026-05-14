@@ -65,7 +65,22 @@ function gptConfig(
   return {
     params: {
       model: model.key,
-      input: inputMessages.map((m) => ({ role: m.role, content: m.content })),
+      input: inputMessages.map((m) => {
+        if (m.role === "user" && m.image_url) {
+          return {
+            role: "user" as const,
+            content: [
+              { type: "input_text" as const, text: m.content },
+              {
+                type: "input_image" as const,
+                image_url: m.image_url,
+                detail: "auto" as const,
+              },
+            ],
+          }
+        }
+        return { role: m.role, content: m.content }
+      }),
       previous_response_id,
       // Stable per-chat key so multi-turn requests route to the same backend
       // and hit the prompt cache reliably.

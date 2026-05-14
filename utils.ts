@@ -98,7 +98,9 @@ async function readClipboardImage(): Promise<Uint8Array> {
   try {
     const result = await $`osascript \
       -e ${`set png_data to (the clipboard as «class PNGf»)`} \
-      -e ${`set f to open for access POSIX file ${JSON.stringify(tmpPath)} with write permission`} \
+      -e ${`set f to open for access POSIX file ${
+      JSON.stringify(tmpPath)
+    } with write permission`} \
       -e ${`set eof f to 0`} \
       -e ${`write png_data to f`} \
       -e ${`close access f`}`

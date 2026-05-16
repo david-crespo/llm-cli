@@ -176,7 +176,7 @@ async function pickChat(message: string) {
   if (history.length === 0) throw new ValidationError("No chat history")
 
   const reversed = R.reverse(history)
-  const selectedIdx = await $.select({
+  const { index: selectedIdx } = await $.select({
     message,
     options: chatPickerOptions(reversed),
     noClear: true,
@@ -334,7 +334,7 @@ const forkCmd = new Command()
       throw new ValidationError("No chat in progress")
     }
 
-    const selectedIdx = await $.select({
+    const { index: selectedIdx } = await $.select({
       message: "Pick a message to fork from",
       options: messagePickerOptions(currentChat.messages),
       noClear: true,

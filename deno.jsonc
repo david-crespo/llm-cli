@@ -1,6 +1,6 @@
 {
   "tasks": {
-    "test": "deno test --allow-env"
+    "test": "deno test --allow-env --allow-read=/tmp --allow-write=/tmp"
   },
   "fmt": {
     "lineWidth": 92,

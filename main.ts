@@ -118,7 +118,9 @@ async function pollBackgroundResponse(
       if (!displayOpts.raw) console.log()
       await renderMd(messageContentMd(assistantMsg, getMode(displayOpts)), displayOpts.raw)
     } else {
-      console.log(`Background response ${chat.background.status}`)
+      const { status } = chat.background
+      delete chat.background
+      console.log(`Background response ${status}`)
     }
   } finally {
     if (pb) pb.finish()

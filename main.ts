@@ -75,6 +75,13 @@ const makeAssMsg = (modelId: string, startTime: number, response: ModelResponse)
   ...response,
 })
 
+const createChat = (systemPrompt: string): Chat => ({
+  id: crypto.randomUUID(),
+  createdAt: new Date(),
+  systemPrompt,
+  messages: [],
+})
+
 // deno-lint-ignore no-explicit-any
 function renderError(e: any) {
   if (e.response?.status) console.log("Request error:", e.response.status)
@@ -173,7 +180,7 @@ async function genResponse(
 }
 
 async function pickChat(message: string) {
-  const history = History.read()
+  const history = History.list()
   await genMissingSummaries(history)
   if (history.length === 0) throw new ValidationError("No chat history")
 
@@ -184,17 +191,12 @@ async function pickChat(message: string) {
     noClear: true,
   })
   const selected = reversed[selectedIdx]
-  return { history, reversed, selectedIdx, selected }
+  return selected
 }
 
 async function pickAndResume() {
-  const { reversed, selectedIdx, selected } = await pickChat("Pick a chat to resume")
-  // pop out the selected item and move it to the end
-  const [before, after] = R.splitAt(reversed, selectedIdx)
-  const [, ...rest] = after
-  // put it at the beginning so it's at the end after re-reversing
-  const newHistory = [selected, ...before, ...rest]
-  History.write(R.reverse(newHistory))
+  const selected = await pickChat("Pick a chat to resume")
+  History.touch(selected.id)
 }
 
 const historyCmd = new Command()
@@ -206,13 +208,13 @@ const historyCmd = new Command()
   .option("-a, --all", "Show all messages")
   .option("-n, --limit <n:integer>", "Number of messages (default 1)", { default: 1 })
   .action(async (opts) => {
-    const { selected } = await pickChat("Pick a chat to show")
+    const selected = await pickChat("Pick a chat to show")
     const n = opts.all ? selected.messages.length : opts.limit
     await renderMd(chatToMd({ chat: selected, lastN: n }))
   })
   .command("delete", "Pick recent chats to delete")
   .action(async () => {
-    const history = History.read()
+    const history = History.list()
     await genMissingSummaries(history)
     if (history.length === 0) throw new ValidationError("No chat history")
 
@@ -226,18 +228,17 @@ const historyCmd = new Command()
     const label = `${selected.length} chat${selected.length === 1 ? "" : "s"}`
     const yes = await $.maybeConfirm(`Delete ${label}?`, { noClear: true })
     if (!yes) return
-    const selectedIdxs = new Set(selected.map((s) => s.index))
-    History.write(R.reverse(reversed.filter((_, i) => !selectedIdxs.has(i))))
+    History.delete(selected.map((s) => reversed[s.index].id))
     console.log(`Deleted ${label}`)
   })
-  .command("clear", "Delete current history from localStorage")
+  .command("clear", "Delete saved chat history")
   .action(async () => {
-    const history = History.read()
+    const history = History.list()
     const n = history.length
     const yes = await $.maybeConfirm(`Delete ${n} chats?`, { noClear: true })
     if (!yes) return
     History.clear()
-    console.log("Deleted history from localStorage")
+    console.log("Deleted chat history")
   })
 
 const showCmd = new Command()
@@ -247,8 +248,7 @@ const showCmd = new Command()
   .option("-v, --verbose", "Include reasoning in output")
   .option("--raw", "Print LLM output directly (no metadata or reasoning)")
   .action(async (opts) => {
-    const history = History.read()
-    const chat = history.at(-1) // last one is current
+    const chat = History.current()
     if (!chat) throw new ValidationError("No chat in progress")
     const lastN = opts.all ? chat.messages.length : opts.limit
     await renderMd(chatToMd({ chat, lastN, mode: getMode(opts) }), opts.raw)
@@ -262,10 +262,9 @@ const gistCmd = new Command()
   .option("-p, --pick <spec:string>", "Pick specific messages (e.g., '1,3-4,7')")
   .option("--id <id:string>", "Replace contents of an existing gist by ID")
   .action(async (opts) => {
-    const history = History.read()
-    await genMissingSummaries(history)
-    const lastChat = history.at(-1) // last one is current
+    const lastChat = History.current()
     if (!lastChat) throw new ValidationError("No chat in progress")
+    await genMissingSummaries([lastChat])
 
     if (!$.commandExistsSync("gh")) {
       throw new Error(
@@ -337,8 +336,7 @@ const forkCmd = new Command()
     required: true,
   })
   .action(async (opts) => {
-    const history = History.read()
-    const currentChat = history.at(-1) // last one is current
+    const currentChat = History.current()
     if (!currentChat || currentChat.messages.length === 0) {
       throw new ValidationError("No chat in progress")
     }
@@ -352,17 +350,11 @@ const forkCmd = new Command()
     const selectedMessage = currentChat.messages[selectedIdx]
     const model = resolveModel(opts.model)
 
-    // Create new chat with messages up to the selected one
     const newChat: Chat = {
-      id: crypto.randomUUID(),
-      createdAt: new Date(),
-      systemPrompt: currentChat.systemPrompt,
+      ...createChat(currentChat.systemPrompt),
       messages: currentChat.messages.slice(0, selectedIdx + 1),
       summary: currentChat.summary,
     }
-
-    // Add the new chat to history and make it current
-    history.push(newChat)
 
     if (selectedMessage.role === "user") {
       const chatInput: ChatInput = {
@@ -376,8 +368,7 @@ const forkCmd = new Command()
         `Forked on assistant message with model ${model.id}. You can now continue the chat.`,
       )
     }
-
-    History.write(history)
+    History.save(newChat, { current: true, touch: true })
   })
 
 function exit(msg: string): never {
@@ -392,8 +383,7 @@ const bgCmd = new Command()
   })
   .command("status", "Check status of current chat's background request")
   .action(async () => {
-    const history = History.read()
-    const chat = history.findLast((c) => c.background)
+    const chat = History.findLatestBackground()
     if (!chat?.background) exit("No background task found")
 
     const status = await gptBg.status(chat.background.id)
@@ -402,25 +392,21 @@ const bgCmd = new Command()
   })
   .command("resume", "Resume polling for current chat's background request")
   .action(async () => {
-    const history = History.read()
-    const chat = history.findLast((c) => c.background)
+    const chat = History.findLatestBackground()
     if (!chat?.background) exit("No background task found")
 
     const model = { id: chat.background.modelId, provider: chat.background.provider }
     await pollBackgroundResponse(chat, model, {})
-    // BUG: History is only written after polling is done. Exiting in the middle
-    // leaves status un-updated. nbd because the next run will update it anyway.
-    History.write(history)
+    History.save(chat)
   })
   .command("cancel", "Cancel current chat's background request")
   .action(async () => {
-    const history = History.read()
-    const chat = history.findLast((c) => c.background)
+    const chat = History.findLatestBackground()
     if (!chat?.background) exit("No background task found")
 
     await gptBg.cancel(chat.background.id)
     delete chat.background
-    History.write(history)
+    History.save(chat)
     console.log("Background response cancelled")
   })
 
@@ -495,20 +481,9 @@ the raw output to stdout.`)
 
     const systemPrompt = opts.system || systemBase
 
-    const history = History.read()
-    // if we're not continuing an existing conversation, pop a new one onto history
-    if (!opts.reply || history.length === 0) {
-      history.push({
-        id: crypto.randomUUID(),
-        createdAt: new Date(),
-        systemPrompt,
-        messages: [],
-      })
-    }
+    const chat = opts.reply ? History.current() : createChat(systemPrompt)
+    if (!chat) throw new ValidationError("Can't reply: no chat in progress")
 
-    // now we're guaranteed to have one on hand, and that's our current one.
-    // we modify it by reference
-    const chat: Chat = history.at(-1)!
     if (opts.reply && chat.background) {
       throw new ValidationError(
         "Current chat has a pending background response. Run `ai bg resume` or `ai bg cancel` before replying.",
@@ -556,7 +531,7 @@ the raw output to stdout.`)
           provider: "openai",
           modelId: model.id,
         }
-        if (!opts.ephemeral) History.write(history)
+        if (!opts.ephemeral) History.save(chat, { current: true, touch: true })
         await pollBackgroundResponse(chat, model, R.pick(opts, ["raw", "verbose"]))
         // deno-lint-ignore no-explicit-any
       } catch (e: any) {
@@ -566,6 +541,6 @@ the raw output to stdout.`)
       await genResponse(chatInput, R.pick(opts, ["raw", "verbose"]))
     }
 
-    if (!opts.ephemeral) History.write(history)
+    if (!opts.ephemeral) History.save(chat, { current: true, touch: true })
   })
   .parse(Deno.args)

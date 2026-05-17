@@ -46,7 +46,7 @@ export async function genMissingSummaries(history: Chat[]) {
     .filter((chat) => !chat.summary))
     .map(async (chat) => {
       chat.summary = await summarize(chat)
+      History.save(chat)
     }))
-  History.write(history)
   pb.finish()
 }

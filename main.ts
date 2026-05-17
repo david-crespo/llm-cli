@@ -71,6 +71,7 @@ const bell = () => Deno.stdout.write(new TextEncoder().encode("\x07"))
 const makeAssMsg = (modelId: string, startTime: number, response: ModelResponse) => ({
   role: "assistant" as const,
   model: modelId,
+  createdAt: new Date(),
   timeMs: Date.now() - startTime,
   ...response,
 })
@@ -515,6 +516,7 @@ the raw output to stdout.`)
     chat.messages.push({
       role: "user",
       content: input,
+      createdAt: new Date(),
       image_url,
       outputSchema: outputSchema?.expression,
     })

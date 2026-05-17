@@ -41,23 +41,60 @@ function parseJson<T>(contents: string): T {
   })
 }
 
+function date(value: Date | string): Date {
+  return value instanceof Date ? value : new Date(value)
+}
+
+function backfillLegacyMessageTimes(chats: Chat[], baseTime = Date.now()): Chat[] {
+  const totalTicks = chats.reduce(
+    (sum, chat) => sum + Math.max(1, chat.messages.length),
+    0,
+  )
+  const startTime = baseTime - totalTicks
+  let i = 0
+
+  for (const chat of chats) {
+    for (const message of chat.messages) {
+      message.createdAt ??= new Date(startTime + i)
+      i++
+    }
+    if (chat.messages.length === 0) i++
+  }
+
+  return chats
+}
+
+function normalizeChat(chat: Chat): Chat {
+  chat.createdAt = date(chat.createdAt)
+  for (const message of chat.messages) {
+    if (message.createdAt) message.createdAt = date(message.createdAt)
+  }
+  return chat
+}
+
+function lastMessageTime(chat: Chat): Date | undefined {
+  return chat.messages.at(-1)?.createdAt
+}
+
 function parseHistory(contents: string): Chat[] {
   const chats = parseJson<Chat[]>(contents)
   for (const chat of chats) {
     if (!chat.id) chat.id = crypto.randomUUID()
+    normalizeChat(chat)
   }
-  return chats
+  return backfillLegacyMessageTimes(chats)
 }
 
 function toStoredChat(chat: Chat | StoredChat): StoredChat {
   const now = new Date()
   const maybeStored = chat as Partial<StoredChat>
+  normalizeChat(chat)
   return {
     ...chat,
     id: chat.id || crypto.randomUUID(),
     revision: maybeStored.revision ?? crypto.randomUUID(),
     updatedAt: maybeStored.updatedAt ?? now,
-    lastActiveAt: maybeStored.lastActiveAt ?? chat.createdAt,
+    lastActiveAt: maybeStored.lastActiveAt ?? lastMessageTime(chat) ?? chat.createdAt,
   }
 }
 
@@ -145,10 +182,12 @@ function chatsDirExists(): boolean {
 
 function migrateFromHistory(history: Chat[]) {
   const truncated = history.slice(-HISTORY_LENGTH)
+  for (const chat of truncated) normalizeChat(chat)
+  backfillLegacyMessageTimes(truncated)
   const activeBase = Date.now() - truncated.length
   const storedChats = truncated.map((chat, index) => ({
     ...toStoredChat(chat),
-    lastActiveAt: new Date(activeBase + index),
+    lastActiveAt: lastMessageTime(chat) ?? new Date(activeBase + index),
   }))
   Deno.mkdirSync(chatsPath(), { recursive: true })
   for (const chat of storedChats) {

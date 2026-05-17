@@ -9,6 +9,7 @@ export type TokenCounts = {
 type UserMessage = {
   role: "user"
   content: string
+  createdAt: Date
   image_url?: string
   cache?: boolean
   /** arktype canonical expression of the requested output schema, if any */
@@ -27,6 +28,7 @@ export type ProviderData = {
 type AssistantMessage = {
   role: "assistant"
   model: string
+  createdAt: Date
   /** Model response text */
   content: string
   /** Reasoning text. May be blank. Not rendered in --raw mode. */

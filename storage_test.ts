@@ -75,6 +75,43 @@ Deno.test("History.write preserves legacy history recency order", () => {
   })
 })
 
+Deno.test("History.write backfills unique message timestamps", () => {
+  withTempState(() => {
+    History.write(JSON.parse(JSON.stringify([
+      {
+        id: "one",
+        createdAt: "2026-01-02T00:00:00Z",
+        systemPrompt: "test",
+        messages: [
+          { role: "user", content: "one" },
+          {
+            role: "assistant",
+            model: "test",
+            content: "two",
+            tokens: { input: 1, output: 1 },
+            stop_reason: "stop",
+            cost: 0,
+            timeMs: 1,
+          },
+        ],
+      },
+      {
+        id: "two",
+        createdAt: "2026-01-01T00:00:00Z",
+        systemPrompt: "test",
+        messages: [{ role: "user", content: "three" }],
+      },
+    ])))
+
+    const messages = History.read().flatMap((c) => c.messages)
+    const times = messages.map((m) => m.createdAt.getTime())
+
+    assertEquals(new Set(times).size, 3)
+    assertEquals([...times].sort((a, b) => a - b), times)
+    assertEquals(History.current()?.lastActiveAt, messages.at(-1)?.createdAt)
+  })
+})
+
 Deno.test("History.save rejects stale same-chat writes", () => {
   withTempState(() => {
     History.save(chat("one", "2026-01-01T00:00:00Z"), { current: true })

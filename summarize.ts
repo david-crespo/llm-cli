@@ -29,6 +29,7 @@ export async function summarize(chat: Chat): Promise<string> {
       messages: [{
         role: "user",
         content: `<message-1>${abridged1}</message-1><message-2>${abridged2}</message-2>`,
+        createdAt: new Date(),
       }],
       createdAt: new Date(),
     },

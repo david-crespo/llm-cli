@@ -17,6 +17,7 @@ import {
   messageContentMd,
   modelsMd,
   renderMd,
+  renderMetaToStderr,
   shortDateFmt,
 } from "./display.ts"
 import { parseMessageSpec, resolveImage } from "./utils.ts"
@@ -123,7 +124,11 @@ async function pollBackgroundResponse(
       const assistantMsg = makeAssMsg(model.id, startTime, response)
       chat.messages.push(assistantMsg)
       delete chat.background
-      if (!displayOpts.raw) console.log()
+      if (displayOpts.raw) {
+        await renderMetaToStderr(assistantMsg)
+      } else {
+        console.log()
+      }
       await renderMd(messageContentMd(assistantMsg, getMode(displayOpts)), displayOpts.raw)
     } else {
       const { status } = chat.background
@@ -167,7 +172,11 @@ async function genResponse(
     const assistantMsg = makeAssMsg(chatInput.model.id, startTime, response)
     chatInput.chat.messages.push(assistantMsg)
 
-    if (!raw) console.log()
+    if (raw) {
+      await renderMetaToStderr(assistantMsg)
+    } else {
+      console.log()
+    }
     await renderMd(messageContentMd(assistantMsg, getMode({ raw, verbose })), raw)
   } catch (e: unknown) {
     renderError(e)

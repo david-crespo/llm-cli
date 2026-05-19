@@ -85,35 +85,51 @@ const escapeThinkTags = (content: string) =>
  */
 export type DisplayMode = "cli" | "verbose" | "raw" | "gist"
 
+/** Build the one-line meta string (model, time, cost, tokens, ...) for an assistant message. */
+export function metaLineMd(msg: ChatMessage): string {
+  if (msg.role !== "assistant") return ""
+
+  // only show stop reason if it's not a natural stop
+  const showStopReason = !["stop", "end_turn", "completed"].includes(
+    msg.stop_reason.toLowerCase(),
+  )
+
+  let out = codeMd(msg.model)
+  out += ` | ${formatElapsed(msg.timeMs)}`
+  out += ` | ${moneyFmt.format(msg.cost)}`
+
+  // show cached tokens in parens if there are any
+  const input = msg.tokens.input +
+    (msg.tokens.input_cache_hit ? ` (${msg.tokens.input_cache_hit})` : "")
+  out += ` | ${input} -> ${msg.tokens.output}`
+
+  if (msg.searches) {
+    out += ` | 🌐`
+    if (msg.searches > 1) out += `×${msg.searches}`
+  }
+
+  if (showStopReason) out += ` | **Stop reason:** ${msg.stop_reason}`
+
+  return out
+}
+
+/** Write the assistant meta line to stderr (markdown-rendered if stderr is a TTY). */
+export async function renderMetaToStderr(msg: ChatMessage) {
+  const meta = metaLineMd(msg)
+  if (!meta) return
+  const text = Deno.stderr.isTerminal() ? await renderMarkdown(meta) : meta
+  console.error()
+  console.error(text)
+  console.error()
+}
+
 export function messageContentMd(msg: ChatMessage, mode: DisplayMode) {
   let output = ""
 
   if (msg.role === "assistant") {
     // show metadata line in all modes except raw
     if (mode !== "raw") {
-      // only show stop reason if it's not a natural stop
-      const showStopReason = !["stop", "end_turn", "completed"].includes(
-        msg.stop_reason.toLowerCase(),
-      )
-
-      output += codeMd(msg.model)
-      output += ` | ${formatElapsed(msg.timeMs)}`
-      output += ` | ${moneyFmt.format(msg.cost)}`
-
-      // show cached tokens in parens if there are any
-
-      const input = msg.tokens.input +
-        (msg.tokens.input_cache_hit ? ` (${msg.tokens.input_cache_hit})` : "")
-      output += ` | ${input} -> ${msg.tokens.output}`
-
-      if (msg.searches) {
-        output += ` | 🌐`
-        if (msg.searches > 1) output += `×${msg.searches}`
-      }
-
-      if (showStopReason) output += ` | **Stop reason:** ${msg.stop_reason}`
-
-      output += "\n\n"
+      output += metaLineMd(msg) + "\n\n"
     }
 
     // only show reasoning in gist or verbose mode

@@ -2,6 +2,7 @@ import { ValidationError } from "@cliffy/command"
 
 import type { ChatInput, ModelResponse, ToolConfig } from "./types.ts"
 import {
+  basetenCreateMessage,
   cerebrasCreateMessage,
   deepseekCreateMessage,
   gptCreateMessage,
@@ -16,7 +17,7 @@ export type { ChatInput, ModelResponse, ThinkLevel, ToolConfig } from "./types.t
 export { gptBg } from "./openai.ts"
 
 export const searchProviders = new Set(["anthropic", "openai", "google"])
-export const thinkProviders = new Set(["anthropic", "openai", "google"])
+export const thinkProviders = new Set(["anthropic", "openai", "google", "baseten"])
 export const imageProviders = new Set(["anthropic", "openai", "google"])
 
 export function validateConfig(provider: string, config: ToolConfig) {
@@ -37,5 +38,6 @@ export function createMessage(input: ChatInput): Promise<ModelResponse> {
   if (provider === "groq") return groqCreateMessage(input)
   if (provider === "xai") return grokCreateMessage(input)
   if (provider === "openrouter") return openrouterCreateMessage(input)
+  if (provider === "baseten") return basetenCreateMessage(input)
   return gptCreateMessage(input)
 }

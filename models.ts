@@ -115,19 +115,10 @@ export const models: Model[] = [
     search_cost: 0.01,
   },
   {
-    provider: "groq",
-    key: "moonshotai/kimi-k2-instruct-0905",
-    id: "kimi-k2",
-    input: 1.00,
-    input_cached: 0.50,
-    output: 3.00,
-  },
-  {
-    provider: "openrouter",
-    key: "moonshotai/kimi-k2.6",
+    provider: "baseten",
+    key: "moonshotai/Kimi-K2.6",
     id: "kimi-k2.6",
-    // prices actually vary but let's go with moonshot's own as a middle ground
-    // https://openrouter.ai/moonshotai/kimi-k2.6
+    // prices are the same as moonshot's
     input: 0.95,
     input_cached: 0.16,
     output: 4.00,

@@ -146,8 +146,8 @@ export const gptBg = {
 }
 
 const makeOpenAIFunc =
-  (baseURL: string, envVarName: string) =>
-  async ({ chat, model, signal, outputSchema }: ChatInput) => {
+  (baseURL: string, envVarName: string, opts: { think?: boolean } = {}) =>
+  async ({ chat, model, signal, outputSchema, config }: ChatInput) => {
     const client = new OpenAI({ baseURL, apiKey: Deno.env.get(envVarName) })
     const systemMsg = chat.systemPrompt
       ? [{ role: "system" as const, content: chat.systemPrompt }]
@@ -163,7 +163,7 @@ const makeOpenAIFunc =
     const prep = outputSchema
       ? prepareSchema(outputSchema, { wrapPrimitives: true, allRequired: true })
       : undefined
-    const response = await client.chat.completions.create({
+    const params: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming = {
       model: model.key,
       messages,
       response_format: prep
@@ -172,7 +172,17 @@ const makeOpenAIFunc =
           json_schema: { name: "output", schema: prep.schema, strict: true },
         }
         : undefined,
-    }, { signal })
+    }
+    if (opts.think) {
+      // Baseten/vLLM extension for hybrid thinking models like Kimi K2.6.
+      // OpenAI's `reasoning_effort` is silently ignored here. The model is
+      // binary on/off; default to on (matching other providers' defaults),
+      // --quick turns it off.
+      ;(params as unknown as Record<string, unknown>).chat_template_kwargs = {
+        enable_thinking: config.think !== "off",
+      }
+    }
+    const response = await client.chat.completions.create(params, { signal })
     const message = response.choices[0].message
     if (!message) throw new Error("No response found")
 
@@ -235,4 +245,10 @@ export const grokCreateMessage = makeOpenAIFunc(
 export const openrouterCreateMessage = makeOpenAIFunc(
   "https://openrouter.ai/api/v1",
   "OPENROUTER_API_KEY",
+)
+
+export const basetenCreateMessage = makeOpenAIFunc(
+  "https://inference.baseten.co/v1",
+  "BASETEN_API_KEY",
+  { think: true },
 )

@@ -12,7 +12,7 @@ function claudeMsg(
   text: string,
   image_url?: string,
 ): Anthropic.MessageParam {
-  const content: Anthropic.ContentBlockParam[] = [{ type: "text", text }]
+  const content: Anthropic.ContentBlockParam[] = text ? [{ type: "text", text }] : []
 
   if (image_url) {
     const dataUrl = parseDataUrl(image_url)

@@ -425,8 +425,9 @@ const bgCmd = new Command()
 await new Command()
   .name("ai")
   .description(`
-Input from either [message] or stdin is required unless using a
-command. If both are present, stdin will be appended to MESSAGE.
+Input from [message], stdin, or --image is required unless using a
+command. If both message and stdin are present, stdin will be appended
+to MESSAGE.
 
 By default, this script will attempt to render output with glow,
 but if glow is not present or output is being piped, it will print
@@ -486,8 +487,8 @@ the raw output to stdout.`)
       // read stdin to end
       : new TextDecoder().decode(await readAll(Deno.stdin)).trim()
 
-    if (!msg && !stdin) {
-      throw new ValidationError("Message, stdin, or command is required")
+    if (!msg && !stdin && !opts.image) {
+      throw new ValidationError("Message, stdin, image, or command is required")
     }
     const input = [stdin, msg].filter(Boolean).join("\n\n")
 

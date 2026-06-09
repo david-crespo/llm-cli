@@ -70,7 +70,7 @@ function gptConfig(
           return {
             role: "user" as const,
             content: [
-              { type: "input_text" as const, text: m.content },
+              ...(m.content ? [{ type: "input_text" as const, text: m.content }] : []),
               {
                 type: "input_image" as const,
                 image_url: m.image_url,

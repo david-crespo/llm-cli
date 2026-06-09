@@ -56,7 +56,7 @@ export async function geminiCreateMessage(
     },
     model: model.key,
     contents: await Promise.all(chat.messages.map(async (msg) => {
-      const parts: Part[] = [{ text: msg.content }]
+      const parts: Part[] = msg.content ? [{ text: msg.content }] : []
       if (msg.role === "user" && msg.image_url) {
         parts.unshift(await imageToInlinePart(msg.image_url))
       }

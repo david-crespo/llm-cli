@@ -47,13 +47,28 @@ type ClaudeThinkParams = {
 }
 
 function claudeThinkParams(key: string, think: ThinkLevel): ClaudeThinkParams {
-  const adaptive = key === "claude-opus-4-7" || key === "claude-sonnet-4-6"
+  // Fable's thinking can't be turned off; on the other adaptive models we
+  // want it on by default anyway
+  const isSonnet = key === "claude-sonnet-4-6"
+  const adaptive = key === "claude-fable-5" || key === "claude-opus-4-8" || isSonnet
 
   // SDK's non-streaming guard throws when max_tokens > ~21_333 (it assumes
   // 128k tokens/hour and refuses requests estimated to take >10 min).
-  const max_tokens = think === "high" ? 20_000 : 8_000
+  // Adaptive models think at effort high by default, so they need the bigger
+  // cap whenever thinking isn't minimized.
+  const max_tokens = think === "high" || (adaptive && think !== "off") ? 20_000 : 8_000
 
   if (think === undefined) {
+    if (adaptive) {
+      // Adaptive thinking, effort defaults to high. Set thinking only for
+      // display: "summarized" — Fable and Opus default to "omitted", which
+      // blanks the text --verbose shows.
+      return {
+        thinking: { type: "adaptive", display: "summarized" },
+        output_config: undefined,
+        max_tokens,
+      }
+    }
     return { thinking: undefined, output_config: undefined, max_tokens }
   }
 
@@ -67,16 +82,17 @@ function claudeThinkParams(key: string, think: ThinkLevel): ClaudeThinkParams {
     return { thinking, output_config: undefined, max_tokens }
   }
 
-  // Force display: "summarized" so --verbose shows reasoning. Opus 4.7 otherwise
-  // defaults to "omitted" and blanks the text.
-  const thinking: Anthropic.Beta.BetaThinkingConfigParam = think === "off"
-    ? { type: "disabled" }
-    : { type: "adaptive", display: "summarized" }
+  // Force display: "summarized" so --verbose shows reasoning. --quick lowers
+  // effort rather than disabling thinking.
+  const thinking: Anthropic.Beta.BetaThinkingConfigParam = {
+    type: "adaptive",
+    display: "summarized",
+  }
 
-  // opus 4.7 could do xhigh on "high" but high should be enough
+  // Sonnet 4.6 doesn't support xhigh, but it does support max
   const effort = match(think)
-    .with("on", () => "medium" as const)
-    .with("high", () => "high" as const)
+    .with("on", () => "high" as const)
+    .with("high", () => isSonnet ? "max" as const : "xhigh" as const)
     .with("off", () => "low" as const)
     .exhaustive()
 

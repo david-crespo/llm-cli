@@ -38,7 +38,6 @@ export const models: Model[] = [
     input_cached: 1,
     output: 50,
     search_cost: 0.01,
-    default: true,
   },
   {
     provider: "anthropic",
@@ -48,6 +47,7 @@ export const models: Model[] = [
     input_cached: 0.50,
     output: 25,
     search_cost: 0.01,
+    default: true,
   },
   {
     provider: "anthropic",

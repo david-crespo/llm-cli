@@ -448,7 +448,8 @@ the raw output to stdout.`)
   .help({ hints: false })
   .option("-r, --reply", "Continue existing chat")
   .option("-m, --model <model:string>", "Select model by substring (e.g., 'sonnet')")
-  .option("-s, --search", "Enable web search")
+  .option("-s, --search", "Enable web search (sticky: stays on for -r replies)")
+  .option("--no-search", "Disable web search for this turn")
   .option("--think", "Enable thinking")
   .option("--think-hard", "Enable maximum thinking")
   .option("-q, --quick", "Minimize thinking")
@@ -510,8 +511,15 @@ the raw output to stdout.`)
     const model = resolveModel(
       opts.reply && prevModelId && !opts.model ? prevModelId : opts.model,
     )
+    // Search is sticky across replies: an explicit -s/--no-search wins, else a
+    // reply inherits the chat's last setting. Persisting it keeps the search
+    // tool stable across turns so prompt caching keeps hitting — every provider
+    // caches on a request prefix that includes the tool definitions, so toggling
+    // search busts the cache (see Chat.search in types.ts).
+    const search = opts.search ?? (opts.reply ? chat.search : undefined) ?? false
+    chat.search = search
     const config: ToolConfig = {
-      search: opts.search ?? false,
+      search,
       think: opts.quick ? "off" : opts.thinkHard ? "high" : opts.think ? "on" : undefined,
     }
     validateConfig(model.provider, config)

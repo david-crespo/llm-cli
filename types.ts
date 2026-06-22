@@ -56,6 +56,14 @@ export type Chat = {
   messages: ChatMessage[]
   createdAt: Date
   summary?: string
+  /** Last-used web search setting. Inherited by `-r` replies (unless overridden
+   * with -s/--no-search) so search stays on across a chat and prompt caching
+   * keeps hitting. All providers cache on a request prefix that includes the
+   * tool definitions, so toggling the search tool busts the cache — most
+   * severely on Anthropic, where tools sit at the front of the prefix
+   * (tools → system → messages) and re-sending the full history re-pays for
+   * everything after. */
+  search?: boolean
   background?: {
     id: string // OpenAI response.id for polling
     status: BackgroundStatus

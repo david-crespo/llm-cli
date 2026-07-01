@@ -257,7 +257,10 @@ const showCmd = new Command()
   .description("Show chat so far (last N, default 1)")
   .option("-a, --all", "Show all messages")
   .option("-n, --limit <n:integer>", "Number of messages (default 1)", { default: 1 })
-  .option("-p, --pick <spec:string>", "Pick specific messages (e.g., '1,3-4,7', 'even', 'odd')")
+  .option(
+    "-p, --pick <spec:string>",
+    "Pick specific messages (e.g., '1,3-4,7', 'even', 'odd')",
+  )
   .option("-v, --verbose", "Include reasoning in output")
   .option("--raw", "Print LLM output directly (no metadata or reasoning)")
   .action(async (opts) => {
@@ -278,7 +281,10 @@ const gistCmd = new Command()
   .option("-t, --title <title>", "Gist title")
   .option("-a, --all", "Include all messages")
   .option("-n, --limit <n:integer>", "Number of messages (default 1)", { default: 1 })
-  .option("-p, --pick <spec:string>", "Pick specific messages (e.g., '1,3-4,7', 'even', 'odd')")
+  .option(
+    "-p, --pick <spec:string>",
+    "Pick specific messages (e.g., '1,3-4,7', 'even', 'odd')",
+  )
   .option("--id <id:string>", "Replace contents of an existing gist by ID")
   .action(async (opts) => {
     const lastChat = History.current()

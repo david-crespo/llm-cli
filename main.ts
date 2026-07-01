@@ -255,13 +255,20 @@ const showCmd = new Command()
   .description("Show chat so far (last N, default 1)")
   .option("-a, --all", "Show all messages")
   .option("-n, --limit <n:integer>", "Number of messages (default 1)", { default: 1 })
+  .option("-p, --pick <spec:string>", "Pick specific messages (e.g., '1,3-4,7')")
   .option("-v, --verbose", "Include reasoning in output")
   .option("--raw", "Print LLM output directly (no metadata or reasoning)")
   .action(async (opts) => {
     const chat = History.current()
     if (!chat) throw new ValidationError("No chat in progress")
-    const lastN = opts.all ? chat.messages.length : opts.limit
-    await renderMd(chatToMd({ chat, lastN, mode: getMode(opts) }), opts.raw)
+    const mode = getMode(opts)
+    if (opts.pick) {
+      const indices = parseMessageSpec(opts.pick, chat.messages.length)
+      await renderMd(chatToMd({ chat, indices, mode }), opts.raw)
+    } else {
+      const lastN = opts.all ? chat.messages.length : opts.limit
+      await renderMd(chatToMd({ chat, lastN, mode }), opts.raw)
+    }
   })
 
 const gistCmd = new Command()

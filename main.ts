@@ -86,6 +86,7 @@ const createChat = (systemPrompt: string): Chat => ({
 
 // deno-lint-ignore no-explicit-any
 function renderError(e: any) {
+  Deno.exitCode = 1
   if (e.response?.status) console.log("Request error:", e.response.status)
   if (e.response?.data) renderMd(jsonBlock(e.response.data))
   if (e.response?.error) renderMd(jsonBlock(e.response.error))
@@ -133,6 +134,7 @@ async function pollBackgroundResponse(
     } else {
       const { status } = chat.background
       delete chat.background
+      Deno.exitCode = 1
       console.log(`Background response ${status}`)
     }
   } finally {

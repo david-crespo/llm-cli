@@ -18,6 +18,20 @@ Deno.test("parseMessageSpec - mixed numbers and ranges", () => {
   assertEquals(parseMessageSpec("1,3-4,7", 10), [0, 2, 3, 6])
 })
 
+Deno.test("parseMessageSpec - even keyword", () => {
+  // 1-based even message numbers 2,4,6 -> 0-based
+  assertEquals(parseMessageSpec("even", 6), [1, 3, 5])
+})
+
+Deno.test("parseMessageSpec - odd keyword", () => {
+  // 1-based odd message numbers 1,3,5 -> 0-based
+  assertEquals(parseMessageSpec("odd", 6), [0, 2, 4])
+})
+
+Deno.test("parseMessageSpec - even/odd combine with numbers and dedupe", () => {
+  assertEquals(parseMessageSpec("odd,2", 5), [0, 1, 2, 4])
+})
+
 Deno.test("parseMessageSpec - out of order input returns sorted", () => {
   assertEquals(parseMessageSpec("7,1,3-4", 10), [0, 2, 3, 6])
 })

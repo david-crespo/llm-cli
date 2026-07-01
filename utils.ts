@@ -3,7 +3,12 @@ import { encodeBase64 } from "@std/encoding/base64"
 import $ from "@david/dax"
 import * as R from "remeda"
 
-const parsePart = (part: string): number[] => {
+const parsePart = (part: string, msgCount: number): number[] => {
+  if (part === "even" || part === "odd") {
+    const start = part === "even" ? 2 : 1
+    return R.range(start, msgCount + 1).filter((n) => n % 2 === (part === "even" ? 0 : 1))
+  }
+
   if (/^\d+-\d+$/.test(part)) {
     const [startStr, endStr] = part.split("-")
     const start = Number(startStr)
@@ -25,14 +30,15 @@ const parsePart = (part: string): number[] => {
 
 /**
  * Parse a message spec like "1,3-4,7" into a sorted array of 0-based indices.
- * Message numbers in the spec are 1-based (user-facing).
+ * Message numbers in the spec are 1-based (user-facing). The keywords "even"
+ * and "odd" expand to all even/odd message numbers.
  * Throws if a range has start > end or if any number is out of bounds.
  */
 export function parseMessageSpec(spec: string, msgCount: number): number[] {
   const indices = R.pipe(
     spec.replaceAll(" ", "").split(","),
     R.filter((p) => p.length > 0),
-    R.flatMap(parsePart),
+    R.flatMap((part) => parsePart(part, msgCount)),
     R.unique(),
     R.sortBy(R.identity()),
   )

@@ -500,10 +500,20 @@ the raw output to stdout.`)
     }
 
     const msg = args.join(" ")
-    const stdin = Deno.stdin.isTerminal()
-      ? null
+    const piped = !Deno.stdin.isTerminal()
+    const stdin = piped
       // read stdin to end
-      : new TextDecoder().decode(await readAll(Deno.stdin)).trim()
+      ? new TextDecoder().decode(await readAll(Deno.stdin)).trim()
+      : null
+
+    // Input was piped but arrived empty — the upstream command likely failed or
+    // produced nothing (e.g. `cb x | ai ...` where `cb` errors). Abort rather
+    // than calling the API with only the message.
+    if (piped && !stdin && !opts.image) {
+      throw new ValidationError(
+        "Piped input was empty (did an upstream command fail?)",
+      )
+    }
 
     if (!msg && !stdin && !opts.image) {
       throw new ValidationError("Message, stdin, image, or command is required")

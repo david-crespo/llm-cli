@@ -5,6 +5,10 @@ import { type Chat } from "./types.ts"
 import { History } from "./storage.ts"
 import { resolveModel } from "./models.ts"
 
+// resolved at module scope so a stale alias fails at import time (caught by
+// tests and at CLI startup) rather than mid-summarize
+const flash = resolveModel("flash")
+
 const HALF_EXCERPT = 200
 
 function abridge(content: string): string {
@@ -33,7 +37,7 @@ export async function summarize(chat: Chat): Promise<string> {
       }],
       createdAt: new Date(),
     },
-    model: resolveModel("flash"),
+    model: flash,
     config: { search: false, think: "off" },
   })
 

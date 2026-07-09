@@ -126,8 +126,11 @@ export const models: Model[] = [
 ]
 
 /** Errors and exits if it can't resolve to a model */
-export function resolveModel(modelArg: string | undefined) {
-  if (modelArg === undefined) return models.find((m) => m.default)!
+export function resolveModel(
+  modelArg: string | undefined,
+  availableModels: readonly Model[] = models,
+) {
+  if (modelArg === undefined) return availableModels.find((m) => m.default)!
 
   // Find the first model containing the arg as a substring. See comment at
   // allModels definition about ordering.
@@ -135,8 +138,8 @@ export function resolveModel(modelArg: string | undefined) {
   // First look for an exact match, then find the first model containing the arg
   // as a substring. See comment at allModels definition about ordering. Without
   // this logic, you could never match o1 if o1-mini is present.
-  const match = models.find((m) => m.key === lower || m.id === lower) ||
-    models.find((m) => m.key.includes(lower) || m.id.includes(lower))
+  const match = availableModels.find((m) => m.key === lower || m.id === lower) ||
+    availableModels.find((m) => m.key.includes(lower) || m.id.includes(lower))
 
   if (!match) {
     // TODO: print list of models as part of this error, not just the help. or

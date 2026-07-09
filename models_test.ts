@@ -2,6 +2,35 @@ import { assertEquals, assertThrows } from "@std/assert"
 import { ValidationError } from "@cliffy/command"
 import { getCost, type Model, models, resolveModel } from "./models.ts"
 
+const testModels: Model[] = [
+  {
+    provider: "test",
+    key: "vendor-alpha-pro",
+    id: "alpha-pro",
+    input: 1,
+    output: 1,
+  },
+  {
+    provider: "test",
+    key: "vendor-alpha-fast",
+    id: "alpha-fast",
+    input: 1,
+    output: 1,
+  },
+  {
+    provider: "test",
+    key: "vendor-alpha",
+    id: "alpha",
+    default: true,
+    input: 1,
+    output: 1,
+  },
+]
+
+function resolveTestModel(modelArg: string | undefined) {
+  return resolveModel(modelArg, testModels)
+}
+
 // getCost tests
 
 Deno.test("getCost - basic calculation without caching", () => {
@@ -64,39 +93,32 @@ Deno.test("getCost - zero tokens", () => {
 // resolveModel tests
 
 Deno.test("resolveModel - returns default when undefined", () => {
-  const model = resolveModel(undefined)
-  assertEquals(model.default, true)
+  assertEquals(resolveTestModel(undefined), testModels[2])
 })
 
 Deno.test("resolveModel - exact match on id", () => {
-  const model = resolveModel("sonnet-4.6")
-  assertEquals(model.id, "sonnet-4.6")
-  assertEquals(model.key, "claude-sonnet-4-6")
+  assertEquals(resolveTestModel("alpha"), testModels[2])
 })
 
 Deno.test("resolveModel - exact match on key", () => {
-  const model = resolveModel("claude-sonnet-4-6")
-  assertEquals(model.id, "sonnet-4.6")
+  assertEquals(resolveTestModel("vendor-alpha"), testModels[2])
 })
 
 Deno.test("resolveModel - substring match on id", () => {
-  const model = resolveModel("sonnet")
-  assertEquals(model.id, "sonnet-4.6")
+  assertEquals(resolveTestModel("alpha-"), testModels[0])
 })
 
 Deno.test("resolveModel - substring match on key", () => {
-  const model = resolveModel("claude-opus")
-  assertEquals(model.id, "opus-4.8")
+  assertEquals(resolveTestModel("vendor-alpha-"), testModels[0])
 })
 
 Deno.test("resolveModel - case insensitive", () => {
-  const model = resolveModel("SONNET")
-  assertEquals(model.id, "sonnet-4.6")
+  assertEquals(resolveTestModel("ALPHA-"), testModels[0])
 })
 
 Deno.test("resolveModel - throws on unknown model", () => {
   assertThrows(
-    () => resolveModel("nonexistent-model-xyz"),
+    () => resolveTestModel("nonexistent-model-xyz"),
     ValidationError,
     "not found",
   )
@@ -104,4 +126,11 @@ Deno.test("resolveModel - throws on unknown model", () => {
 
 Deno.test("Must have exactly one default model", () => {
   assertEquals(models.filter((m) => m.default).length, 1)
+})
+
+// Modules that resolve hard-coded aliases at module scope (like
+// resolveModel("flash") in summarize.ts) throw on import if catalog churn
+// makes the alias stop matching. Importing them here catches that.
+Deno.test("modules with hard-coded model aliases import cleanly", async () => {
+  await import("./summarize.ts")
 })

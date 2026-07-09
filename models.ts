@@ -51,8 +51,8 @@ export const models: Model[] = [
   },
   {
     provider: "anthropic",
-    key: "claude-sonnet-4-6",
-    id: "sonnet-4.6",
+    key: "claude-sonnet-5",
+    id: "sonnet-5",
     input: 3,
     input_cached: 0.30,
     output: 15,
@@ -65,6 +65,32 @@ export const models: Model[] = [
     input: 1,
     input_cached: 0.1,
     output: 5,
+    search_cost: 0.01,
+  },
+  {
+    provider: "openai",
+    key: "gpt-5.6-sol",
+    id: "gpt-5.6-sol",
+    input: 5.00,
+    input_cached: 0.50,
+    output: 30,
+    search_cost: 0.01,
+  },
+  {
+    provider: "openai",
+    key: "gpt-5.6-terra",
+    id: "gpt-5.6-terra",
+    input: 2.50,
+    input_cached: 0.25,
+    output: 15,
+    search_cost: 0.01,
+  },
+  {
+    provider: "openai",
+    key: "gpt-5.4-pro",
+    id: "gpt-5.4-pro",
+    input: 30, // no caching, yikes
+    output: 180,
     search_cost: 0.01,
   },
   {
@@ -96,55 +122,6 @@ export const models: Model[] = [
     output: 1.50,
     // 1,500 RPD (free, limit shared with lite), then $35 / 1,000 grounded prompts
     search_cost: 0,
-  },
-  {
-    provider: "openai",
-    key: "gpt-5.5",
-    id: "gpt-5.5",
-    input: 5.00,
-    input_cached: 0.50,
-    output: 30,
-    search_cost: 0.01,
-  },
-  {
-    provider: "openai",
-    key: "gpt-5.4-mini",
-    id: "gpt-5.4-mini",
-    input: 0.75,
-    input_cached: 0.075,
-    output: 4.50,
-    search_cost: 0.01,
-  },
-  {
-    provider: "openai",
-    key: "gpt-5.4-pro",
-    id: "gpt-5.4-pro",
-    input: 30, // no caching, yikes
-    output: 180,
-    search_cost: 0.01,
-  },
-  {
-    provider: "baseten",
-    key: "moonshotai/Kimi-K2.6",
-    id: "kimi-k2.6",
-    // prices are the same as moonshot's
-    input: 0.95,
-    input_cached: 0.16,
-    output: 4.00,
-  },
-  {
-    provider: "cerebras",
-    key: "zai-glm-4.7",
-    id: "glm-4.7",
-    input: 2.25,
-    output: 2.75,
-  },
-  {
-    provider: "cerebras",
-    key: "gpt-oss-120b",
-    id: "gpt-oss-120b",
-    input: 0.35,
-    output: 0.75,
   },
 ]
 

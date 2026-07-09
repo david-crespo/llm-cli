@@ -222,33 +222,7 @@ const makeOpenAIFunc =
     }
   }
 
-export const groqCreateMessage = makeOpenAIFunc(
-  "https://api.groq.com/openai/v1",
-  "GROQ_API_KEY",
-)
-
-export const deepseekCreateMessage = makeOpenAIFunc(
-  "https://api.deepseek.com",
-  "DEEPSEEK_API_KEY",
-)
-
-export const cerebrasCreateMessage = makeOpenAIFunc(
-  "https://api.cerebras.ai/v1",
-  "CEREBRAS_API_KEY",
-)
-
-export const grokCreateMessage = makeOpenAIFunc(
-  "https://api.x.ai/v1",
-  "XAI_API_KEY",
-)
-
 export const openrouterCreateMessage = makeOpenAIFunc(
   "https://openrouter.ai/api/v1",
   "OPENROUTER_API_KEY",
-)
-
-export const basetenCreateMessage = makeOpenAIFunc(
-  "https://inference.baseten.co/v1",
-  "BASETEN_API_KEY",
-  { think: true },
 )

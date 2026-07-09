@@ -1,15 +1,7 @@
 import { ValidationError } from "@cliffy/command"
 
 import type { ChatInput, ModelResponse, ToolConfig } from "./types.ts"
-import {
-  basetenCreateMessage,
-  cerebrasCreateMessage,
-  deepseekCreateMessage,
-  gptCreateMessage,
-  grokCreateMessage,
-  groqCreateMessage,
-  openrouterCreateMessage,
-} from "./openai.ts"
+import { gptCreateMessage, openrouterCreateMessage } from "./openai.ts"
 import { claudeCreateMessage } from "./claude.ts"
 import { geminiCreateMessage } from "./gemini.ts"
 
@@ -33,11 +25,6 @@ export function createMessage(input: ChatInput): Promise<ModelResponse> {
   const { provider } = input.model
   if (provider === "anthropic") return claudeCreateMessage(input)
   if (provider === "google") return geminiCreateMessage(input)
-  if (provider === "deepseek") return deepseekCreateMessage(input)
-  if (provider === "cerebras") return cerebrasCreateMessage(input)
-  if (provider === "groq") return groqCreateMessage(input)
-  if (provider === "xai") return grokCreateMessage(input)
   if (provider === "openrouter") return openrouterCreateMessage(input)
-  if (provider === "baseten") return basetenCreateMessage(input)
   return gptCreateMessage(input)
 }

@@ -95,6 +95,10 @@ export function metaLineMd(msg: ChatMessage): string {
   )
 
   let out = codeMd(msg.model)
+  if (msg.effort) {
+    const effort = { minimal: "min", medium: "med" }[msg.effort] ?? msg.effort
+    out += ` (${effort})`
+  }
   out += ` | ${formatElapsed(msg.timeMs)}`
   out += ` | ${moneyFmt.format(msg.cost)}`
 

@@ -3,13 +3,14 @@ import type { ResponseCreateParamsNonStreaming } from "openai/resources/response
 import { match, P } from "ts-pattern"
 
 import { postprocessSchemaContent, prepareSchema } from "../schema.ts"
-import type { BackgroundStatus } from "../types.ts"
+import type { BackgroundStatus, ThinkLevel } from "../types.ts"
 import { getCost, type Model } from "../models.ts"
 import type { ChatInput, ModelResponse } from "./types.ts"
 
 function processGptResponse(
   response: OpenAI.Responses.Response,
   model: Model,
+  effort: string | undefined,
   wrapped = false,
 ): ModelResponse {
   const tokens = {
@@ -30,13 +31,26 @@ function processGptResponse(
     cost: getCost(model, tokens, searches),
     stop_reason: response.status || "completed",
     searches: searches || undefined,
+    effort,
     provider: { type: "openai", responseId: response.id },
   }
 }
 
+export function openAIEffort(think: ThinkLevel | undefined) {
+  return match(think)
+    .with("high", () => "high" as const)
+    .with("off", () => "none" as const)
+    .with("on", P.nullish, () => "medium" as const)
+    .exhaustive()
+}
+
 function gptConfig(
   chatInput: ChatInput,
-): { params: ResponseCreateParamsNonStreaming; wrapped: boolean } {
+): {
+  params: ResponseCreateParamsNonStreaming
+  wrapped: boolean
+  effort: string
+} {
   const { chat, model, config, outputSchema } = chatInput
   // OpenAI strict mode has two quirks the other providers don't impose:
   //   1. Root schema must be `object` — primitives, unions, and arrays at the
@@ -62,6 +76,7 @@ function gptConfig(
     .exhaustive()
   const inputMessages = previous_response_id ? chat.messages.slice(-1) : chat.messages
 
+  const effort = openAIEffort(config.think)
   return {
     params: {
       model: model.key,
@@ -87,11 +102,7 @@ function gptConfig(
       prompt_cache_key: chat.id,
       tools: config.search ? [{ type: "web_search_preview" as const }] : undefined,
       reasoning: {
-        effort: match(config.think)
-          .with("high", () => "high" as const)
-          .with("off", () => "none" as const)
-          .with("on", P.nullish, () => "medium" as const)
-          .exhaustive(),
+        effort,
       },
       instructions: chat.systemPrompt,
       text: prep
@@ -106,32 +117,37 @@ function gptConfig(
         : undefined,
     },
     wrapped: prep?.wrapped ?? false,
+    effort,
   }
 }
 
 export async function gptCreateMessage(chatInput: ChatInput) {
   const client = new OpenAI()
-  const { params, wrapped } = gptConfig(chatInput)
+  const { params, wrapped, effort } = gptConfig(chatInput)
   const response = await client.responses.create(params, { signal: chatInput.signal })
-  return processGptResponse(response, chatInput.model, wrapped)
+  return processGptResponse(response, chatInput.model, effort, wrapped)
 }
 
 export const gptBg = {
-  async initiate(chatInput: ChatInput): Promise<{ id: string; status: BackgroundStatus }> {
+  async initiate(chatInput: ChatInput): Promise<{
+    id: string
+    status: BackgroundStatus
+    effort: string
+  }> {
     const client = new OpenAI()
-    const { params } = gptConfig(chatInput)
+    const { params, effort } = gptConfig(chatInput)
     const response = await client.responses.create({
       ...params,
       background: true,
       store: true,
     })
-    return { id: response.id, status: response.status ?? "queued" }
+    return { id: response.id, status: response.status ?? "queued", effort }
   },
   async retrieve(responseId: string, model: Model): Promise<ModelResponse> {
     const response = await new OpenAI().responses.retrieve(responseId)
     // Background retrieve: schema wrap info isn't reconstructed here. Structured
     // output via `-b` + `-o` isn't supported yet.
-    return processGptResponse(response, model, false)
+    return processGptResponse(response, model, undefined, false)
   },
   async status(responseId: string): Promise<BackgroundStatus> {
     const client = new OpenAI()

@@ -5,7 +5,8 @@ import { match } from "ts-pattern"
 import { postprocessSchemaContent, prepareSchema } from "../schema.ts"
 import { getCost } from "../models.ts"
 import { parseDataUrl } from "../utils.ts"
-import type { ChatInput, ThinkLevel } from "./types.ts"
+import type { ThinkLevel } from "../types.ts"
+import type { ChatInput } from "./types.ts"
 
 function claudeMsg(
   role: "user" | "assistant",
@@ -44,9 +45,13 @@ type ClaudeThinkParams = {
   thinking: Anthropic.Beta.BetaThinkingConfigParam | undefined
   output_config: Anthropic.Beta.BetaOutputConfig | undefined
   max_tokens: number
+  effort: string
 }
 
-export function claudeThinkParams(key: string, think: ThinkLevel): ClaudeThinkParams {
+export function claudeThinkParams(
+  key: string,
+  think: ThinkLevel | undefined,
+): ClaudeThinkParams {
   // Fable's thinking can't be turned off; on the other adaptive models we
   // want it on by default anyway
   const isSonnet = key === "claude-sonnet-5"
@@ -67,9 +72,15 @@ export function claudeThinkParams(key: string, think: ThinkLevel): ClaudeThinkPa
         thinking: { type: "adaptive", display: "summarized" },
         output_config: undefined,
         max_tokens,
+        effort: "high",
       }
     }
-    return { thinking: undefined, output_config: undefined, max_tokens }
+    return {
+      thinking: undefined,
+      output_config: undefined,
+      max_tokens,
+      effort: "off",
+    }
   }
 
   if (!adaptive) {
@@ -79,7 +90,8 @@ export function claudeThinkParams(key: string, think: ThinkLevel): ClaudeThinkPa
       .with("high", () => ({ type: "enabled", budget_tokens: 16000 }))
       .with("off", () => ({ type: "disabled" }))
       .exhaustive()
-    return { thinking, output_config: undefined, max_tokens }
+    const effort = think === "on" ? "4k" : think === "high" ? "16k" : "off"
+    return { thinking, output_config: undefined, max_tokens, effort }
   }
 
   // Force display: "summarized" so --verbose shows reasoning. --quick lowers
@@ -95,7 +107,7 @@ export function claudeThinkParams(key: string, think: ThinkLevel): ClaudeThinkPa
     .with("off", () => "low" as const)
     .exhaustive()
 
-  return { thinking, output_config: { effort }, max_tokens }
+  return { thinking, output_config: { effort }, max_tokens, effort }
 }
 
 export async function claudeCreateMessage(
@@ -108,7 +120,7 @@ export async function claudeCreateMessage(
     toolsList.push({ type: "code_execution_20260120", name: "code_execution" })
   }
 
-  const { thinking, output_config, max_tokens } = claudeThinkParams(
+  const { thinking, output_config, max_tokens, effort } = claudeThinkParams(
     model.key,
     config.think,
   )
@@ -174,5 +186,6 @@ export async function claudeCreateMessage(
     cost: getCost(model, tokens, searches),
     stop_reason: response.stop_reason!, // always non-null in non-streaming mode
     searches: searches || undefined,
+    effort,
   }
 }

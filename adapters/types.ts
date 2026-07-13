@@ -1,6 +1,6 @@
 import type { Type } from "arktype"
 
-import type { Chat, ProviderData, TokenCounts } from "../types.ts"
+import type { Chat, ProviderData, ThinkLevel, TokenCounts } from "../types.ts"
 import type { Model } from "../models.ts"
 
 export type ModelResponse = {
@@ -9,14 +9,13 @@ export type ModelResponse = {
   stop_reason: string
   cost: number
   searches?: number
+  effort?: string
   provider?: ProviderData
 }
 
-export type ThinkLevel = "on" | "high" | "off" | undefined
-
 export type ToolConfig = {
   search: boolean
-  think: ThinkLevel
+  think: ThinkLevel | undefined
 }
 
 export type ChatInput = {

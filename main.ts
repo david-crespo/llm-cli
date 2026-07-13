@@ -21,7 +21,7 @@ import {
   shortDateFmt,
 } from "./display.ts"
 import { parseMessageSpec, resolveImage } from "./utils.ts"
-import { type Chat } from "./types.ts"
+import { type Chat, resolveThink, type ThinkOverride } from "./types.ts"
 import {
   type ChatInput,
   createMessage,
@@ -100,7 +100,7 @@ async function pollBackgroundResponse(
 ) {
   if (!chat.background) throw new Error("No background response to poll")
 
-  const { id, startedAt, modelId } = chat.background
+  const { id, startedAt, modelId, effort } = chat.background
   const showProgress = Deno.stdout.isTerminal() && !displayOpts.raw
   const pb = showProgress ? $.progress("Waiting...") : null
 
@@ -121,7 +121,10 @@ async function pollBackgroundResponse(
     if (pb) pb.finish()
 
     if (chat.background.status === "completed") {
-      const response = await gptBg.retrieve(id, resolveModel(modelId))
+      const response = {
+        ...await gptBg.retrieve(id, resolveModel(modelId)),
+        effort,
+      }
       const assistantMsg = makeAssMsg(model.id, startTime, response)
       chat.messages.push(assistantMsg)
       delete chat.background
@@ -469,6 +472,7 @@ the raw output to stdout.`)
   .option("--think", "Enable thinking")
   .option("--think-hard", "Enable maximum thinking")
   .option("-q, --quick", "Minimize thinking")
+  .option("--think-default", "Clear inherited thinking and use the model default")
   .option(
     "-i, --image <value:string>",
     "Image: URL, local file path, or 'clipboard' (macOS)",
@@ -544,9 +548,20 @@ the raw output to stdout.`)
     // search busts the cache (see Chat.search in types.ts).
     const search = opts.search ?? (opts.reply ? chat.search : undefined) ?? false
     chat.search = search
+    const thinkOverride: ThinkOverride = opts.quick
+      ? "off"
+      : opts.thinkHard
+      ? "high"
+      : opts.think
+      ? "on"
+      : opts.thinkDefault
+      ? "default"
+      : undefined
+    const think = resolveThink(thinkOverride, opts.reply ? chat.think : undefined)
+    chat.think = think
     const config: ToolConfig = {
       search,
-      think: opts.quick ? "off" : opts.thinkHard ? "high" : opts.think ? "on" : undefined,
+      think,
     }
     validateConfig(model.provider, config)
 
@@ -573,13 +588,14 @@ the raw output to stdout.`)
     // no need to pass --background if using gpt-5-pro -- it always needs it
     if (opts.background || model.id === "gpt-5.4-pro") {
       try {
-        const { id, status } = await gptBg.initiate(chatInput)
+        const { id, status, effort } = await gptBg.initiate(chatInput)
         chat.background = {
           id,
           status,
           startedAt: new Date(),
           provider: "openai",
           modelId: model.id,
+          effort,
         }
         if (!opts.ephemeral) History.save(chat, { current: true, touch: true })
         await pollBackgroundResponse(chat, model, R.pick(opts, ["raw", "verbose"]))

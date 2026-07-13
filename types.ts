@@ -6,6 +6,20 @@ export type TokenCounts = {
   output: number
 }
 
+/** Provider-neutral reasoning intent. Adapters resolve this to their native setting. */
+export type ThinkLevel = "on" | "high" | "off"
+
+/** `default` explicitly clears sticky reasoning intent; undefined inherits it. */
+export type ThinkOverride = ThinkLevel | "default" | undefined
+
+export function resolveThink(
+  override: ThinkOverride,
+  inherited: ThinkLevel | undefined,
+): ThinkLevel | undefined {
+  if (override === undefined) return inherited
+  return override === "default" ? undefined : override
+}
+
 type UserMessage = {
   role: "user"
   content: string
@@ -33,6 +47,8 @@ type AssistantMessage = {
   content: string
   /** Reasoning text. May be blank. Not rendered in --raw mode. */
   reasoning?: string
+  /** Provider-native reasoning setting used for this request. */
+  effort?: string
   tokens: TokenCounts
   stop_reason: string
   cost: number
@@ -64,11 +80,14 @@ export type Chat = {
    * (tools → system → messages) and re-sending the full history re-pays for
    * everything after. */
   search?: boolean
+  /** Last provider-neutral reasoning intent. Inherited by replies. */
+  think?: ThinkLevel
   background?: {
     id: string // OpenAI response.id for polling
     status: BackgroundStatus
     startedAt: Date // when request was initiated
     provider: "openai" // future-proof for other providers
     modelId: string
+    effort?: string
   }
 }

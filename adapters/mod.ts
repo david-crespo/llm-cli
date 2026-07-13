@@ -5,7 +5,8 @@ import { gptCreateMessage, openrouterCreateMessage } from "./openai.ts"
 import { claudeCreateMessage } from "./claude.ts"
 import { geminiCreateMessage } from "./gemini.ts"
 
-export type { ChatInput, ModelResponse, ThinkLevel, ToolConfig } from "./types.ts"
+export type { ChatInput, ModelResponse, ToolConfig } from "./types.ts"
+export type { ThinkLevel } from "../types.ts"
 export { gptBg } from "./openai.ts"
 
 export const searchProviders = new Set(["anthropic", "openai", "google"])

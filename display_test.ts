@@ -1,5 +1,18 @@
 import { assertEquals } from "@std/assert"
-import { formatElapsed } from "./display.ts"
+import { formatElapsed, metaLineMd } from "./display.ts"
+import type { ChatMessage } from "./types.ts"
+
+const assistantMessage = (effort?: string): ChatMessage => ({
+  role: "assistant",
+  model: "gpt-5.6-sol",
+  createdAt: new Date(0),
+  content: "hi",
+  tokens: { input: 1, output: 2 },
+  stop_reason: "completed",
+  cost: 0,
+  timeMs: 1000,
+  effort,
+})
 
 Deno.test("formatElapsed - seconds only", () => {
   assertEquals(formatElapsed(5000), "5s")
@@ -27,4 +40,23 @@ Deno.test("formatElapsed - zero", () => {
 
 Deno.test("formatElapsed - large values", () => {
   assertEquals(formatElapsed(3600000), "60m0s") // 1 hour
+})
+
+Deno.test("metaLineMd abbreviates known reasoning efforts", () => {
+  assertEquals(
+    metaLineMd(assistantMessage("minimal")).startsWith("`gpt-5.6-sol` (min) |"),
+    true,
+  )
+  assertEquals(
+    metaLineMd(assistantMessage("medium")).startsWith("`gpt-5.6-sol` (med) |"),
+    true,
+  )
+})
+
+Deno.test("metaLineMd passes through unknown efforts and preserves legacy output", () => {
+  assertEquals(
+    metaLineMd(assistantMessage("future")),
+    "`gpt-5.6-sol` (future) | 1s | $0 | 1 -> 2",
+  )
+  assertEquals(metaLineMd(assistantMessage()), "`gpt-5.6-sol` | 1s | $0 | 1 -> 2")
 })

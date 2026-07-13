@@ -1,10 +1,10 @@
 import { GoogleGenAI, type Part, ThinkingLevel } from "@google/genai"
 import { encodeBase64 } from "@std/encoding/base64"
-import { match, P } from "ts-pattern"
 
 import { postprocessSchemaContent, prepareSchema } from "../schema.ts"
 import { getCost } from "../models.ts"
 import { parseDataUrl } from "../utils.ts"
+import type { ThinkLevel } from "../types.ts"
 import type { ChatInput } from "./types.ts"
 
 /** Gemini doesn't accept image URLs directly; inline as bytes either way. */
@@ -20,13 +20,35 @@ async function imageToInlinePart(image_url: string): Promise<Part> {
   return { inlineData: { mimeType, data: encodeBase64(buf) } }
 }
 
+export function geminiThinkParams(key: string, think: ThinkLevel | undefined) {
+  const isFlash = key.includes("flash")
+  if (think === "high") {
+    return { thinkingLevel: ThinkingLevel.HIGH, effort: "high" }
+  }
+  if (think === "on") {
+    return { thinkingLevel: ThinkingLevel.MEDIUM, effort: "medium" }
+  }
+  if (think === "off") {
+    return isFlash
+      ? { thinkingLevel: ThinkingLevel.MINIMAL, effort: "minimal" }
+      : { thinkingLevel: ThinkingLevel.LOW, effort: "low" }
+  }
+
+  const effort = key.includes("flash-lite")
+    ? "minimal"
+    : key.includes("3.5-flash")
+    ? "medium"
+    : "high"
+  return { thinkingLevel: undefined, effort }
+}
+
 export async function geminiCreateMessage(
   { chat, model, config, signal, outputSchema }: ChatInput,
 ) {
   const apiKey = Deno.env.get("GEMINI_API_KEY")
   if (!apiKey) throw Error("GEMINI_API_KEY missing")
 
-  const isFlash = model.key.includes("flash")
+  const { thinkingLevel, effort } = geminiThinkParams(model.key, config.think)
 
   // Gemini accepts primitive roots; no wrap needed.
   const prep = outputSchema ? prepareSchema(outputSchema) : undefined
@@ -36,13 +58,7 @@ export async function geminiCreateMessage(
       // https://ai.google.dev/gemini-api/docs/thinking
       thinkingConfig: {
         includeThoughts: true,
-        thinkingLevel: match(config.think)
-          .with("high", () => ThinkingLevel.HIGH)
-          .with("on", () => ThinkingLevel.MEDIUM)
-          // Flash supports "minimal", Pro only goes down to "low"
-          .with("off", () => isFlash ? ThinkingLevel.MINIMAL : ThinkingLevel.LOW)
-          .with(P.nullish, () => undefined) // default to dynamic
-          .exhaustive(),
+        thinkingLevel,
       },
       systemInstruction: chat.systemPrompt,
       tools: [
@@ -107,5 +123,6 @@ export async function geminiCreateMessage(
     cost: getCost(costModel, tokens, searches),
     stop_reason: result.candidates?.[0].finishReason || "",
     searches: searches || undefined,
+    effort,
   }
 }

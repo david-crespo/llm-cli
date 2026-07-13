@@ -327,10 +327,11 @@ function modelInfoMd(modelArg: string) {
 
   if (thinkProviders.has(provider)) {
     if (provider === "anthropic") {
-      if (key === "claude-fable-5" || key === "claude-opus-4-8") {
+      if (
+        key === "claude-fable-5" || key === "claude-opus-4-8" ||
+        key === "claude-sonnet-5"
+      ) {
         lines.push("think: adaptive (high), --quick for low, --think-hard for xhigh")
-      } else if (key === "claude-sonnet-4-6") {
-        lines.push("think: adaptive (high), --quick for low, --think-hard for max")
       } else {
         lines.push("think: --think (4k), --think-hard (16k)")
       }

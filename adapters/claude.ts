@@ -46,10 +46,10 @@ type ClaudeThinkParams = {
   max_tokens: number
 }
 
-function claudeThinkParams(key: string, think: ThinkLevel): ClaudeThinkParams {
+export function claudeThinkParams(key: string, think: ThinkLevel): ClaudeThinkParams {
   // Fable's thinking can't be turned off; on the other adaptive models we
   // want it on by default anyway
-  const isSonnet = key === "claude-sonnet-4-6"
+  const isSonnet = key === "claude-sonnet-5"
   const adaptive = key === "claude-fable-5" || key === "claude-opus-4-8" || isSonnet
 
   // SDK's non-streaming guard throws when max_tokens > ~21_333 (it assumes
@@ -89,10 +89,9 @@ function claudeThinkParams(key: string, think: ThinkLevel): ClaudeThinkParams {
     display: "summarized",
   }
 
-  // Sonnet 4.6 doesn't support xhigh, but it does support max
   const effort = match(think)
     .with("on", () => "high" as const)
-    .with("high", () => isSonnet ? "max" as const : "xhigh" as const)
+    .with("high", () => "xhigh" as const)
     .with("off", () => "low" as const)
     .exhaustive()
 

@@ -48,14 +48,25 @@ type ClaudeThinkParams = {
   effort: string
 }
 
+/**
+ * Fable's thinking can't be turned off; on the other adaptive models we want it
+ * on by default anyway. Haiku 4.5 is the only remaining non-adaptive one.
+ *
+ * When Haiku 4.5 drops off the model list, delete this and the `!adaptive`
+ * branches below: `thinking` becomes an unconditional adaptive/summarized,
+ * `max_tokens` becomes `think === "off" ? 8_000 : 20_000`, and the `undefined`
+ * case folds into the effort match via `.otherwise(() => "high")` — sending an
+ * explicit `effort: "high"` is equivalent to omitting `output_config`, assuming
+ * high is still the API default at that point. The `modelInfoMd` branch in
+ * main.ts and the manual-budget test in claude_test.ts go away too.
+ */
+export const claudeAdaptiveThinking = (key: string) => key !== "claude-haiku-4-5"
+
 export function claudeThinkParams(
   key: string,
   think: ThinkLevel | undefined,
 ): ClaudeThinkParams {
-  // Fable's thinking can't be turned off; on the other adaptive models we
-  // want it on by default anyway
-  const isSonnet = key === "claude-sonnet-5"
-  const adaptive = key === "claude-fable-5" || key === "claude-opus-4-8" || isSonnet
+  const adaptive = claudeAdaptiveThinking(key)
 
   // SDK's non-streaming guard throws when max_tokens > ~21_333 (it assumes
   // 128k tokens/hour and refuses requests estimated to take >10 min).

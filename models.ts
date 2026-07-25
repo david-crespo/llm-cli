@@ -41,12 +41,13 @@ export const models: Model[] = [
   },
   {
     provider: "anthropic",
-    key: "claude-opus-4-8",
-    id: "opus-4.8",
+    key: "claude-opus-5",
+    id: "opus-5",
     input: 5,
     input_cached: 0.50,
     output: 25,
     search_cost: 0.01,
+    default: true,
   },
   {
     provider: "anthropic",
@@ -74,7 +75,6 @@ export const models: Model[] = [
     input_cached: 0.50,
     output: 30,
     search_cost: 0.01,
-    default: true,
   },
   {
     provider: "openai",

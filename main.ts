@@ -24,6 +24,7 @@ import { parseMessageSpec, resolveImage } from "./utils.ts"
 import { type Chat, resolveThink, type ThinkOverride } from "./types.ts"
 import {
   type ChatInput,
+  claudeAdaptiveThinking,
   createMessage,
   gptBg,
   imageProviders,
@@ -330,10 +331,7 @@ function modelInfoMd(modelArg: string) {
 
   if (thinkProviders.has(provider)) {
     if (provider === "anthropic") {
-      if (
-        key === "claude-fable-5" || key === "claude-opus-4-8" ||
-        key === "claude-sonnet-5"
-      ) {
+      if (claudeAdaptiveThinking(key)) {
         lines.push("think: adaptive (high), --quick for low, --think-hard for xhigh")
       } else {
         lines.push("think: --think (4k), --think-hard (16k)")

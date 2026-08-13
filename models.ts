@@ -97,21 +97,11 @@ export const models: Model[] = [
   },
   {
     provider: "google",
-    key: "gemini-3.1-pro-preview",
-    id: "gemini-3.1-pro",
-    input: 2.00,
-    input_cached: 0.50,
-    output: 12.00,
-    // 5,000 search queries per month (free), then (Coming soon) $14 / 1,000 search queries
-    search_cost: 0,
-  },
-  {
-    provider: "google",
-    key: "gemini-3.6-flash",
-    id: "gemini-3.6-flash",
-    input: 1.50,
-    input_cached: 0.15,
-    output: 7.50,
+    key: "gemini-3.7-flash",
+    id: "gemini-3.7-flash",
+    input: 0.75,
+    input_cached: 0.075,
+    output: 3.75,
     // 1,500 RPD (free, limit shared with lite), then $35 / 1,000 grounded prompts
     search_cost: 0,
   },

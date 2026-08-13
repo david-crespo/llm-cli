@@ -21,7 +21,8 @@ async function imageToInlinePart(image_url: string): Promise<Part> {
 }
 
 export function geminiThinkParams(key: string, think: ThinkLevel | undefined) {
-  const isFlash = key.includes("flash")
+  // full flash models reject MINIMAL: "Thinking level MINIMAL is not supported"
+  const isFlashLite = key.includes("flash-lite")
   if (think === "high") {
     return { thinkingLevel: ThinkingLevel.HIGH, effort: "high" }
   }
@@ -29,7 +30,7 @@ export function geminiThinkParams(key: string, think: ThinkLevel | undefined) {
     return { thinkingLevel: ThinkingLevel.MEDIUM, effort: "medium" }
   }
   if (think === "off") {
-    return isFlash
+    return isFlashLite
       ? { thinkingLevel: ThinkingLevel.MINIMAL, effort: "minimal" }
       : { thinkingLevel: ThinkingLevel.LOW, effort: "low" }
   }

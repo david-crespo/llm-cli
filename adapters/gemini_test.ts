@@ -13,3 +13,12 @@ Deno.test("Gemini defaults resolve to model-specific display levels", () => {
     "minimal",
   )
 })
+
+Deno.test("--quick only uses MINIMAL on flash-lite", () => {
+  assertEquals(geminiThinkParams("gemini-3.7-flash", "off").effort, "low")
+  assertEquals(geminiThinkParams("gemini-3.1-pro-preview", "off").effort, "low")
+  assertEquals(
+    geminiThinkParams("gemini-3.5-flash-lite", "off").effort,
+    "minimal",
+  )
+})

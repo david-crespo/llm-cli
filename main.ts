@@ -339,7 +339,7 @@ function modelInfoMd(modelArg: string) {
     } else if (provider === "openai") {
       lines.push("think: medium by default, --think-hard for high, --quick for none")
     } else if (provider === "google") {
-      const level = key.includes("flash") ? "minimal" : "low"
+      const level = key.includes("flash-lite") ? "minimal" : "low"
       lines.push(`think: dynamic by default, --quick for ${level}`)
     } else if (provider === "baseten") {
       lines.push("think: on by default, --quick to disable")

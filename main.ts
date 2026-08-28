@@ -37,6 +37,7 @@ import {
 import { History } from "./storage.ts"
 import { genMissingSummaries } from "./summarize.ts"
 import { parseType } from "./schema.ts"
+import { formatPickerOptions } from "./picker.ts"
 
 const getLastModelId = (chat: Chat) =>
   chat.messages.findLast((m) => m.role === "assistant")?.model
@@ -44,14 +45,16 @@ const getLastModelId = (chat: Chat) =>
 const truncate = (str: string, maxLength: number) =>
   str.length > maxLength ? str.slice(0, maxLength) + "..." : str
 
-/** use cliffy's table to align columns, then split on newline to get lines as strings */
+/** Keep one width-aware selector option per chat so option indexes stay aligned. */
 function chatPickerOptions(chats: Chat[]) {
-  const table = new Table(...chats.map((chat) => {
+  return formatPickerOptions(chats.map((chat) => {
     const date = shortDateFmt.format(chat.createdAt).replace(",", "")
-    const modelId = getLastModelId(chat)
-    return [chat.summary || "", modelId, `${date} (${chat.messages.length})`]
+    return {
+      summary: chat.summary || "",
+      model: getLastModelId(chat) || "",
+      meta: `${date} (${chat.messages.length})`,
+    }
   }))
-  return table.padding(3).toString().split("\n")
 }
 
 /** use cliffy's table to align columns for message picker, then split on newline to get lines as strings */

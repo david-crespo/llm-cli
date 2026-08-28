@@ -1,5 +1,6 @@
 {
   "tasks": {
+    "ci": "deno fmt --check && deno lint && deno check && deno task test",
     "test": "deno test --allow-env --allow-read=/tmp --allow-write=/tmp"
   },
   "fmt": {

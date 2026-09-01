@@ -32,10 +32,10 @@ export type Model = {
 export const models: Model[] = [
   {
     provider: "anthropic",
-    key: "claude-fable-5",
-    id: "fable-5",
+    key: "claude-fable-5-1",
+    id: "fable-5.1",
     input: 10,
-    input_cached: 1,
+    input_cached: 0.25,
     output: 50,
     search_cost: 0.01,
   },

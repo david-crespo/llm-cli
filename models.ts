@@ -97,8 +97,8 @@ export const models: Model[] = [
   },
   {
     provider: "google",
-    key: "gemini-3.7-flash",
-    id: "gemini-3.7-flash",
+    key: "gemini-3.8-flash",
+    id: "gemini-3.8-flash",
     input: 0.75,
     input_cached: 0.075,
     output: 3.75,

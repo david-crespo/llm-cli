@@ -112,16 +112,11 @@ export async function geminiCreateMessage(
     input_cache_hit: result.usageMetadata?.cachedContentTokenCount || 0,
   }
 
-  // HACK for higher pricing over 200k https://ai.google.dev/pricing
-  const costModel = model.id === "gemini-3-pro" && tokens.input > 200_000
-    ? { ...model, input: 4.00, output: 18.00 }
-    : model
-
   return {
     content,
     reasoning,
     tokens,
-    cost: getCost(costModel, tokens, searches),
+    cost: getCost(model, tokens, searches),
     stop_reason: result.candidates?.[0].finishReason || "",
     searches: searches || undefined,
     effort,

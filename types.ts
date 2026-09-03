@@ -3,6 +3,8 @@ import type OpenAI from "openai"
 export type TokenCounts = {
   input: number
   input_cache_hit?: number
+  /** Tokens written to the prompt cache this turn (Anthropic only). Subset of `input`. */
+  input_cache_write?: number
   output: number
 }
 

@@ -14,6 +14,11 @@ export type Model = {
   input: number
   output: number
   input_cached?: number
+  /**
+   * Price for tokens written to the prompt cache. For Anthropic this depends on
+   * cache TTL (1.25x input for 5m, 2x for 1h). We don't set a TTL, so 5m applies.
+   */
+  input_cache_write?: number
   /** Cost per web search in dollars */
   search_cost?: number
 }
@@ -36,6 +41,7 @@ export const models: Model[] = [
     id: "fable-5.1",
     input: 10,
     input_cached: 0.25,
+    input_cache_write: 12.5,
     output: 50,
     search_cost: 0.01,
   },
@@ -45,28 +51,10 @@ export const models: Model[] = [
     id: "opus-5",
     input: 5,
     input_cached: 0.50,
+    input_cache_write: 6.25,
     output: 25,
     search_cost: 0.01,
     default: true,
-  },
-  {
-    provider: "anthropic",
-    key: "claude-sonnet-5",
-    id: "sonnet-5",
-    // promotional pricing through 2026-08-31, then 3 / 0.30 / 15
-    input: 2,
-    input_cached: 0.20,
-    output: 10,
-    search_cost: 0.01,
-  },
-  {
-    provider: "anthropic",
-    key: "claude-haiku-4-5",
-    id: "haiku-4.5",
-    input: 1,
-    input_cached: 0.1,
-    output: 5,
-    search_cost: 0.01,
   },
   {
     provider: "openai",
@@ -102,7 +90,8 @@ export const models: Model[] = [
     input: 0.75,
     input_cached: 0.075,
     output: 3.75,
-    // 1,500 RPD (free, limit shared with lite), then $35 / 1,000 grounded prompts
+    // 5,000 search queries/month free (shared across 3.x models), then $14 / 1,000.
+    // We never get anywhere near the limit, so treat as free.
     search_cost: 0,
   },
   {
@@ -112,7 +101,8 @@ export const models: Model[] = [
     input: .30,
     input_cached: 0.03,
     output: 2.50,
-    // 1,500 RPD (free, limit shared with lite), then $35 / 1,000 grounded prompts
+    // 5,000 search queries/month free (shared across 3.x models), then $14 / 1,000.
+    // We never get anywhere near the limit, so treat as free.
     search_cost: 0,
   },
 ]
@@ -147,13 +137,16 @@ export function resolveModel(
 const M = 1_000_000
 
 export function getCost(model: Model, tokens: TokenCounts, searches = 0) {
-  const { input, output, input_cached, search_cost } = model
+  const { input, output, input_cached, input_cache_write, search_cost } = model
 
-  // when there is caching and we have cache pricing, take it into account
-  const tokenCost = input_cached && tokens.input_cache_hit
-    ? (input_cached * tokens.input_cache_hit) +
-      (input * (tokens.input - tokens.input_cache_hit)) + (output * tokens.output)
-    : (input * tokens.input) + (output * tokens.output)
+  // Cache hits and writes are subsets of tokens.input. Price them separately
+  // when the model has the corresponding price, otherwise at the input rate.
+  const hits = input_cached ? tokens.input_cache_hit ?? 0 : 0
+  const writes = input_cache_write ? tokens.input_cache_write ?? 0 : 0
+  const tokenCost = (input_cached ?? 0) * hits +
+    (input_cache_write ?? 0) * writes +
+    input * (tokens.input - hits - writes) +
+    output * tokens.output
 
   return tokenCost / M + (search_cost ?? 0) * searches
 }

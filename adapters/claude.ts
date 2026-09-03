@@ -183,11 +183,10 @@ export async function claudeCreateMessage(
   const cache_write = response.usage.cache_creation_input_tokens || 0
 
   const tokens = {
-    // technically, cache writes cost 25% more than regular input tokens but I
-    // don't want to build in the logic to count it
     input: cache_miss + cache_hit + cache_write,
     output: response.usage.output_tokens,
     input_cache_hit: cache_hit,
+    input_cache_write: cache_write,
   }
 
   return {

@@ -78,6 +78,38 @@ Deno.test("getCost - cache hit but no cached pricing uses regular input price", 
   assertEquals(getCost(model, tokens), 0.0105)
 })
 
+Deno.test("getCost - cache writes priced at write rate", () => {
+  const model: Model = {
+    provider: "test",
+    key: "test-model",
+    id: "test",
+    input: 4,
+    input_cached: 0.4,
+    input_cache_write: 5,
+    output: 20,
+  }
+  const tokens = { input: 1000, input_cache_hit: 600, input_cache_write: 300, output: 100 }
+  // hits: 0.4 * 600 = 240
+  // writes: 5 * 300 = 1500
+  // uncached: 4 * (1000 - 600 - 300) = 400
+  // output: 20 * 100 = 2000
+  // total: (240 + 1500 + 400 + 2000) / 1_000_000 = 0.00414
+  assertEquals(getCost(model, tokens), 0.00414)
+})
+
+Deno.test("getCost - cache writes without write pricing use input price", () => {
+  const model: Model = {
+    provider: "test",
+    key: "test-model",
+    id: "test",
+    input: 4,
+    output: 20,
+  }
+  const tokens = { input: 1000, input_cache_write: 300, output: 100 }
+  // (4 * 1000 + 20 * 100) / 1_000_000 = 0.006
+  assertEquals(getCost(model, tokens), 0.006)
+})
+
 Deno.test("getCost - zero tokens", () => {
   const model: Model = {
     provider: "test",

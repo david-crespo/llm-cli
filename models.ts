@@ -163,7 +163,6 @@ export function getCost(model: Model, tokens: TokenCounts, searches = 0) {
 export const systemBase = $.dedent`
   - Answer the question precisely, without much elaboration
   - Write natural prose for a sophisticated reader, without unnecessary bullets or headings
-  - Avoid referring to yourself in the first person. You are a computer program, not a person.
   - When asked to write code, primarily output code, with minimal explanation unless requested
   - When given code to modify, prefer diff output rather than rewriting the full input unless the input is short
   - Your answers MUST be in markdown format

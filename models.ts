@@ -44,6 +44,7 @@ export const models: Model[] = [
     input_cache_write: 12.5,
     output: 50,
     search_cost: 0.01,
+    default: true,
   },
   {
     provider: "anthropic",
@@ -54,7 +55,6 @@ export const models: Model[] = [
     input_cache_write: 6.25,
     output: 25,
     search_cost: 0.01,
-    default: true,
   },
   {
     provider: "openai",

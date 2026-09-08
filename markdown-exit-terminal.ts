@@ -10,6 +10,7 @@ import ansis, { blue, bold, cyan, dim, gray, italic, strikethrough, white } from
 import stringWidth from "string-width"
 import supportsHyperlinks from "supports-hyperlinks"
 import wrapAnsi from "wrap-ansi"
+import mathPlugin, { type MathEnv, restoreMath } from "./terminal-math.ts"
 
 const { fg } = ansis
 
@@ -181,7 +182,7 @@ function reflowParagraphs(text: string, width: number): string {
 
 // --- Plugin ------------------------------------------------------------
 
-export type TerminalEnv = { codeTheme?: string }
+export type TerminalEnv = MathEnv & { codeTheme?: string }
 
 function getColumns(): number {
   return Deno.stdout.isTerminal() ? Deno.consoleSize().columns : 80
@@ -192,6 +193,7 @@ function getWidth(): number {
 }
 
 export default function terminalPlugin(md: MarkdownExit): void {
+  md.use(mathPlugin)
   const rules: Record<string, RenderRule> = {
     // Inline
     text: (tokens, idx) => tokens[idx].content,
@@ -349,11 +351,12 @@ export default function terminalPlugin(md: MarkdownExit): void {
   // Wrap renderAsync to handle post-processing and reflow automatically
   const origRenderAsync = md.renderAsync.bind(md)
   md.renderAsync = async (src: string, env?: TerminalEnv) => {
-    let output = await origRenderAsync(src, env ?? {})
+    const renderEnv = { ...env, _mathSource: src }
+    let output = await origRenderAsync(src, renderEnv)
     output = postProcessLinks(output)
     output = postProcessTables(output)
     output = postProcessBlockquotes(output, getWidth())
     output = reflowParagraphs(output, getWidth())
-    return output.trimEnd()
+    return restoreMath(output.trimEnd(), renderEnv)
   }
 }

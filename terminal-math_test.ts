@@ -1,12 +1,52 @@
 // deno-lint-ignore-file no-control-regex
 import { assert, assertEquals, assertRejects } from "@std/assert"
-import { decodeBase64 } from "@std/encoding/base64"
+import { decodeBase64, encodeBase64 } from "@std/encoding/base64"
+import { Resvg } from "@resvg/resvg-wasm"
 import { renderMarkdown } from "./md-render.ts"
 import { kittyImage, supportsKittyGraphics } from "./terminal-math.ts"
 import { renderMathImage } from "./math-image.ts"
 
 const strip = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, "").replaceAll(" ", " ")
 const imageCount = (s: string) => [...s.matchAll(/\x1b_Ga=t,/g)].length
+
+Deno.test("short inline symbols occupy one terminal cell", async () => {
+  for (const tex of [String.raw`\nu`, "f", "x"]) {
+    const image = await renderMathImage(tex, false, 80, "#c8c8c8")
+    assertEquals(image.columns, 1, tex)
+  }
+})
+
+Deno.test("inline glyphs share a baseline regardless of their height", async () => {
+  const bottoms: number[] = []
+  for (const tex of [String.raw`\nu`, "H", "x^2"]) {
+    const image = await renderMathImage(tex, false, 80, "#c8c8c8")
+    const header = new DataView(image.png.buffer, image.png.byteOffset)
+    const width = header.getUint32(16)
+    const height = header.getUint32(20)
+    const decoder = new Resvg(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><image width="${width}" height="${height}" href="data:image/png;base64,${
+        encodeBase64(image.png)
+      }"/></svg>`,
+    )
+    try {
+      const decoded = decoder.render()
+      try {
+        const pixels = decoded.pixels
+        let bottom = -1
+        for (let i = 3; i < pixels.length; i += 4) {
+          if (pixels[i] > 16) bottom = Math.floor(i / 4 / width)
+        }
+        assert(bottom >= 0, `${tex} must be visible`)
+        bottoms.push(bottom)
+      } finally {
+        decoded.free()
+      }
+    } finally {
+      decoder.free()
+    }
+  }
+  assert(Math.max(...bottoms) - Math.min(...bottoms) <= 1, `Ink bottoms: ${bottoms}`)
+})
 
 Deno.test("Kitty detection requires a supported terminal outside multiplexers", () => {
   for (

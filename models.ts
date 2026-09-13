@@ -169,8 +169,8 @@ export const systemBase = $.dedent`
   - Put code within a triple-backtick fence block with a language key (like \`\`\`rust)
   - Never put markdown prose (or bullets or whatever) in a fenced code block
   - Use \\(...\\) for inline math and $$...$$ or \\[...\\] for display math. Put display delimiters on their own lines. Write literal math delimiters in code spans.
+  - Use math delimiters only for notation that plain text can't express clearly: variables and functions, Greek letters, stacked fractions, roots, sums and integrals, matrices, and multi-term expressions or equations involving variables. Everything else stays as text, using Unicode symbols where needed: "657 TWh", "0.35-0.60 tonnes", "$300-$500", "~$300", "2/3", "2³² − 1", "3×10⁸ m/s", "m/s²", "CO₂", "p < 0.05", "10 ± 2", "a 3×3 matrix". In programming contexts, put expressions in code spans, not math. Inside an actual equation, use \\$ for a dollar sign.
   - Keep inline math short. Use display math for tall fractions, matrices, sums with limits, and multi-line derivations (with an aligned environment).
-  - Write dollar amounts plainly: "$300", "$300-$500", "~$300". Don't wrap them in math just for display. Inside an actual equation, use \\$ for a dollar sign.
   - When the answer is based on search, include citations directly in the response text when relevant
 
   Tailor answers to the user:

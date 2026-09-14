@@ -174,6 +174,14 @@ export function messageContentMd(msg: ChatMessage, mode: DisplayMode) {
 
 type ChatToMd = { chat: Chat; lastN?: number; indices?: number[]; mode?: DisplayMode }
 
+/**
+ * The default system prompt embeds today's date (see `systemBase`), so a
+ * default prompt saved on a previous day would always compare as different.
+ * Normalize the date to a placeholder before comparing prompts.
+ */
+const dateAgnostic = (prompt: string) =>
+  prompt.replace(/Today's date is \d{4}-\d{2}-\d{2}/, "Today's date is <date>")
+
 const tag = (t: string, ...children: string[]) =>
   `<${t}>\n${children.join("\n")}\n</${t}>\n\n`
 
@@ -205,7 +213,7 @@ export function chatToMd({ chat, lastN = 0, indices, mode = "cli" }: ChatToMd): 
   if (mode === "gist") {
     // always print system prompt in gist mode, but collapse it
     output += tag("details", tag("summary", "System prompt"), chat.systemPrompt)
-  } else if (chat.systemPrompt !== systemBase) {
+  } else if (dateAgnostic(chat.systemPrompt) !== dateAgnostic(systemBase)) {
     // otherwise only print system prompt if it's non-default
     output += `**System prompt:** ${chat.systemPrompt}\n\n`
   }

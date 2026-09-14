@@ -1,6 +1,7 @@
 import { assertEquals } from "@std/assert"
-import { formatElapsed, metaLineMd } from "./display.ts"
-import type { ChatMessage } from "./types.ts"
+import { chatToMd, formatElapsed, metaLineMd } from "./display.ts"
+import { systemBase } from "./models.ts"
+import type { Chat, ChatMessage } from "./types.ts"
 
 const assistantMessage = (effort?: string): ChatMessage => ({
   role: "assistant",
@@ -59,4 +60,24 @@ Deno.test("metaLineMd passes through unknown efforts and preserves legacy output
     "`gpt-5.6-sol` (future) | 1s | $0 | 1 -> 2",
   )
   assertEquals(metaLineMd(assistantMessage()), "`gpt-5.6-sol` | 1s | $0 | 1 -> 2")
+})
+
+Deno.test("chatToMd ignores date differences in the default system prompt", () => {
+  // Simulate a chat created on a previous day: same default prompt but with a
+  // stale date baked in. It should still be treated as the default prompt.
+  const stalePrompt = systemBase.replace(
+    /Today's date is \d{4}-\d{2}-\d{2}/,
+    "Today's date is 2020-01-01",
+  )
+  const chat: Chat = {
+    id: "test",
+    systemPrompt: stalePrompt,
+    messages: [assistantMessage()],
+    createdAt: new Date(0),
+  }
+  assertEquals(chatToMd({ chat }).includes("**System prompt:**"), false)
+
+  // A genuinely customized prompt is still reported.
+  const chatCustom: Chat = { ...chat, systemPrompt: stalePrompt + "\n- extra" }
+  assertEquals(chatToMd({ chat: chatCustom }).includes("**System prompt:**"), true)
 })

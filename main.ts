@@ -21,7 +21,7 @@ import {
   shortDateFmt,
 } from "./display.ts"
 import { parseMessageSpec, resolveImage } from "./utils.ts"
-import { type Chat, resolveThink, type ThinkOverride } from "./types.ts"
+import { type Chat, type ChatMessage, resolveThink, type ThinkOverride } from "./types.ts"
 import {
   type ChatInput,
   claudeAdaptiveThinking,
@@ -67,7 +67,9 @@ function messagePickerOptions(messages: Chat["messages"]) {
   return table.padding(3).toString().split("\n")
 }
 
-function getMode(opts: { raw?: boolean; verbose?: boolean }): DisplayMode {
+type DisplayOpts = { raw?: boolean; verbose?: boolean; json?: boolean }
+
+function getMode(opts: DisplayOpts): DisplayMode {
   return opts.raw ? "raw" : opts.verbose ? "verbose" : "cli"
 }
 
@@ -89,23 +91,47 @@ const createChat = (systemPrompt: string): Chat => ({
 })
 
 // deno-lint-ignore no-explicit-any
-function renderError(e: any) {
+function renderError(e: any, opts: DisplayOpts = {}) {
   Deno.exitCode = 1
+  // keep stdout clean for scripts: JSON mode reports errors on stderr only
+  if (opts.json) {
+    const detail = e.response?.data ?? e.response?.error
+    console.error(e instanceof Error ? e.message : String(e))
+    if (detail) console.error(JSON.stringify(detail, null, 2))
+    return
+  }
   if (e.response?.status) console.log("Request error:", e.response.status)
   if (e.response?.data) renderMd(jsonBlock(e.response.data))
   if (e.response?.error) renderMd(jsonBlock(e.response.error))
   if (!("response" in e)) renderMd(codeBlock(e))
 }
 
+/**
+ * Print the assistant message. --json emits the whole message as one JSON
+ * object on stdout for scripts; --raw prints just the text with the meta line
+ * on stderr; otherwise render markdown with the meta line.
+ */
+async function renderResponse(msg: ChatMessage, opts: DisplayOpts) {
+  if (opts.json) {
+    console.log(JSON.stringify(msg))
+  } else if (opts.raw) {
+    await renderMetaToStderr(msg)
+    await renderMd(messageContentMd(msg, "raw"), true)
+  } else {
+    console.log()
+    await renderMd(messageContentMd(msg, getMode(opts)), false)
+  }
+}
+
 async function pollBackgroundResponse(
   chat: Chat,
   model: { id: string; provider: string },
-  displayOpts: { raw?: boolean; verbose?: boolean },
+  displayOpts: DisplayOpts,
 ) {
   if (!chat.background) throw new Error("No background response to poll")
 
   const { id, startedAt, modelId, effort } = chat.background
-  const showProgress = Deno.stdout.isTerminal() && !displayOpts.raw
+  const showProgress = Deno.stdout.isTerminal() && !displayOpts.raw && !displayOpts.json
   const pb = showProgress ? $.progress("Waiting...") : null
 
   try {
@@ -132,12 +158,7 @@ async function pollBackgroundResponse(
       const assistantMsg = makeAssMsg(model.id, startTime, response)
       chat.messages.push(assistantMsg)
       delete chat.background
-      if (displayOpts.raw) {
-        await renderMetaToStderr(assistantMsg)
-      } else {
-        console.log()
-      }
-      await renderMd(messageContentMd(assistantMsg, getMode(displayOpts)), displayOpts.raw)
+      await renderResponse(assistantMsg, displayOpts)
     } else {
       const { status } = chat.background
       delete chat.background
@@ -155,12 +176,10 @@ async function pollBackgroundResponse(
  */
 async function genResponse(
   chatInput: ChatInput,
-  displayOpts: { raw?: boolean; verbose?: boolean } = {},
+  displayOpts: DisplayOpts = {},
 ) {
-  const { raw = false, verbose = false } = displayOpts
-
   // don't want progress spinner when piping output
-  const showProgress = Deno.stdout.isTerminal() && !raw
+  const showProgress = Deno.stdout.isTerminal() && !displayOpts.raw && !displayOpts.json
   const pb = showProgress ? $.progress("Thinking...") : null
 
   // Set up abort signal for non-background requests. Let's handle SIGTERM in
@@ -180,15 +199,9 @@ async function genResponse(
     if (pb) pb.finish()
     const assistantMsg = makeAssMsg(chatInput.model.id, startTime, response)
     chatInput.chat.messages.push(assistantMsg)
-
-    if (raw) {
-      await renderMetaToStderr(assistantMsg)
-    } else {
-      console.log()
-    }
-    await renderMd(messageContentMd(assistantMsg, getMode({ raw, verbose })), raw)
+    await renderResponse(assistantMsg, displayOpts)
   } catch (e: unknown) {
-    renderError(e)
+    renderError(e, displayOpts)
   } finally {
     Deno.removeSignalListener("SIGINT", sigintHandler)
     Deno.removeSignalListener("SIGTERM", sigtermHandler)
@@ -483,6 +496,9 @@ the raw output to stdout.`)
   .option("-b, --background", "Use background mode (OpenAI only)")
   .option("-v, --verbose", "Include reasoning in output")
   .option("--raw", "Print LLM text directly (no metadata or reasoning)")
+  .option("--json", "Print the full response message as JSON (for scripts)", {
+    conflicts: ["raw", "verbose"],
+  })
   .option("-o, --output-schema <schema:string>", "ArkType schema for structured output")
   .example("1)", "ai 'What is the capital of France?'")
   .example("2)", "cat main.ts | ai 'what is this?'")
@@ -599,13 +615,13 @@ the raw output to stdout.`)
           effort,
         }
         if (!opts.ephemeral) History.save(chat, { current: true, touch: true })
-        await pollBackgroundResponse(chat, model, R.pick(opts, ["raw", "verbose"]))
+        await pollBackgroundResponse(chat, model, R.pick(opts, ["raw", "verbose", "json"]))
         // deno-lint-ignore no-explicit-any
       } catch (e: any) {
-        renderError(e)
+        renderError(e, R.pick(opts, ["raw", "verbose", "json"]))
       }
     } else {
-      await genResponse(chatInput, R.pick(opts, ["raw", "verbose"]))
+      await genResponse(chatInput, R.pick(opts, ["raw", "verbose", "json"]))
     }
 
     if (!opts.ephemeral) History.save(chat, { current: true, touch: true })

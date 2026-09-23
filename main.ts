@@ -1,7 +1,7 @@
 #! /usr/bin/env -S deno run --allow-env --allow-read --allow-write --allow-net --allow-run=gh,osascript
 
 import { readAll } from "@std/io"
-import { Command, ValidationError } from "@cliffy/command"
+import { Command, EnumType, ValidationError } from "@cliffy/command"
 import { Table } from "@cliffy/table"
 import $ from "@david/dax"
 
@@ -11,23 +11,24 @@ import { resolveModel, systemBase } from "./models.ts"
 import {
   chatToMd,
   codeBlock,
-  type DisplayMode,
+  type DisplayOpts,
   formatElapsed,
+  getMode,
   jsonBlock,
-  messageContentMd,
   modelsMd,
   renderMd,
-  renderMetaToStderr,
+  renderResponse,
   shortDateFmt,
 } from "./display.ts"
 import { parseMessageSpec, resolveImage } from "./utils.ts"
-import { type Chat, type ChatMessage, resolveThink, type ThinkOverride } from "./types.ts"
+import { type Chat, resolveThink, type ThinkOverride } from "./types.ts"
 import {
   type ChatInput,
   claudeAdaptiveThinking,
   createMessage,
   gptBg,
-  imageProviders,
+  imageInputProviders,
+  imageQualities,
   type ModelResponse,
   searchProviders,
   thinkProviders,
@@ -67,12 +68,6 @@ function messagePickerOptions(messages: Chat["messages"]) {
   return table.padding(3).toString().split("\n")
 }
 
-type DisplayOpts = { raw?: boolean; verbose?: boolean; json?: boolean }
-
-function getMode(opts: DisplayOpts): DisplayMode {
-  return opts.raw ? "raw" : opts.verbose ? "verbose" : "cli"
-}
-
 const bell = () => Deno.stdout.write(new TextEncoder().encode("\x07"))
 
 const makeAssMsg = (modelId: string, startTime: number, response: ModelResponse) => ({
@@ -104,23 +99,6 @@ function renderError(e: any, opts: DisplayOpts = {}) {
   if (e.response?.data) renderMd(jsonBlock(e.response.data))
   if (e.response?.error) renderMd(jsonBlock(e.response.error))
   if (!("response" in e)) renderMd(codeBlock(e))
-}
-
-/**
- * Print the assistant message. --json emits the whole message as one JSON
- * object on stdout for scripts; --raw prints just the text with the meta line
- * on stderr; otherwise render markdown with the meta line.
- */
-async function renderResponse(msg: ChatMessage, opts: DisplayOpts) {
-  if (opts.json) {
-    console.log(JSON.stringify(msg))
-  } else if (opts.raw) {
-    await renderMetaToStderr(msg)
-    await renderMd(messageContentMd(msg, "raw"), true)
-  } else {
-    console.log()
-    await renderMd(messageContentMd(msg, getMode(opts)), false)
-  }
 }
 
 async function pollBackgroundResponse(
@@ -180,7 +158,8 @@ async function genResponse(
 ) {
   // don't want progress spinner when piping output
   const showProgress = Deno.stdout.isTerminal() && !displayOpts.raw && !displayOpts.json
-  const pb = showProgress ? $.progress("Thinking...") : null
+  const label = chatInput.model.kind === "image" ? "Generating image..." : "Thinking..."
+  const pb = showProgress ? $.progress(label) : null
 
   // Set up abort signal for non-background requests. Let's handle SIGTERM in
   // case it's relevant when this CLI gets called by another script.
@@ -341,6 +320,14 @@ function modelInfoMd(modelArg: string) {
 
   const lines = [`**${id}** (${provider})`, `key: \`${key}\``]
 
+  if (model.kind === "image") {
+    lines.push(
+      `image generation: --quality ${imageQualities.join("|")}, --size WxH|auto`,
+      "output: PNG saved under ~/.local/state/llm-cli/images",
+    )
+    return lines.join("\n")
+  }
+
   if (searchProviders.has(provider)) {
     lines.push("search: yes")
   }
@@ -383,6 +370,12 @@ const forkCmd = new Command()
     required: true,
   })
   .action(async (opts) => {
+    const model = resolveModel(opts.model)
+    if (model.kind === "image") {
+      throw new ValidationError(
+        "Image models cannot fork chats. Use -m with a fresh prompt",
+      )
+    }
     const currentChat = History.current()
     if (!currentChat || currentChat.messages.length === 0) {
       throw new ValidationError("No chat in progress")
@@ -395,8 +388,6 @@ const forkCmd = new Command()
     })
 
     const selectedMessage = currentChat.messages[selectedIdx]
-    const model = resolveModel(opts.model)
-
     const newChat: Chat = {
       ...createChat(currentChat.systemPrompt),
       messages: currentChat.messages.slice(0, selectedIdx + 1),
@@ -491,6 +482,9 @@ the raw output to stdout.`)
     "-i, --image <value:string>",
     "Image: URL, local file path, or 'clipboard' (macOS)",
   )
+  .type("quality", new EnumType(imageQualities))
+  .option("--quality <quality:quality>", "Image quality (image models only)")
+  .option("--size <size:string>", "Image size, e.g. 1024x1536 or auto (image models only)")
   .option("--system <system:string>", "Override entire system prompt")
   .option("-e, --ephemeral", "Don't save to history")
   .option("-b, --background", "Use background mode (OpenAI only)")
@@ -510,6 +504,7 @@ the raw output to stdout.`)
     "ai -o '{ urgent: \"boolean\", reason: \"string\" }' 'is this urgent? server is down'",
   )
   .example("7)", "ai gist -t 'Generic types'")
+  .example("8)", "ai -m flare --quality low 'a lighthouse at dusk'")
   .action(async (opts, ...args) => {
     let outputSchema
     if (opts.outputSchema) {
@@ -582,7 +577,30 @@ the raw output to stdout.`)
     }
     validateConfig(model.provider, config)
 
-    if (opts.image && !imageProviders.has(model.provider)) {
+    if (model.kind === "image") {
+      // Image models only take a fresh text prompt for now
+      const unsupported = [
+        opts.reply && "-r (use -m to pick a text model)",
+        opts.system !== undefined && "--system",
+        opts.image && "--image",
+        search && "--search",
+        think !== undefined && "thinking flags",
+        outputSchema && "--output-schema",
+        opts.background && "--background",
+      ].filter(Boolean)
+      if (unsupported.length > 0) {
+        throw new ValidationError(
+          `Not supported for image models: ${unsupported.join(", ")}`,
+        )
+      }
+      if (opts.size && !/^(auto|\d+x\d+)$/.test(opts.size)) {
+        throw new ValidationError(`Invalid size '${opts.size}'. Use WIDTHxHEIGHT or auto`)
+      }
+    } else if (opts.quality || opts.size) {
+      throw new ValidationError("--quality and --size only apply to image models")
+    }
+
+    if (opts.image && !imageInputProviders.has(model.provider)) {
       throw new ValidationError(`Images not supported for ${model.provider}`)
     }
     const image_url = opts.image ? await resolveImage(opts.image) : undefined
@@ -600,7 +618,13 @@ the raw output to stdout.`)
       image_url,
       outputSchema: outputSchema?.expression,
     })
-    const chatInput: ChatInput = { chat, model, config, outputSchema }
+    const chatInput: ChatInput = {
+      chat,
+      model,
+      config,
+      outputSchema,
+      imageOptions: { quality: opts.quality, size: opts.size },
+    }
 
     // no need to pass --background if using gpt-5-pro -- it always needs it
     if (opts.background || model.id === "gpt-5.4-pro") {

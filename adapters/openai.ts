@@ -1,10 +1,14 @@
 import OpenAI from "openai"
 import type { ResponseCreateParamsNonStreaming } from "openai/resources/responses/responses"
+import type { ImageGenerateParamsNonStreaming } from "openai/resources/images"
+import { decodeBase64 } from "@std/encoding/base64"
+import { ValidationError } from "@cliffy/command"
 import { match, P } from "ts-pattern"
 
 import { postprocessSchemaContent, prepareSchema } from "../schema.ts"
 import type { BackgroundStatus, ThinkLevel } from "../types.ts"
 import { getCost, type Model } from "../models.ts"
+import { saveImage } from "../storage.ts"
 import type { ChatInput, ModelResponse } from "./types.ts"
 
 function processGptResponse(
@@ -159,6 +163,61 @@ export const gptBg = {
     const client = new OpenAI()
     await client.responses.cancel(responseId)
   },
+}
+
+/** Image generation currently accepts only a fresh text prompt. */
+export function gptImageParams(
+  { chat, model, imageOptions }: ChatInput,
+): ImageGenerateParamsNonStreaming {
+  const [message] = chat.messages
+  if (chat.messages.length !== 1 || message?.role !== "user" || message.image_url) {
+    throw new ValidationError("Image generation requires a fresh text-only prompt")
+  }
+  return {
+    model: model.key,
+    prompt: message.content,
+    n: 1,
+    // Kitty graphics can only display PNG directly
+    output_format: "png",
+    quality: imageOptions?.quality,
+    size: imageOptions?.size,
+  }
+}
+
+export function processGptImageResponse(
+  response: OpenAI.ImagesResponse,
+  model: Model,
+  save: (bytes: Uint8Array, index: number) => string,
+): ModelResponse {
+  const images = (response.data ?? []).flatMap((d, i) =>
+    d.b64_json ? [save(decodeBase64(d.b64_json), i)] : []
+  )
+  if (images.length === 0) throw new Error("No image in response")
+  // Image models don't report cached input, and we don't send input images
+  // yet, so all input is priced as text.
+  const tokens = {
+    input: response.usage?.input_tokens ?? 0,
+    output: response.usage?.output_tokens ?? 0,
+  }
+  return {
+    content: images.join("\n"),
+    images,
+    tokens,
+    cost: getCost(model, tokens),
+    stop_reason: "completed",
+    // quality actually used, which tells you what `auto` picked
+    effort: response.quality,
+  }
+}
+
+export async function gptImageCreateMessage(chatInput: ChatInput): Promise<ModelResponse> {
+  const params = gptImageParams(chatInput)
+  const response = await new OpenAI().images.generate(params, { signal: chatInput.signal })
+  return processGptImageResponse(
+    response,
+    chatInput.model,
+    (bytes, i) => saveImage(bytes, params.prompt, "png", i),
+  )
 }
 
 const makeOpenAIFunc =

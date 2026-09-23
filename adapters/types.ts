@@ -11,6 +11,7 @@ export type ModelResponse = {
   searches?: number
   effort?: string
   provider?: ProviderData
+  images?: string[]
 }
 
 export type ToolConfig = {
@@ -24,4 +25,13 @@ export type ChatInput = {
   config: ToolConfig
   signal?: AbortSignal
   outputSchema?: Type
+  imageOptions?: ImageOptions
+}
+
+export const imageQualities = ["low", "medium", "high", "xhigh", "max", "auto"] as const
+
+export type ImageOptions = {
+  quality?: typeof imageQualities[number]
+  /** `WIDTHxHEIGHT` or `auto` */
+  size?: string
 }

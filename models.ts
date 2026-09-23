@@ -21,6 +21,8 @@ export type Model = {
   input_cache_write?: number
   /** Cost per web search in dollars */
   search_cost?: number
+  /** Image generation model. `output` is the price per image output token. */
+  kind?: "image"
 }
 
 /**
@@ -82,6 +84,24 @@ export const models: Model[] = [
     input_cached: 0.01,
     output: 0.50,
     search_cost: 0.01,
+  },
+  {
+    provider: "openai",
+    key: "gpt-image-2.5-flare",
+    id: "gpt-image-2.5-flare",
+    kind: "image",
+    input: 5,
+    input_cached: 1.25,
+    output: 30,
+  },
+  {
+    provider: "openai",
+    key: "gpt-image-2.5-sunburst",
+    id: "gpt-image-2.5-sunburst",
+    kind: "image",
+    input: 5,
+    input_cached: 1.25,
+    output: 30,
   },
   {
     provider: "google",

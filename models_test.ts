@@ -166,3 +166,9 @@ Deno.test("Must have exactly one default model", () => {
 Deno.test("modules with hard-coded model aliases import cleanly", async () => {
   await import("./summarize.ts")
 })
+
+Deno.test("image models resolve by nickname without shadowing text models", () => {
+  assertEquals(resolveModel("flare").key, "gpt-image-2.5-flare")
+  assertEquals(resolveModel("sunburst").key, "gpt-image-2.5-sunburst")
+  assertEquals(resolveModel("gpt").kind, undefined)
+})

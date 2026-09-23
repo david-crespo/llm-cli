@@ -1,6 +1,6 @@
 import { assertEquals, assertThrows } from "@std/assert"
 import { join } from "@std/path"
-import { History } from "./storage.ts"
+import { History, imageFilename, saveImage } from "./storage.ts"
 import type { Chat } from "./types.ts"
 
 function chat(id: string, createdAt: string): Chat {
@@ -128,5 +128,39 @@ Deno.test("History.save rejects stale same-chat writes", () => {
       "changed concurrently",
     )
     assertEquals(History.current()?.summary, "first")
+  })
+})
+
+Deno.test("imageFilename uses local timestamp and prompt slug", () => {
+  const date = new Date(2026, 8, 23, 14, 5, 9)
+  assertEquals(
+    imageFilename("A cat, in a hat!", date, "png"),
+    "20260923-140509-a-cat-in-a-hat.png",
+  )
+  assertEquals(imageFilename("", date, "png", 1), "20260923-140509-2.png")
+  assertEquals(
+    imageFilename("x".repeat(50) + " tail", date, "png"),
+    `20260923-140509-${"x".repeat(40)}.png`,
+  )
+})
+
+Deno.test("saveImage preserves a file created concurrently at the same path", () => {
+  withTempState(() => {
+    const write = Deno.writeFileSync
+    let existing: string | URL | undefined
+    Deno.writeFileSync = (path, bytes, options) => {
+      if (!existing) {
+        existing = path
+        write(path, new Uint8Array([1]))
+      }
+      write(path, bytes, options)
+    }
+    try {
+      const saved = saveImage(new Uint8Array([2]), "same prompt", "png")
+      assertEquals([...Deno.readFileSync(existing!)], [1])
+      assertEquals([...Deno.readFileSync(saved)], [2])
+    } finally {
+      Deno.writeFileSync = write
+    }
   })
 })

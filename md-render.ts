@@ -1,6 +1,6 @@
 import { MarkdownExit } from "markdown-exit"
 import terminalPlugin from "./markdown-exit-terminal.ts"
-import { supportsKittyGraphics } from "./terminal-math.ts"
+import { supportsKittyGraphics } from "./terminal-image.ts"
 
 export type RenderOptions = {
   /** Shiki theme for fenced code blocks. Defaults to "ayu-mirage". */

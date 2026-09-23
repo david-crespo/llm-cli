@@ -58,6 +58,8 @@ type AssistantMessage = {
   cache?: boolean
   searches?: number
   provider?: ProviderData
+  /** Paths of generated images saved to disk (image models only) */
+  images?: string[]
 }
 
 export type ChatMessage = UserMessage | AssistantMessage

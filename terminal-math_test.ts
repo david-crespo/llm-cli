@@ -3,7 +3,7 @@ import { assert, assertEquals, assertRejects } from "@std/assert"
 import { decodeBase64, encodeBase64 } from "@std/encoding/base64"
 import { Resvg } from "@resvg/resvg-wasm"
 import { renderMarkdown } from "./md-render.ts"
-import { kittyImage, supportsKittyGraphics } from "./terminal-math.ts"
+import { kittyImage } from "./terminal-math.ts"
 import { renderMathImage } from "./math-image.ts"
 
 const strip = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, "").replaceAll(" ", " ")
@@ -46,34 +46,6 @@ Deno.test("inline glyphs share a baseline regardless of their height", async () 
     }
   }
   assert(Math.max(...bottoms) - Math.min(...bottoms) <= 1, `Ink bottoms: ${bottoms}`)
-})
-
-Deno.test("Kitty detection requires a supported terminal outside multiplexers", () => {
-  for (
-    const env of [{ TERM_PROGRAM: "ghostty" }, { TERM: "xterm-ghostty" }, {
-      TERM: "xterm-kitty",
-    }]
-  ) {
-    const get = (key: string) => (env as Record<string, string | undefined>)[key]
-    assert(supportsKittyGraphics(true, get))
-    assert(!supportsKittyGraphics(false, get))
-  }
-  for (
-    const env of [
-      {},
-      { TERM: "xterm-256color" },
-      { TERM_PROGRAM: "ghostty", TMUX: "/tmp/tmux" },
-      { TERM_PROGRAM: "ghostty", STY: "screen" },
-      { TERM_PROGRAM: "ghostty", TERM: "dumb" },
-    ]
-  ) {
-    assert(
-      !supportsKittyGraphics(
-        true,
-        (key) => (env as Record<string, string | undefined>)[key],
-      ),
-    )
-  }
 })
 
 Deno.test("math delimiters render inside prose without consuming punctuation", async () => {

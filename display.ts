@@ -1,8 +1,10 @@
 import { markdownTable } from "markdown-table"
+import { writeAll } from "@std/io"
 
 import { Chat, type ChatMessage } from "./types.ts"
 import { models, systemBase } from "./models.ts"
 import { renderMarkdown } from "./md-render.ts"
+import { imageColumns, kittyPng, supportsKittyGraphics } from "./terminal-image.ts"
 
 export async function renderMd(md: string, raw = false) {
   if (Deno.stdout.isTerminal() && !raw) {
@@ -43,7 +45,7 @@ const modelsTable = (verbose: boolean) =>
 const quote = (s: string) => s.split("\n").map((line) => "> " + line).join("\n")
 
 export const modelsMd = (verbose = false) =>
-  `Models are matched on ID or key. Prices are per million tokens.\n\n${
+  `Models are matched on ID or key. Prices are per million tokens. Image model output is priced per image token.\n\n${
     modelsTable(verbose)
   }`
 
@@ -237,3 +239,35 @@ export const shortDateFmt = new Intl.DateTimeFormat("en-US", {
   minute: "2-digit",
   hour12: false,
 })
+
+export type DisplayOpts = { raw?: boolean; verbose?: boolean; json?: boolean }
+
+export function getMode(opts: DisplayOpts): DisplayMode {
+  return opts.raw ? "raw" : opts.verbose ? "verbose" : "cli"
+}
+
+/**
+ * Print the assistant message. --json emits the whole message as one JSON
+ * object on stdout for scripts; --raw prints just the text with the meta line
+ * on stderr; otherwise render markdown with the meta line.
+ */
+export async function renderResponse(msg: ChatMessage, opts: DisplayOpts) {
+  if (opts.json) {
+    console.log(JSON.stringify(msg))
+  } else if (opts.raw) {
+    await renderMetaToStderr(msg)
+    await renderMd(messageContentMd(msg, "raw"), true)
+  } else {
+    console.log()
+    await renderMd(messageContentMd(msg, getMode(opts)), false)
+    if (msg.role === "assistant" && msg.images && supportsKittyGraphics()) {
+      for (const path of msg.images) {
+        const png = await Deno.readFile(path)
+        await writeAll(
+          Deno.stdout,
+          new TextEncoder().encode(kittyPng(png, imageColumns(png, Deno.consoleSize()))),
+        )
+      }
+    }
+  }
+}

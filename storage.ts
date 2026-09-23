@@ -24,6 +24,42 @@ function chatPath(id: string): string {
   return join(chatsPath(), `${id}.json`)
 }
 
+function imagesPath(): string {
+  return join(stateRoot(), "images")
+}
+
+const pad = (n: number) => String(n).padStart(2, "0")
+
+/** `20260923-143012-a-cat-in-a-hat.png`, local time */
+export function imageFilename(prompt: string, date: Date, ext: string, index = 0) {
+  const stamp = `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}-` +
+    `${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`
+  const slug = prompt.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40)
+    .replace(/^-+|-+$/g, "")
+  const suffix = index > 0 ? `-${index + 1}` : ""
+  return [stamp, slug].filter(Boolean).join("-") + suffix + "." + ext
+}
+
+/**
+ * Save a generated image under the state dir and return its absolute path.
+ * Images are not pruned along with chat history.
+ */
+export function saveImage(bytes: Uint8Array, prompt: string, ext: string, index = 0) {
+  const dir = imagesPath()
+  Deno.mkdirSync(dir, { recursive: true })
+  const date = new Date()
+  for (let i = index;; i++) {
+    const path = join(dir, imageFilename(prompt, date, ext, i))
+    try {
+      Deno.writeFileSync(path, bytes, { createNew: true })
+      return path
+    } catch (e) {
+      // Another generation may have finished in the same second with the same slug.
+      if (!(e instanceof Deno.errors.AlreadyExists)) throw e
+    }
+  }
+}
+
 function currentPath(): string {
   return join(stateRoot(), "current.json")
 }

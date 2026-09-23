@@ -1,15 +1,6 @@
 import type { MarkdownExit, RenderRule } from "markdown-exit"
-import { encodeBase64 } from "@std/encoding/base64"
+import { kittyTransmit } from "./terminal-image.ts"
 import type { MathImage } from "./math-image.ts"
-
-export function supportsKittyGraphics(
-  isTerminal = Deno.stdout.isTerminal(),
-  env: (key: string) => string | undefined = (key) => Deno.env.get(key),
-): boolean {
-  if (!isTerminal || env("TMUX") || env("STY") || env("TERM") === "dumb") return false
-  return env("TERM_PROGRAM") === "ghostty" ||
-    ["xterm-ghostty", "xterm-kitty"].includes(env("TERM") ?? "")
-}
 
 // Same currency heuristics as llm-web/src/lib/math.ts.
 function dollarMath(content: string, after: string): boolean {
@@ -27,15 +18,8 @@ export type MathEnv = {
   _mathNextCodepoint?: number
 }
 
-/** PNG transmission uses only direct data, so it also works over SSH. */
 export function kittyImage(image: MathImage, id: number): string[] {
-  const payload = encodeBase64(image.png)
-  let transmit = ""
-  for (let offset = 0; offset < payload.length; offset += 4096) {
-    const more = offset + 4096 < payload.length ? 1 : 0
-    const params = offset === 0 ? `a=t,f=100,t=d,i=${id},q=2,` : "q=2,"
-    transmit += `\x1b_G${params}m=${more};${payload.slice(offset, offset + 4096)}\x1b\\`
-  }
+  const transmit = kittyTransmit(image.png, `a=t,f=100,t=d,i=${id},q=2`)
   // Place one slice per text row. This keeps tall equations intact when output
   // starts near the bottom of the screen and scrolls during printing.
   return Array.from({ length: image.rows }, (_, row) =>

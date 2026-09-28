@@ -59,6 +59,16 @@ export const models: Model[] = [
     default: true,
   },
   {
+    provider: "anthropic",
+    key: "claude-sonnet-5-5",
+    id: "sonnet-5.5",
+    input: 2,
+    input_cached: 0.20,
+    input_cache_write: 2.50,
+    output: 10,
+    search_cost: 0.01,
+  },
+  {
     provider: "openai",
     key: "gpt-6-astra",
     id: "gpt-6-astra",

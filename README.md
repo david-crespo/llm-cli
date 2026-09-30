@@ -45,6 +45,10 @@ Local files support PNG, JPEG, GIF, and WebP on all platforms. On macOS, `-i cli
 reads an image from the clipboard. Image input works with OpenAI, Anthropic, and Gemini chat
 models. Image generation models currently accept text prompts only.
 
+Local HEIC/HEIF files are automatically converted to JPEG using macOS's `sips`, preserving
+the original file. If `sips` is unavailable, convert the image to JPEG or PNG first. Images
+are not resized before sending.
+
 ### Upload chat to GitHub Gist for sharing or permanent storage
 
 https://gist.github.com/david-crespo/a2bf06be5db310db967b2e35f6140da2

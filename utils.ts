@@ -1,5 +1,6 @@
 import { ValidationError } from "@cliffy/command"
 import { encodeBase64 } from "@std/encoding/base64"
+import { join } from "@std/path"
 import $ from "@david/dax"
 import * as R from "remeda"
 
@@ -126,11 +127,81 @@ async function readClipboardImage(): Promise<Uint8Array> {
   }
 }
 
+/** Convert a local HEIC/HEIF through macOS's optional image converter. */
+async function convertHeicImage(value: string): Promise<Uint8Array> {
+  let sourcePath: string
+  try {
+    sourcePath = await Deno.realPath(value)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    throw new ValidationError(`Could not read image at '${value}': ${msg}`)
+  }
+  const tmpDir = await Deno.makeTempDir({
+    dir: Deno.build.os === "darwin" ? "/tmp" : undefined,
+    prefix: "llm-heic-",
+  })
+  try {
+    const outputPath = join(tmpDir, "converted.jpg")
+    let result: Deno.CommandOutput
+    try {
+      result = await new Deno.Command("sips", {
+        args: [
+          "--setProperty",
+          "format",
+          "jpeg",
+          "--setProperty",
+          "formatOptions",
+          "90",
+          sourcePath,
+          "--out",
+          outputPath,
+        ],
+        stdout: "null",
+        stderr: "piped",
+      }).output()
+    } catch (e) {
+      if (e instanceof Deno.errors.NotFound) {
+        throw new ValidationError(
+          "HEIC conversion requires macOS's 'sips'. Convert the image to JPEG or PNG first.",
+        )
+      }
+      throw e
+    }
+    if (!result.success) {
+      const error = new TextDecoder().decode(result.stderr).trim() || `exit ${result.code}`
+      throw new ValidationError(`Could not convert HEIC image at '${value}': ${error}`)
+    }
+    let bytes: Uint8Array
+    try {
+      bytes = await Deno.readFile(outputPath)
+    } catch (e) {
+      if (e instanceof Deno.errors.NotFound) {
+        throw new ValidationError(
+          `Could not convert HEIC image at '${value}': sips did not produce a JPEG`,
+        )
+      }
+      throw e
+    }
+    // sips can exit successfully after writing only JPEG headers if encoding fails.
+    if (
+      bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8 ||
+      bytes.at(-2) !== 0xff || bytes.at(-1) !== 0xd9
+    ) {
+      throw new ValidationError(
+        `Could not convert HEIC image at '${value}': incomplete JPEG`,
+      )
+    }
+    return bytes
+  } finally {
+    await Deno.remove(tmpDir, { recursive: true })
+  }
+}
+
 /**
  * Resolve `--image <value>` to a URL string. The sentinel `clipboard` pulls a
  * PNG from the macOS clipboard. `http(s)` URLs pass through. Any other value
  * is treated as a local file path, read, base64-encoded, and returned as a
- * `data:` URL.
+ * `data:` URL. Local HEIC/HEIF files are converted to JPEG through `sips`.
  */
 export async function resolveImage(value: string): Promise<string> {
   if (value === "clipboard") {
@@ -139,6 +210,12 @@ export async function resolveImage(value: string): Promise<string> {
   }
   if (/^https?:\/\//i.test(value)) return value
 
+  const ext = value.split(".").pop()?.toLowerCase() ?? ""
+  if (ext === "heic" || ext === "heif") {
+    const bytes = await convertHeicImage(value)
+    return `data:image/jpeg;base64,${encodeBase64(bytes)}`
+  }
+
   let bytes: Uint8Array
   try {
     bytes = await Deno.readFile(value)
@@ -146,12 +223,11 @@ export async function resolveImage(value: string): Promise<string> {
     const msg = e instanceof Error ? e.message : String(e)
     throw new ValidationError(`Could not read image at '${value}': ${msg}`)
   }
-  const ext = value.split(".").pop()?.toLowerCase() ?? ""
   const mediaType = EXT_MIME[ext]
   if (!mediaType) {
     throw new ValidationError(
       `Unsupported image extension '.${ext}'. Supported: ${
-        Object.keys(EXT_MIME).join(", ")
+        [...Object.keys(EXT_MIME), "heic/heif (requires sips)"].join(", ")
       }`,
     )
   }

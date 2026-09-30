@@ -1,4 +1,4 @@
-#! /usr/bin/env -S deno run --allow-env --allow-read --allow-write --allow-net --allow-run=gh,osascript
+#! /usr/bin/env -S deno run --allow-env --allow-read --allow-write --allow-net --allow-run=gh,osascript,sips
 
 import { readAll } from "@std/io"
 import { Command, EnumType, ValidationError } from "@cliffy/command"

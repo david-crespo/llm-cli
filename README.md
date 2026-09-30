@@ -49,6 +49,14 @@ Local HEIC/HEIF files are automatically converted to JPEG using macOS's `sips`, 
 the original file. If `sips` is unavailable, convert the image to JPEG or PNG first. Images
 are not resized before sending.
 
+GPT image inputs use `high` detail. Requests are checked against each provider's byte limits
+before sending, including base64 encoding, prompt text, and any image history sent in that
+request: OpenAI 512 MB, Claude 32 MB (also 10 MB per base64 image), and Gemini 20 MB.
+Oversized inputs produce an error; compress the images or shorten the chat to retry. OpenAI
+and Claude send HTTP(S) image URLs as references, so the remote image bytes are checked by
+the provider. Gemini downloads URL images and includes their base64 bytes in the request
+check.
+
 ### Upload chat to GitHub Gist for sharing or permanent storage
 
 https://gist.github.com/david-crespo/a2bf06be5db310db967b2e35f6140da2

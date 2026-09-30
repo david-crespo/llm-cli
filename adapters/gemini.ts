@@ -6,6 +6,7 @@ import { getCost } from "../models.ts"
 import { parseDataUrl } from "../utils.ts"
 import type { ThinkLevel } from "../types.ts"
 import type { ChatInput } from "./types.ts"
+import { validateRequestSize } from "./request_size.ts"
 
 /** Gemini doesn't accept image URLs directly; inline as bytes either way. */
 async function imageToInlinePart(image_url: string): Promise<Part> {
@@ -54,35 +55,39 @@ export async function geminiCreateMessage(
   // Gemini accepts primitive roots; no wrap needed.
   const prep = outputSchema ? prepareSchema(outputSchema) : undefined
 
-  const result = await new GoogleGenAI({ apiKey }).models.generateContent({
-    config: {
-      // https://ai.google.dev/gemini-api/docs/thinking
-      thinkingConfig: {
-        includeThoughts: true,
-        thinkingLevel,
-      },
-      systemInstruction: chat.systemPrompt,
-      tools: [
-        // always include URL context. it was designed to be used this way
-        { urlContext: {} },
-        ...(config.search ? [{ googleSearch: {} }] : []),
-      ],
-      responseMimeType: prep ? "application/json" : undefined,
-      responseJsonSchema: prep?.schema,
-      abortSignal: signal,
+  const generationConfig = {
+    // https://ai.google.dev/gemini-api/docs/thinking
+    thinkingConfig: {
+      includeThoughts: true,
+      thinkingLevel,
     },
+    responseMimeType: prep ? "application/json" : undefined,
+    responseJsonSchema: prep?.schema,
+  }
+  const systemInstruction = { role: "user", parts: [{ text: chat.systemPrompt }] }
+  const tools = [
+    // always include URL context. it was designed to be used this way
+    { urlContext: {} },
+    ...(config.search ? [{ googleSearch: {} }] : []),
+  ]
+  const contents = await Promise.all(chat.messages.map(async (msg) => {
+    const parts: Part[] = msg.content ? [{ text: msg.content }] : []
+    if (msg.role === "user" && msg.image_urls?.length) {
+      parts.unshift(...await Promise.all(msg.image_urls.map(imageToInlinePart)))
+    }
+    return {
+      // gemini uses model instead of assistant
+      role: msg.role === "assistant" ? "model" : "user",
+      parts,
+    }
+  }))
+  // The SDK moves systemInstruction/tools out of config and places its remaining
+  // fields in generationConfig. Measure that REST body after inlining URL images.
+  validateRequestSize("Gemini", { contents, systemInstruction, tools, generationConfig })
+  const result = await new GoogleGenAI({ apiKey }).models.generateContent({
     model: model.key,
-    contents: await Promise.all(chat.messages.map(async (msg) => {
-      const parts: Part[] = msg.content ? [{ text: msg.content }] : []
-      if (msg.role === "user" && msg.image_urls?.length) {
-        parts.unshift(...await Promise.all(msg.image_urls.map(imageToInlinePart)))
-      }
-      return {
-        // gemini uses model instead of assistant
-        role: msg.role === "assistant" ? "model" : "user",
-        parts,
-      }
-    })),
+    contents,
+    config: { ...generationConfig, systemInstruction, tools, abortSignal: signal },
   })
 
   // console.log(JSON.stringify(result, null, 2))

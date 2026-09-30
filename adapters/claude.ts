@@ -7,6 +7,7 @@ import { getCost } from "../models.ts"
 import { parseDataUrl } from "../utils.ts"
 import type { ThinkLevel } from "../types.ts"
 import type { ChatInput } from "./types.ts"
+import { validateClaudeImageSize, validateRequestSize } from "./request_size.ts"
 
 function claudeMsg(
   role: "user" | "assistant",
@@ -17,6 +18,7 @@ function claudeMsg(
 
   for (const image_url of image_urls) {
     const dataUrl = parseDataUrl(image_url)
+    if (dataUrl) validateClaudeImageSize(dataUrl.data)
     const source: Anthropic.ImageBlockParam["source"] = dataUrl
       ? { type: "base64", media_type: dataUrl.mediaType, data: dataUrl.data }
       : { type: "url", url: image_url }
@@ -142,7 +144,7 @@ export async function claudeCreateMessage(
     ? { type: "json_schema", schema: prep.schema }
     : undefined
 
-  const response = await new Anthropic().beta.messages.create({
+  const params: Anthropic.Beta.MessageCreateParamsNonStreaming = {
     model: model.key,
     cache_control: { type: "ephemeral" },
     system: chat.systemPrompt,
@@ -153,6 +155,10 @@ export async function claudeCreateMessage(
     thinking,
     output_config: format ? { ...output_config, format } : output_config,
     tools: toolsList.length > 0 ? toolsList : undefined,
+  }
+  validateRequestSize("Claude", params)
+  const response = await new Anthropic().beta.messages.create({
+    ...params,
     betas: ["code-execution-web-tools-2026-02-09"],
   }, { signal })
 

@@ -10,6 +10,7 @@ import type { BackgroundStatus, ThinkLevel } from "../types.ts"
 import { getCost, type Model } from "../models.ts"
 import { saveImage } from "../storage.ts"
 import type { ChatInput, ModelResponse } from "./types.ts"
+import { validateRequestSize } from "./request_size.ts"
 
 function processGptResponse(
   response: OpenAI.Responses.Response,
@@ -93,7 +94,7 @@ function gptConfig(
               ...m.image_urls.map((image_url) => ({
                 type: "input_image" as const,
                 image_url,
-                detail: "auto" as const,
+                detail: "high" as const,
               })),
             ],
           }
@@ -128,6 +129,7 @@ function gptConfig(
 export async function gptCreateMessage(chatInput: ChatInput) {
   const client = new OpenAI()
   const { params, wrapped, effort } = gptConfig(chatInput)
+  validateRequestSize("OpenAI", params)
   const response = await client.responses.create(params, { signal: chatInput.signal })
   return processGptResponse(response, chatInput.model, effort, wrapped)
 }
@@ -140,11 +142,13 @@ export const gptBg = {
   }> {
     const client = new OpenAI()
     const { params, effort } = gptConfig(chatInput)
-    const response = await client.responses.create({
+    const request = {
       ...params,
       background: true,
       store: true,
-    })
+    }
+    validateRequestSize("OpenAI", request)
+    const response = await client.responses.create(request)
     return { id: response.id, status: response.status ?? "queued", effort }
   },
   async retrieve(responseId: string, model: Model): Promise<ModelResponse> {

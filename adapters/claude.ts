@@ -11,17 +11,18 @@ import type { ChatInput } from "./types.ts"
 function claudeMsg(
   role: "user" | "assistant",
   text: string,
-  image_url?: string,
+  image_urls: string[] = [],
 ): Anthropic.MessageParam {
-  const content: Anthropic.ContentBlockParam[] = text ? [{ type: "text", text }] : []
+  const content: Anthropic.ContentBlockParam[] = []
 
-  if (image_url) {
+  for (const image_url of image_urls) {
     const dataUrl = parseDataUrl(image_url)
     const source: Anthropic.ImageBlockParam["source"] = dataUrl
       ? { type: "base64", media_type: dataUrl.mediaType, data: dataUrl.data }
       : { type: "url", url: image_url }
-    content.unshift({ type: "image", source })
+    content.push({ type: "image", source })
   }
+  if (text) content.push({ type: "text", text })
 
   return { role, content }
 }
@@ -146,7 +147,7 @@ export async function claudeCreateMessage(
     cache_control: { type: "ephemeral" },
     system: chat.systemPrompt,
     messages: chat.messages.map((m) =>
-      claudeMsg(m.role, m.content, m.role === "user" ? m.image_url : undefined)
+      claudeMsg(m.role, m.content, m.role === "user" ? m.image_urls : undefined)
     ),
     max_tokens,
     thinking,

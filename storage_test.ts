@@ -38,6 +38,40 @@ Deno.test("History.save stores chats independently and tracks current", () => {
   })
 })
 
+Deno.test("History preserves multiple images and loads legacy single-image messages", () => {
+  withTempState((stateHome) => {
+    const images = ["data:image/png;base64,AQID", "https://example.com/second.jpg"]
+    const saved = chat("images", "2026-01-01T00:00:00Z")
+    saved.messages.push({
+      role: "user",
+      content: "Compare these",
+      createdAt: saved.createdAt,
+      image_urls: images,
+    })
+    History.save(saved, { current: true })
+    assertEquals(History.current()?.messages[0], saved.messages[0])
+
+    const path = join(stateHome, "llm-cli", "chats", "images.json")
+    const legacy = JSON.parse(Deno.readTextFileSync(path))
+    delete legacy.messages[0].image_urls
+    legacy.messages[0].image_url = images[0]
+    Deno.writeTextFileSync(path, JSON.stringify(legacy))
+
+    const loaded = History.current()!
+    assertEquals(loaded.messages[0], {
+      role: "user",
+      content: "Compare these",
+      createdAt: saved.createdAt,
+      image_urls: [images[0]],
+    })
+    assertEquals(JSON.parse(Deno.readTextFileSync(path)).messages[0].image_url, images[0])
+    History.save(loaded)
+    const persisted = JSON.parse(Deno.readTextFileSync(path)).messages[0]
+    assertEquals(persisted.image_urls, [images[0]])
+    assertEquals("image_url" in persisted, false)
+  })
+})
+
 Deno.test("History.delete removes selected chat without rewriting others", () => {
   withTempState(() => {
     History.save(chat("one", "2026-01-01T00:00:00Z"), { current: true })

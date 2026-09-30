@@ -26,7 +26,7 @@ type UserMessage = {
   role: "user"
   content: string
   createdAt: Date
-  image_url?: string
+  image_urls?: string[]
   cache?: boolean
   /** arktype canonical expression of the requested output schema, if any */
   outputSchema?: string

@@ -51,7 +51,10 @@ Deno.test("image generation rejects history and input images before requesting",
   for (
     const messages of [
       [user, { ...user, content: "make it blue" }],
-      [{ ...user, image_url: "data:image/png;base64,AQID" }],
+      [{
+        ...user,
+        image_urls: ["data:image/png;base64,AQID", "https://example.com/image.jpg"],
+      }],
       [],
     ]
   ) {

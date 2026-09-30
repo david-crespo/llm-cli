@@ -104,6 +104,13 @@ function normalizeChat(chat: Chat): Chat {
   chat.createdAt = date(chat.createdAt)
   for (const message of chat.messages) {
     if (message.createdAt) message.createdAt = date(message.createdAt)
+    if (message.role === "user") {
+      const legacy = message as { image_url?: string }
+      if (legacy.image_url !== undefined) {
+        message.image_urls ??= [legacy.image_url]
+        delete legacy.image_url
+      }
+    }
   }
   return chat
 }

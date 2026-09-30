@@ -480,7 +480,8 @@ the raw output to stdout.`)
   .option("--think-default", "Clear inherited thinking and use the model default")
   .option(
     "-i, --image <value:string>",
-    "Image: URL, local file path, or 'clipboard' (macOS)",
+    "Image: URL, local file path, or 'clipboard' (macOS). Repeat for multiple images",
+    { collect: true },
   )
   .type("quality", new EnumType(imageQualities))
   .option("--quality <quality:quality>", "Image quality (image models only)")
@@ -505,6 +506,7 @@ the raw output to stdout.`)
   )
   .example("7)", "ai gist -t 'Generic types'")
   .example("8)", "ai -m flare --quality low 'a lighthouse at dusk'")
+  .example("9)", "ai -i first.png -i second.jpg 'Compare these images'")
   .action(async (opts, ...args) => {
     let outputSchema
     if (opts.outputSchema) {
@@ -516,6 +518,8 @@ the raw output to stdout.`)
       }
     }
 
+    const imageInputs = opts.image ?? []
+    const hasImages = imageInputs.length > 0
     const msg = args.join(" ")
     const piped = !Deno.stdin.isTerminal()
     const stdin = piped
@@ -526,13 +530,13 @@ the raw output to stdout.`)
     // Input was piped but arrived empty — the upstream command likely failed or
     // produced nothing (e.g. `cb x | ai ...` where `cb` errors). Abort rather
     // than calling the API with only the message.
-    if (piped && !stdin && !opts.image) {
+    if (piped && !stdin && !hasImages) {
       throw new ValidationError(
         "Piped input was empty (did an upstream command fail?)",
       )
     }
 
-    if (!msg && !stdin && !opts.image) {
+    if (!msg && !stdin && !hasImages) {
       throw new ValidationError("Message, stdin, image, or command is required")
     }
     const input = [stdin, msg].filter(Boolean).join("\n\n")
@@ -582,7 +586,7 @@ the raw output to stdout.`)
       const unsupported = [
         opts.reply && "-r (use -m to pick a text model)",
         opts.system !== undefined && "--system",
-        opts.image && "--image",
+        hasImages && "--image",
         search && "--search",
         think !== undefined && "thinking flags",
         outputSchema && "--output-schema",
@@ -600,10 +604,12 @@ the raw output to stdout.`)
       throw new ValidationError("--quality and --size only apply to image models")
     }
 
-    if (opts.image && !imageInputProviders.has(model.provider)) {
+    if (hasImages && !imageInputProviders.has(model.provider)) {
       throw new ValidationError(`Images not supported for ${model.provider}`)
     }
-    const image_url = opts.image ? await resolveImage(opts.image) : undefined
+    const image_urls = hasImages
+      ? await Promise.all(imageInputs.map(resolveImage))
+      : undefined
     if (opts.background && model.provider !== "openai") {
       throw new ValidationError("Background mode only works with OpenAI models")
     }
@@ -615,7 +621,7 @@ the raw output to stdout.`)
       role: "user",
       content: input,
       createdAt: new Date(),
-      image_url,
+      image_urls,
       outputSchema: outputSchema?.expression,
     })
     const chatInput: ChatInput = {

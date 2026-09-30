@@ -85,16 +85,16 @@ function gptConfig(
     params: {
       model: model.key,
       input: inputMessages.map((m) => {
-        if (m.role === "user" && m.image_url) {
+        if (m.role === "user" && m.image_urls?.length) {
           return {
             role: "user" as const,
             content: [
               ...(m.content ? [{ type: "input_text" as const, text: m.content }] : []),
-              {
+              ...m.image_urls.map((image_url) => ({
                 type: "input_image" as const,
-                image_url: m.image_url,
+                image_url,
                 detail: "auto" as const,
-              },
+              })),
             ],
           }
         }
@@ -170,7 +170,9 @@ export function gptImageParams(
   { chat, model, imageOptions }: ChatInput,
 ): ImageGenerateParamsNonStreaming {
   const [message] = chat.messages
-  if (chat.messages.length !== 1 || message?.role !== "user" || message.image_url) {
+  if (
+    chat.messages.length !== 1 || message?.role !== "user" || message.image_urls?.length
+  ) {
     throw new ValidationError("Image generation requires a fresh text-only prompt")
   }
   return {

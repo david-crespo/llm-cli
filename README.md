@@ -31,6 +31,20 @@ Equations render as images in Ghostty and Kitty, with raw TeX elsewhere. Try
 
 <img width="668" alt="image" src="https://github.com/user-attachments/assets/84f64f93-6d56-483f-984e-42ce1eea5235" />
 
+### Attach images
+
+Use `-i` / `--image` with a local file path or an HTTP(S) URL. Repeat the flag to attach
+multiple images in order:
+
+```sh
+ai -i first.png --image second.jpg 'Compare these images'
+ai -r -i third.webp 'How does this compare?'
+```
+
+Local files support PNG, JPEG, GIF, and WebP on all platforms. On macOS, `-i clipboard`
+reads an image from the clipboard. Image input works with OpenAI, Anthropic, and Gemini chat
+models. Image generation models currently accept text prompts only.
+
 ### Upload chat to GitHub Gist for sharing or permanent storage
 
 https://gist.github.com/david-crespo/a2bf06be5db310db967b2e35f6140da2
@@ -39,7 +53,7 @@ https://gist.github.com/david-crespo/a2bf06be5db310db967b2e35f6140da2
 
 ### Limitations
 
-No vision, no streaming responses (yet).
+No streaming responses (yet).
 
 ## Setup
 

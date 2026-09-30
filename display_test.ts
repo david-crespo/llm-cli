@@ -15,6 +15,25 @@ const assistantMessage = (effort?: string): ChatMessage => ({
   effort,
 })
 
+Deno.test("chatToMd includes every attached image in order", () => {
+  const chat: Chat = {
+    id: "images",
+    createdAt: new Date(0),
+    systemPrompt: systemBase,
+    messages: [{
+      role: "user",
+      content: "Compare these",
+      createdAt: new Date(0),
+      image_urls: ["data:image/png;base64,AQID", "https://example.com/second.jpg"],
+    }],
+  }
+  const md = chatToMd({ chat })
+  assertEquals(
+    md.includes("[Image 1 (inline)]\n\n[Image 2](https://example.com/second.jpg)"),
+    true,
+  )
+})
+
 Deno.test("formatElapsed - seconds only", () => {
   assertEquals(formatElapsed(5000), "5s")
   assertEquals(formatElapsed(30000), "30s")

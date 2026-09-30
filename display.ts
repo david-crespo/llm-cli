@@ -165,10 +165,13 @@ export function messageContentMd(msg: ChatMessage, mode: DisplayMode) {
   } else {
     output += mode === "raw" ? msg.content : escapeThinkTags(msg.content)
   }
-  if (msg.role === "user" && msg.image_url) {
-    output += msg.image_url.startsWith("data:")
-      ? `\n\n[Image (inline)]`
-      : `\n\n[Image](${msg.image_url})`
+  if (msg.role === "user" && msg.image_urls) {
+    for (const [index, image_url] of msg.image_urls.entries()) {
+      const label = msg.image_urls.length > 1 ? `Image ${index + 1}` : "Image"
+      output += image_url.startsWith("data:")
+        ? `\n\n[${label} (inline)]`
+        : `\n\n[${label}](${image_url})`
+    }
   }
   if (mode !== "raw") output += "\n\n"
   return output

@@ -74,8 +74,8 @@ export async function geminiCreateMessage(
     model: model.key,
     contents: await Promise.all(chat.messages.map(async (msg) => {
       const parts: Part[] = msg.content ? [{ text: msg.content }] : []
-      if (msg.role === "user" && msg.image_url) {
-        parts.unshift(await imageToInlinePart(msg.image_url))
+      if (msg.role === "user" && msg.image_urls?.length) {
+        parts.unshift(...await Promise.all(msg.image_urls.map(imageToInlinePart)))
       }
       return {
         // gemini uses model instead of assistant

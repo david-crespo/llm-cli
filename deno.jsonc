@@ -12,6 +12,7 @@
   },
   "imports": {
     "@cliffy/command": "jsr:@cliffy/command@1.2.1",
+    "@cliffy/prompt": "jsr:@cliffy/prompt@1.2.1",
     "@cliffy/table": "jsr:@cliffy/table@1.2.1",
     "@david/dax": "jsr:@david/dax@^0.49.0",
     "@mathjax/src": "npm:@mathjax/src@4.1.3",

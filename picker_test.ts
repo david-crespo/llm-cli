@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert"
 import stringWidth from "string-width"
-import { formatPickerOptions } from "./picker.ts"
+import { formatPickerOptions, keyAction } from "./picker.ts"
 
 Deno.test("picker options stay single-line and preserve their row mapping", () => {
   const options = formatPickerOptions([
@@ -33,4 +33,18 @@ Deno.test("picker options retain full summaries when they fit", () => {
 
   assert(option.startsWith("Emoji 🦀 summary"))
   assert(!option.includes("…"))
+})
+
+Deno.test("picker keys map to actions and leave navigation alone", () => {
+  assertEquals(keyAction({ name: "r" }), "resume")
+  assertEquals(keyAction({ name: "s" }), "show")
+  assertEquals(keyAction({ name: "s", shift: true }), "showAll")
+  assertEquals(keyAction({ name: "f" }), "fork")
+  assertEquals(keyAction({ name: "d" }), "delete")
+  assertEquals(keyAction({ name: "q" }), "quit")
+  assertEquals(keyAction({ name: "escape" }), "quit")
+  assertEquals(keyAction({ name: "j" }), undefined)
+  assertEquals(keyAction({ name: "return" }), undefined)
+  assertEquals(keyAction({ name: "d", ctrl: true }), undefined)
+  assertEquals(keyAction({ name: "c", ctrl: true }), undefined)
 })

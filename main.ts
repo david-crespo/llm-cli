@@ -7,7 +7,7 @@ import $ from "@david/dax"
 
 import * as R from "remeda"
 
-import { resolveModel, systemBase } from "./models.ts"
+import { models, resolveModel, systemBase } from "./models.ts"
 import {
   chatToMd,
   codeBlock,
@@ -38,7 +38,12 @@ import {
 import { History } from "./storage.ts"
 import { genMissingSummaries } from "./summarize.ts"
 import { parseType } from "./schema.ts"
-import { formatPickerOptions } from "./picker.ts"
+import {
+  formatPickerOptions,
+  type PickerAction,
+  pickWithAction,
+  singleLine,
+} from "./picker.ts"
 
 const getLastModelId = (chat: Chat) =>
   chat.messages.findLast((m) => m.role === "assistant")?.model
@@ -190,39 +195,105 @@ async function genResponse(
   }
 }
 
-async function pickChat(message: string) {
-  const history = History.list()
-  await genMissingSummaries(history)
-  if (history.length === 0) throw new ValidationError("No chat history")
-
-  const reversed = R.reverse(history)
-  const { index: selectedIdx } = await $.select({
-    message,
-    options: chatPickerOptions(reversed),
+/** Pick a model for forking from a user message, starting on `defaultId` if given */
+async function pickModel(defaultId: string | undefined) {
+  const textModels = models.filter((m) => m.kind !== "image")
+  const { index } = await $.select({
+    message: "Pick a model to answer",
+    options: textModels.map((m) => m.id),
+    initialIndex: Math.max(0, textModels.findIndex((m) => m.id === defaultId)),
     noClear: true,
   })
-  const selected = reversed[selectedIdx]
-  return selected
+  return textModels[index]
 }
 
-async function pickAndResume() {
-  const selected = await pickChat("Pick a chat to resume")
-  History.touch(selected.id)
+/** Fork `chat` at a picked message into a new current chat */
+async function forkChat(chat: Chat) {
+  if (chat.messages.length === 0) throw new ValidationError("Chat has no messages")
+
+  const { index: selectedIdx } = await $.select({
+    message: "Pick a message to fork from",
+    options: messagePickerOptions(chat.messages),
+    // start on the latest answer so Enter continues it without asking for a model
+    initialIndex: chat.messages.length - 1,
+    noClear: true,
+  })
+
+  const selectedMessage = chat.messages[selectedIdx]
+  const newChat: Chat = {
+    ...createChat(chat.systemPrompt),
+    messages: chat.messages.slice(0, selectedIdx + 1),
+    summary: chat.summary,
+  }
+
+  if (selectedMessage.role === "user") {
+    // default to the model that originally answered this message
+    const nextModel = chat.messages.slice(selectedIdx).find((m) => m.role === "assistant")
+      ?.model
+    const model = await pickModel(nextModel)
+    const chatInput: ChatInput = {
+      chat: newChat,
+      model,
+      config: { search: false, think: undefined },
+    }
+    await genResponse(chatInput, {})
+  } else {
+    console.log(`Forked after ${selectedMessage.model}. Continue with \`ai -r\`.`)
+  }
+  History.save(newChat, { current: true, touch: true })
+}
+
+/** Chat list where Enter resumes and letter keys show, fork, or delete */
+async function historyPicker() {
+  let initialIndex: number | undefined
+  while (true) {
+    const history = History.list()
+    if (history.length === 0) {
+      // we only get here after a delete if the user deleted everything
+      if (initialIndex !== undefined) return
+      throw new ValidationError("No chat history")
+    }
+    await genMissingSummaries(history)
+
+    const chats = R.reverse(history)
+    const picked = await pickWithAction({
+      message: "Chat history",
+      options: chatPickerOptions(chats),
+      initialIndex: initialIndex === undefined
+        ? undefined
+        : Math.min(initialIndex, chats.length - 1),
+    })
+    if (!picked) return
+    const chat = chats[picked.index]
+
+    switch (picked.action) {
+      case "resume":
+        History.touch(chat.id)
+        return
+      case "show":
+        await renderMd(chatToMd({ chat, lastN: 1 }))
+        return
+      case "showAll":
+        await renderMd(chatToMd({ chat, lastN: chat.messages.length }))
+        return
+      case "fork":
+        await forkChat(chat)
+        return
+      case "delete": {
+        const label = truncate(singleLine(chat.summary || "chat"), 60)
+        if (await $.maybeConfirm(`Delete "${label}"?`)) {
+          History.delete([chat.id])
+          console.log(`Deleted "${label}"`)
+        }
+        initialIndex = picked.index
+      }
+    }
+  }
 }
 
 const historyCmd = new Command()
-  .description("List and resume recent chats")
-  .action(pickAndResume)
-  .command("resume", "Pick a recent chat to resume")
-  .action(pickAndResume)
-  .command("show", "Pick a recent chat to show")
-  .option("-a, --all", "Show all messages")
-  .option("-n, --limit <n:integer>", "Number of messages (default 1)", { default: 1 })
-  .action(async (opts) => {
-    const selected = await pickChat("Pick a chat to show")
-    const n = opts.all ? selected.messages.length : opts.limit
-    await renderMd(chatToMd({ chat: selected, lastN: n }))
-  })
+  .description("Browse recent chats: resume, show, fork, or delete")
+  .action(historyPicker)
   .command("delete", "Pick recent chats to delete")
   .action(async () => {
     const history = History.list()
@@ -364,51 +435,6 @@ const modelsCmd = new Command()
     }
   })
 
-const forkCmd = new Command()
-  .description("Fork chat from a specific message with a different model")
-  .option("-m, --model <model:string>", "Select model by substring (e.g., 'sonnet')", {
-    required: true,
-  })
-  .action(async (opts) => {
-    const model = resolveModel(opts.model)
-    if (model.kind === "image") {
-      throw new ValidationError(
-        "Image models cannot fork chats. Use -m with a fresh prompt",
-      )
-    }
-    const currentChat = History.current()
-    if (!currentChat || currentChat.messages.length === 0) {
-      throw new ValidationError("No chat in progress")
-    }
-
-    const { index: selectedIdx } = await $.select({
-      message: "Pick a message to fork from",
-      options: messagePickerOptions(currentChat.messages),
-      noClear: true,
-    })
-
-    const selectedMessage = currentChat.messages[selectedIdx]
-    const newChat: Chat = {
-      ...createChat(currentChat.systemPrompt),
-      messages: currentChat.messages.slice(0, selectedIdx + 1),
-      summary: currentChat.summary,
-    }
-
-    if (selectedMessage.role === "user") {
-      const chatInput: ChatInput = {
-        chat: newChat,
-        model,
-        config: { search: false, think: undefined },
-      }
-      await genResponse(chatInput, {})
-    } else {
-      console.log(
-        `Forked on assistant message with model ${model.id}. You can now continue the chat.`,
-      )
-    }
-    History.save(newChat, { current: true, touch: true })
-  })
-
 function exit(msg: string): never {
   console.log(msg)
   Deno.exit()
@@ -461,7 +487,6 @@ the raw output to stdout.`)
   // top level subcommands
   .command("show", showCmd)
   .command("history", historyCmd)
-  .command("fork", forkCmd)
   .command("gist", gistCmd)
   .command("models", modelsCmd)
   .command("bg", bgCmd)

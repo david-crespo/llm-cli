@@ -229,7 +229,10 @@ export async function gptImageCreateMessage(chatInput: ChatInput): Promise<Model
 const makeOpenAIFunc =
   (baseURL: string, envVarName: string, opts: { think?: boolean } = {}) =>
   async ({ chat, model, signal, outputSchema, config }: ChatInput) => {
-    const client = new OpenAI({ baseURL, apiKey: Deno.env.get(envVarName) })
+    // without this check the SDK would fall back to OPENAI_API_KEY
+    const apiKey = Deno.env.get(envVarName)
+    if (!apiKey) throw new Error(`${envVarName} missing`)
+    const client = new OpenAI({ baseURL, apiKey })
     const systemMsg = chat.systemPrompt
       ? [{ role: "system" as const, content: chat.systemPrompt }]
       : []

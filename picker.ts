@@ -79,7 +79,7 @@ export function formatPickerOptions(
   })
 }
 
-export type PickerAction = "resume" | "show" | "showAll" | "fork" | "delete"
+type PickerAction = "resume" | "show" | "showAll" | "fork" | "delete"
 
 const ACTION_KEYS: Record<string, PickerAction> = {
   r: "resume",

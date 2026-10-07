@@ -38,12 +38,7 @@ import {
 import { History } from "./storage.ts"
 import { genMissingSummaries } from "./summarize.ts"
 import { parseType } from "./schema.ts"
-import {
-  formatPickerOptions,
-  type PickerAction,
-  pickWithAction,
-  singleLine,
-} from "./picker.ts"
+import { formatPickerOptions, pickWithAction, singleLine } from "./picker.ts"
 
 const getLastModelId = (chat: Chat) =>
   chat.messages.findLast((m) => m.role === "assistant")?.model

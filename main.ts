@@ -7,7 +7,7 @@ import $ from "@david/dax"
 
 import * as R from "remeda"
 
-import { models, resolveModel, systemBase } from "./models.ts"
+import { type Model, models, resolveModel, systemBase } from "./models.ts"
 import {
   chatToMd,
   codeBlock,
@@ -31,7 +31,6 @@ import {
   type ModelResponse,
   searchProviders,
   thinkProviders,
-  type ToolConfig,
 } from "./adapters/mod.ts"
 import { History } from "./storage.ts"
 import { genMissingSummaries } from "./summarize.ts"
@@ -187,6 +186,31 @@ async function genResponse(
     // terminal bell to indicate it's done
     if (showProgress) await bell()
   }
+}
+
+/**
+ * The chat a prompt goes to and the model for it: a fresh chat, or for `-r`
+ * the current one.
+ */
+function promptTarget(
+  reply: boolean,
+  modelArg: string | undefined,
+  systemPrompt: string,
+): { chat: Chat; model: Model } {
+  if (!reply) return { chat: createChat(systemPrompt), model: resolveModel(modelArg) }
+
+  const current = History.current()
+  if (!current) throw new ValidationError("Can't reply: no chat in progress")
+  if (current.background) {
+    throw new ValidationError(
+      "Current chat has a pending background response. Run `ai bg resume` or `ai bg cancel` before replying.",
+    )
+  }
+
+  // -r uses same model as last response, but only if there is one and no model is specified
+  const prevModelId = getLastModelId(current)
+  const model = resolveModel(prevModelId && !modelArg ? prevModelId : modelArg)
+  return { chat: current, model }
 }
 
 /** Pick a model for forking from a user message, starting on `defaultId` if given */
@@ -560,29 +584,13 @@ the raw output to stdout.`)
     }
     const input = [stdin, msg].filter(Boolean).join("\n\n")
 
-    const systemPrompt = opts.system || systemBase
-
-    const chat = opts.reply ? History.current() : createChat(systemPrompt)
-    if (!chat) throw new ValidationError("Can't reply: no chat in progress")
-
-    if (opts.reply && chat.background) {
-      throw new ValidationError(
-        "Current chat has a pending background response. Run `ai bg resume` or `ai bg cancel` before replying.",
-      )
-    }
-
-    // -r uses same model as last response, but only if there is one and no model is specified
-    const prevModelId = getLastModelId(chat)
-    const model = resolveModel(
-      opts.reply && prevModelId && !opts.model ? prevModelId : opts.model,
+    const displayOpts = R.pick(opts, ["raw", "verbose", "json"])
+    const { chat, model } = promptTarget(
+      !!opts.reply,
+      opts.model,
+      opts.system || systemBase,
     )
-    // Search is sticky across replies: an explicit -s/--no-search wins, else a
-    // reply inherits the chat's last setting. Persisting it keeps the search
-    // tool stable across turns so prompt caching keeps hitting — every provider
-    // caches on a request prefix that includes the tool definitions, so toggling
-    // search busts the cache (see Chat.search in types.ts).
-    const search = opts.search ?? (opts.reply ? chat.search : undefined) ?? false
-    chat.search = search
+
     const thinkOverride: ThinkOverride = opts.quick
       ? "off"
       : opts.thinkHard
@@ -592,17 +600,26 @@ the raw output to stdout.`)
       : opts.thinkDefault
       ? "default"
       : undefined
-    const think = resolveThink(thinkOverride, opts.reply ? chat.think : undefined)
-    chat.think = think
-    const config: ToolConfig = {
-      search,
-      think,
+    // Search is sticky across replies: an explicit -s/--no-search wins, else a
+    // reply inherits the chat's last setting. Persisting it keeps the search
+    // tool stable across turns so prompt caching keeps hitting — every provider
+    // caches on a request prefix that includes the tool definitions, so toggling
+    // search busts the cache (see Chat.search in types.ts).
+    chat.search = opts.search ?? chat.search ?? false
+    chat.think = resolveThink(thinkOverride, chat.think)
+    const chatInput: ChatInput = {
+      chat,
+      model,
+      config: { search: chat.search, think: chat.think },
+      outputSchema,
+      imageOptions: { quality: opts.quality, size: opts.size },
     }
+
     const problems = requestProblems(model, {
       reply: !!opts.reply,
       system: opts.system !== undefined,
       images: hasImages,
-      config,
+      config: chatInput.config,
       outputSchema: !!outputSchema,
       background: !!opts.background,
       quality: opts.quality,
@@ -621,13 +638,6 @@ the raw output to stdout.`)
       image_urls,
       outputSchema: outputSchema?.expression,
     })
-    const chatInput: ChatInput = {
-      chat,
-      model,
-      config,
-      outputSchema,
-      imageOptions: { quality: opts.quality, size: opts.size },
-    }
 
     if (usesBackground(model, !!opts.background)) {
       try {
@@ -641,13 +651,13 @@ the raw output to stdout.`)
           effort,
         }
         if (!opts.ephemeral) History.save(chat, { current: true, touch: true })
-        await pollBackgroundResponse(chat, model, R.pick(opts, ["raw", "verbose", "json"]))
+        await pollBackgroundResponse(chat, model, displayOpts)
         // deno-lint-ignore no-explicit-any
       } catch (e: any) {
-        renderError(e, R.pick(opts, ["raw", "verbose", "json"]))
+        renderError(e, displayOpts)
       }
     } else {
-      await genResponse(chatInput, R.pick(opts, ["raw", "verbose", "json"]))
+      await genResponse(chatInput, displayOpts)
     }
 
     if (!opts.ephemeral) History.save(chat, { current: true, touch: true })

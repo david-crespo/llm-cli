@@ -27,17 +27,16 @@ import {
   claudeAdaptiveThinking,
   createMessage,
   gptBg,
-  imageInputProviders,
   imageQualities,
   type ModelResponse,
   searchProviders,
   thinkProviders,
   type ToolConfig,
-  validateConfig,
 } from "./adapters/mod.ts"
 import { History } from "./storage.ts"
 import { genMissingSummaries } from "./summarize.ts"
 import { parseType } from "./schema.ts"
+import { requestProblems, usesBackground } from "./validate.ts"
 import { formatPickerOptions, pickWithAction, singleLine } from "./picker.ts"
 
 const getLastModelId = (chat: Chat) =>
@@ -599,43 +598,21 @@ the raw output to stdout.`)
       search,
       think,
     }
-    validateConfig(model.provider, config)
+    const problems = requestProblems(model, {
+      reply: !!opts.reply,
+      system: opts.system !== undefined,
+      images: hasImages,
+      config,
+      outputSchema: !!outputSchema,
+      background: !!opts.background,
+      quality: opts.quality,
+      size: opts.size,
+    })
+    if (problems.length > 0) throw new ValidationError(problems.join("\n"))
 
-    if (model.kind === "image") {
-      // Image models only take a fresh text prompt for now
-      const unsupported = [
-        opts.reply && "-r (use -m to pick a text model)",
-        opts.system !== undefined && "--system",
-        hasImages && "--image",
-        search && "--search",
-        think !== undefined && "thinking flags",
-        outputSchema && "--output-schema",
-        opts.background && "--background",
-      ].filter(Boolean)
-      if (unsupported.length > 0) {
-        throw new ValidationError(
-          `Not supported for image models: ${unsupported.join(", ")}`,
-        )
-      }
-      if (opts.size && !/^(auto|\d+x\d+)$/.test(opts.size)) {
-        throw new ValidationError(`Invalid size '${opts.size}'. Use WIDTHxHEIGHT or auto`)
-      }
-    } else if (opts.quality || opts.size) {
-      throw new ValidationError("--quality and --size only apply to image models")
-    }
-
-    if (hasImages && !imageInputProviders.has(model.provider)) {
-      throw new ValidationError(`Images not supported for ${model.provider}`)
-    }
     const image_urls = hasImages
       ? await Promise.all(imageInputs.map(resolveImage))
       : undefined
-    if (opts.background && model.provider !== "openai") {
-      throw new ValidationError("Background mode only works with OpenAI models")
-    }
-    if (outputSchema && (opts.background || model.id === "gpt-5.4-pro")) {
-      throw new ValidationError("Structured output is not supported in background mode")
-    }
 
     chat.messages.push({
       role: "user",
@@ -652,8 +629,7 @@ the raw output to stdout.`)
       imageOptions: { quality: opts.quality, size: opts.size },
     }
 
-    // no need to pass --background if using gpt-5-pro -- it always needs it
-    if (opts.background || model.id === "gpt-5.4-pro") {
+    if (usesBackground(model, !!opts.background)) {
       try {
         const { id, status, effort } = await gptBg.initiate(chatInput)
         chat.background = {

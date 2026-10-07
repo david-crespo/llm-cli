@@ -1,6 +1,4 @@
-import { ValidationError } from "@cliffy/command"
-
-import type { ChatInput, ModelResponse, ToolConfig } from "./types.ts"
+import type { ChatInput, ModelResponse } from "./types.ts"
 import {
   gptCreateMessage,
   gptImageCreateMessage,
@@ -18,15 +16,6 @@ export { claudeAdaptiveThinking } from "./claude.ts"
 export const searchProviders = new Set(["anthropic", "openai", "google"])
 export const thinkProviders = new Set(["anthropic", "openai", "google", "baseten"])
 export const imageInputProviders = new Set(["anthropic", "openai", "google"])
-
-export function validateConfig(provider: string, config: ToolConfig) {
-  if (config.search && !searchProviders.has(provider)) {
-    throw new ValidationError(`Search not supported for ${provider}`)
-  }
-  if (config.think !== undefined && !thinkProviders.has(provider)) {
-    throw new ValidationError(`Thinking control not supported for ${provider}`)
-  }
-}
 
 export function createMessage(input: ChatInput): Promise<ModelResponse> {
   const { provider } = input.model

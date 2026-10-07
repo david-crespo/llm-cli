@@ -5,6 +5,7 @@ import type { Model } from "../models.ts"
 
 export type ModelResponse = {
   content: string
+  reasoning?: string
   tokens: TokenCounts
   stop_reason: string
   cost: number

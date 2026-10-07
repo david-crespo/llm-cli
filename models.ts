@@ -63,9 +63,19 @@ export const models: Model[] = [
     key: "claude-sonnet-5-5",
     id: "sonnet-5.5",
     input: 2,
-    input_cached: 0.20,
+    input_cached: 0.10,
     input_cache_write: 2.50,
     output: 10,
+    search_cost: 0.01,
+  },
+  {
+    provider: "anthropic",
+    key: "claude-haiku-5-5",
+    id: "haiku-5.5",
+    input: 0.10,
+    input_cached: 0.01,
+    input_cache_write: 0.125,
+    output: 0.50,
     search_cost: 0.01,
   },
   {
@@ -178,7 +188,11 @@ export function getCost(model: Model, tokens: TokenCounts, searches = 0) {
     input * (tokens.input - hits - writes) +
     output * tokens.output
 
-  return tokenCost / M + (search_cost ?? 0) * searches
+  // Haiku 5.5 charges 5x for every token type when the prompt (including
+  // cached tokens) exceeds 100k. Hack until another model needs tiers.
+  const multiplier = model.key === "claude-haiku-5-5" && tokens.input > 100_000 ? 5 : 1
+
+  return multiplier * tokenCost / M + (search_cost ?? 0) * searches
 }
 
 export const systemBase = $.dedent`

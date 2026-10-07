@@ -1,4 +1,4 @@
-import { assertEquals, assertThrows } from "@std/assert"
+import { assertAlmostEquals, assertEquals, assertThrows } from "@std/assert"
 import { ValidationError } from "@cliffy/command"
 import { getCost, type Model, models, resolveModel } from "./models.ts"
 
@@ -108,6 +108,16 @@ Deno.test("getCost - cache writes without write pricing use input price", () => 
   const tokens = { input: 1000, input_cache_write: 300, output: 100 }
   // (4 * 1000 + 20 * 100) / 1_000_000 = 0.006
   assertEquals(getCost(model, tokens), 0.006)
+})
+
+Deno.test("getCost - long context prices apply over threshold", () => {
+  const model = resolveModel("haiku-5.5")
+  const short = { input: 100_000, input_cache_hit: 50_000, output: 1000 }
+  // (0.01 * 50_000 + 0.10 * 50_000 + 0.50 * 1000) / 1_000_000
+  assertAlmostEquals(getCost(model, short), 0.006)
+  const long = { input: 100_001, input_cache_hit: 50_000, output: 1000 }
+  // (0.05 * 50_000 + 0.50 * 50_001 + 2.50 * 1000) / 1_000_000
+  assertAlmostEquals(getCost(model, long), 0.0300005)
 })
 
 Deno.test("getCost - zero tokens", () => {

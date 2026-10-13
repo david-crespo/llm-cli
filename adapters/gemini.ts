@@ -24,24 +24,19 @@ async function imageToInlinePart(image_url: string): Promise<Part> {
 export function geminiThinkParams(key: string, think: ThinkLevel | undefined) {
   // full flash models reject MINIMAL: "Thinking level MINIMAL is not supported"
   const isFlashLite = key.includes("flash-lite")
-  if (think === "high") {
+  // Always send an explicit level rather than relying on per-model server
+  // defaults. Default to "on" like the other providers; flash-lite defaults
+  // to "off" (MINIMAL, also Google's default), like Haiku on Claude.
+  const level = think ?? (isFlashLite ? "off" : "on")
+  if (level === "high") {
     return { thinkingLevel: ThinkingLevel.HIGH, effort: "high" }
   }
-  if (think === "on") {
+  if (level === "on") {
     return { thinkingLevel: ThinkingLevel.MEDIUM, effort: "medium" }
   }
-  if (think === "off") {
-    return isFlashLite
-      ? { thinkingLevel: ThinkingLevel.MINIMAL, effort: "minimal" }
-      : { thinkingLevel: ThinkingLevel.LOW, effort: "low" }
-  }
-
-  const effort = key.includes("flash-lite")
-    ? "minimal"
-    : key.includes("3.5-flash")
-    ? "medium"
-    : "high"
-  return { thinkingLevel: undefined, effort }
+  return isFlashLite
+    ? { thinkingLevel: ThinkingLevel.MINIMAL, effort: "minimal" }
+    : { thinkingLevel: ThinkingLevel.LOW, effort: "low" }
 }
 
 export async function geminiCreateMessage(

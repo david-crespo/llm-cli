@@ -56,7 +56,6 @@ export const models: Model[] = [
     input_cache_write: 5,
     output: 20,
     search_cost: 0.01,
-    default: true,
   },
   {
     provider: "anthropic",
@@ -122,6 +121,21 @@ export const models: Model[] = [
     input: 5,
     input_cached: 1.25,
     output: 30,
+  },
+  {
+    provider: "google",
+    key: "gemini-4-argon",
+    id: "gemini-4-argon",
+    input: 2,
+    input_cached: 0.10,
+    output: 10,
+    // Introductory pricing through November 30, 2026; doubles to 4/20/0.20
+    // starting December 1, 2026.
+    // 5,000 search queries/month free (shared across Gemini 3 and newer
+    // models), then $14 / 1,000. We never get anywhere near the limit, so
+    // treat as free.
+    search_cost: 0,
+    default: true,
   },
   {
     provider: "google",

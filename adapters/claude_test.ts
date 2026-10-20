@@ -2,14 +2,17 @@ import { assertEquals } from "@std/assert"
 
 import { claudeThinkParams } from "./claude.ts"
 
-Deno.test("Sonnet 5 uses adaptive thinking with effort levels", () => {
-  const params = claudeThinkParams("claude-sonnet-5", "high")
+Deno.test("Claude uses adaptive thinking with effort levels", () => {
+  const params = claudeThinkParams("high")
   assertEquals(params.thinking?.type, "adaptive")
   assertEquals(params.output_config?.effort, "xhigh")
   assertEquals(params.effort, "xhigh")
 })
 
-Deno.test("manual Claude thinking reports token budgets", () => {
-  assertEquals(claudeThinkParams("claude-haiku-4-5", undefined).effort, "off")
-  assertEquals(claudeThinkParams("claude-haiku-4-5", "on").effort, "4k")
+Deno.test("Claude leaves effort at the API default unless asked", () => {
+  const params = claudeThinkParams(undefined)
+  assertEquals(params.thinking.type, "adaptive")
+  assertEquals(params.output_config, undefined)
+  assertEquals(params.max_tokens, 20_000)
+  assertEquals(claudeThinkParams("off").max_tokens, 8_000)
 })

@@ -11,7 +11,6 @@ export type { ChatInput, ImageOptions, ModelResponse, ToolConfig } from "./types
 export { imageQualities } from "./types.ts"
 export type { ThinkLevel } from "../types.ts"
 export { gptBg } from "./openai.ts"
-export { claudeAdaptiveThinking } from "./claude.ts"
 
 export const searchProviders = new Set(["anthropic", "openai", "google"])
 export const thinkProviders = new Set(["anthropic", "openai", "google", "baseten"])

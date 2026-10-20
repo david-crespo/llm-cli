@@ -45,74 +45,29 @@ function renderClaudeContentBlock(msg: Anthropic.Beta.Messages.BetaContentBlock)
 }
 
 type ClaudeThinkParams = {
-  thinking: Anthropic.Beta.BetaThinkingConfigParam | undefined
+  thinking: Anthropic.Beta.BetaThinkingConfigParam
   output_config: Anthropic.Beta.BetaOutputConfig | undefined
   max_tokens: number
   effort: string
 }
 
-/**
- * Fable's thinking can't be turned off; on the other adaptive models we want it
- * on by default anyway. Haiku 4.5 is the only remaining non-adaptive one.
- *
- * When Haiku 4.5 drops off the model list, delete this and the `!adaptive`
- * branches below: `thinking` becomes an unconditional adaptive/summarized,
- * `max_tokens` becomes `think === "off" ? 8_000 : 20_000`, and the `undefined`
- * case folds into the effort match via `.otherwise(() => "high")` — sending an
- * explicit `effort: "high"` is equivalent to omitting `output_config`, assuming
- * high is still the API default at that point. The `modelInfoMd` branch in
- * main.ts and the manual-budget test in claude_test.ts go away too.
- */
-export const claudeAdaptiveThinking = (key: string) => key !== "claude-haiku-4-5"
-
-export function claudeThinkParams(
-  key: string,
-  think: ThinkLevel | undefined,
-): ClaudeThinkParams {
-  const adaptive = claudeAdaptiveThinking(key)
-
-  // SDK's non-streaming guard throws when max_tokens > ~21_333 (it assumes
-  // 128k tokens/hour and refuses requests estimated to take >10 min).
-  // Adaptive models think at effort high by default, so they need the bigger
-  // cap whenever thinking isn't minimized.
-  const max_tokens = think === "high" || (adaptive && think !== "off") ? 20_000 : 8_000
-
-  if (think === undefined) {
-    if (adaptive) {
-      // Adaptive thinking, effort defaults to high. Set thinking only for
-      // display: "summarized" — Fable and Opus default to "omitted", which
-      // blanks the text --verbose shows.
-      return {
-        thinking: { type: "adaptive", display: "summarized" },
-        output_config: undefined,
-        max_tokens,
-        effort: "high",
-      }
-    }
-    return {
-      thinking: undefined,
-      output_config: undefined,
-      max_tokens,
-      effort: "off",
-    }
-  }
-
-  if (!adaptive) {
-    const thinking = match(think)
-      .returnType<Anthropic.Beta.BetaThinkingConfigParam>()
-      .with("on", () => ({ type: "enabled", budget_tokens: 4000 }))
-      .with("high", () => ({ type: "enabled", budget_tokens: 16000 }))
-      .with("off", () => ({ type: "disabled" }))
-      .exhaustive()
-    const effort = think === "on" ? "4k" : think === "high" ? "16k" : "off"
-    return { thinking, output_config: undefined, max_tokens, effort }
-  }
-
-  // Force display: "summarized" so --verbose shows reasoning. --quick lowers
-  // effort rather than disabling thinking.
+export function claudeThinkParams(think: ThinkLevel | undefined): ClaudeThinkParams {
+  // Every Claude model thinks adaptively. Force display: "summarized" so
+  // --verbose shows reasoning: Fable and Opus default to "omitted". --quick
+  // lowers effort rather than disabling thinking.
   const thinking: Anthropic.Beta.BetaThinkingConfigParam = {
     type: "adaptive",
     display: "summarized",
+  }
+
+  // SDK's non-streaming guard throws when max_tokens > ~21_333 (it assumes
+  // 128k tokens/hour and refuses requests estimated to take >10 min).
+  // Effort high and up needs the bigger cap.
+  const max_tokens = think === "off" ? 8_000 : 20_000
+
+  // Leave effort at the API default, high
+  if (think === undefined) {
+    return { thinking, output_config: undefined, max_tokens, effort: "high" }
   }
 
   const effort = match(think)
@@ -134,10 +89,7 @@ export async function claudeCreateMessage(
     toolsList.push({ type: "code_execution_20260120", name: "code_execution" })
   }
 
-  const { thinking, output_config, max_tokens, effort } = claudeThinkParams(
-    model.key,
-    config.think,
-  )
+  const { thinking, output_config, max_tokens, effort } = claudeThinkParams(config.think)
 
   const prep = outputSchema ? prepareSchema(outputSchema) : undefined
   const format: Anthropic.Beta.BetaJSONOutputFormat | undefined = prep

@@ -1,5 +1,16 @@
 import stringWidth from "string-width"
-import { Select } from "@cliffy/prompt/select"
+import {
+  createPrompt,
+  ExitPromptError,
+  isDownKey,
+  isEnterKey,
+  isUpKey,
+  makeTheme,
+  useKeypress,
+  usePagination,
+  usePrefix,
+  useState,
+} from "@inquirer/core"
 
 const COLUMN_GAP = 3
 const SELECT_PREFIX_WIDTH = 2
@@ -108,32 +119,55 @@ export function keyAction(event: KeyEvent): PickerAction | "quit" | undefined {
   return ACTION_KEYS[key]
 }
 
-/** Cliffy select where letter keys submit the highlighted row with an action. */
-class ActionSelect extends Select<string> {
-  action: PickerAction | "quit" | undefined
+type Picked = { index: number; action: PickerAction | "quit" }
 
-  protected override async handleEvent(event: KeyEvent): Promise<void> {
-    const action = keyAction(event)
+/** Select where Enter resumes and letter keys submit the highlighted row with an action. */
+const actionSelect = createPrompt<
+  Picked,
+  {
+    message: string
+    options: string[]
+    initialIndex?: number
+    hint: string
+    pageSize: number
+  }
+>((config, done) => {
+  const theme = makeTheme()
+  const [active, setActive] = useState(config.initialIndex ?? 0)
+  const [picked, setPicked] = useState<Picked | undefined>(undefined)
+  const status = picked ? "done" : "idle"
+  const prefix = usePrefix({ status, theme })
+  const last = config.options.length - 1
+
+  useKeypress((key) => {
+    const action = isEnterKey(key) ? "resume" : keyAction(key)
     if (action) {
-      this.action = action
-      await this.submit()
-      return
-    }
-    // deno-lint-ignore no-explicit-any
-    await super.handleEvent(event as any)
-  }
+      const result = { index: active, action }
+      setPicked(result)
+      done(result)
+    } else if (isUpKey(key, ["vim"])) setActive(Math.max(0, active - 1))
+    else if (isDownKey(key, ["vim"])) setActive(Math.min(last, active + 1))
+    else if (key.name === "pageup") setActive(Math.max(0, active - config.pageSize))
+    else if (key.name === "pagedown") setActive(Math.min(last, active + config.pageSize))
+  })
 
-  // We only use `default` to place the cursor, so don't echo it after the message
-  protected override defaults(): string {
-    return ""
-  }
+  const page = usePagination({
+    items: config.options,
+    active,
+    pageSize: config.pageSize,
+    loop: false,
+    renderItem: ({ item, isActive }) =>
+      isActive ? theme.style.highlight(`❯ ${item}`) : `  ${item}`,
+  })
+  const message = theme.style.message(config.message, status)
 
-  protected override success(value: string): string | undefined {
+  if (picked) {
     // Quitting and deleting leave no trace of the prompt
-    if (this.action === "quit" || this.action === "delete") return undefined
-    return super.success(value)
+    if (picked.action === "quit" || picked.action === "delete") return ""
+    return `${prefix} ${message} ${theme.style.answer(config.options[picked.index])}`
   }
-}
+  return [`${prefix} ${message}\n${page}`, theme.style.help(config.hint)]
+})
 
 function terminalRows(): number {
   try {
@@ -152,25 +186,17 @@ export async function pickWithAction(opts: {
   options: string[]
   initialIndex?: number
 }): Promise<{ index: number; action: PickerAction } | undefined> {
-  const hint = "enter resume · s show last · S show all · f fork · d delete · q quit"
-  const select = new ActionSelect({
-    message: opts.message,
-    options: opts.options.map((name, i) => ({ name, value: String(i) })),
-    default: opts.initialIndex === undefined ? undefined : String(opts.initialIndex),
-    hint,
-    // leave room for the message and hint lines
-    maxRows: Math.max(3, terminalRows() - 3),
-    // The default keymap puts several letters on navigation (d, n, u, p, h, l)
-    keys: {
-      next: ["down", "j"],
-      previous: ["up", "k"],
-      nextPage: ["pagedown"],
-      previousPage: ["pageup"],
-      open: [],
-      back: [],
-    },
-  })
-  const value = await select.prompt()
-  if (select.action === "quit") return undefined
-  return { index: Number(value), action: select.action ?? "resume" }
+  try {
+    const { index, action } = await actionSelect({
+      ...opts,
+      hint: "enter resume · s show last · S show all · f fork · d delete · q quit",
+      // leave room for the message and hint lines
+      pageSize: Math.max(3, terminalRows() - 3),
+    })
+    return action === "quit" ? undefined : { index, action }
+  } catch (e) {
+    // Ctrl+C
+    if (e instanceof ExitPromptError) return undefined
+    throw e
+  }
 }

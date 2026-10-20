@@ -120,7 +120,7 @@ for (const testCase of cases) {
           headers: { "content-type": "image/webp; charset=binary" },
         })
       }
-      requestBody = await request.json()
+      requestBody = await request.json() as Record<string, unknown>
       return Response.json(testCase.response)
     }
     try {
@@ -196,7 +196,7 @@ Deno.test("OpenAI background requests use high image detail and send only the ch
   let requestBody: Record<string, unknown> | undefined
   process.env["OPENAI_API_KEY"] = "test-key"
   globalThis.fetch = async (input, init) => {
-    requestBody = await new Request(input, init).json()
+    requestBody = await new Request(input, init).json() as Record<string, unknown>
     return Response.json({ id: "new-response", output: [], status: "queued" })
   }
   try {

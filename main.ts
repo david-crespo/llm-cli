@@ -1,4 +1,4 @@
-#! /usr/bin/env -S deno run --allow-env --allow-read --allow-write --allow-net --allow-run=gh,osascript,sips
+#!/usr/bin/env node
 
 import process from "node:process"
 import { text } from "node:stream/consumers"

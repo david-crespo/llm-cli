@@ -2,7 +2,7 @@ import { markdownTable } from "markdown-table"
 import { readFile } from "node:fs/promises"
 import process from "node:process"
 
-import { Chat, type ChatMessage } from "./types.ts"
+import type { Chat, ChatMessage } from "./types.ts"
 import { models, systemBase } from "./models.ts"
 import { renderMarkdown } from "./md-render.ts"
 import { imageColumns, kittyPng, supportsKittyGraphics } from "./terminal-image.ts"

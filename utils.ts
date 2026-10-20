@@ -102,10 +102,7 @@ async function readClipboardImage(): Promise<Uint8Array> {
       "Clipboard image paste is only supported on macOS",
     )
   }
-  // Pinned to /tmp so the shebang can scope --allow-write narrowly. Deno's
-  // default temp dir on macOS is $TMPDIR (/var/folders/...), which can't be
-  // expressed statically in a shebang.
-  const tmpPath = `/tmp/llm-clipboard-${crypto.randomUUID()}.png`
+  const tmpPath = join(tmpdir(), `llm-clipboard-${crypto.randomUUID()}.png`)
   try {
     const result = await $`osascript \
       -e ${`set png_data to (the clipboard as «class PNGf»)`} \
@@ -152,9 +149,7 @@ async function convertHeicImage(value: string, runSips: SipsRunner): Promise<Uin
     const msg = e instanceof Error ? e.message : String(e)
     throw new ValidationError(`Could not read image at '${value}': ${msg}`)
   }
-  const tmpDir = await mkdtemp(
-    join(process.platform === "darwin" ? "/tmp" : tmpdir(), "llm-heic-"),
-  )
+  const tmpDir = await mkdtemp(join(tmpdir(), "llm-heic-"))
   try {
     const outputPath = join(tmpDir, "converted.jpg")
     let result: Awaited<ReturnType<SipsRunner>>

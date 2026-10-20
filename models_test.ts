@@ -1,4 +1,5 @@
-import { assertAlmostEquals, assertEquals, assertThrows } from "@std/assert"
+import assert from "node:assert/strict"
+import { assertAlmostEqual, errorIncluding } from "./testing.ts"
 import { ValidationError } from "./errors.ts"
 import { getCost, type Model, models, resolveModel } from "./models.ts"
 
@@ -43,7 +44,7 @@ Deno.test("getCost - basic calculation without caching", () => {
   }
   const tokens = { input: 1000, output: 500 }
   // (3 * 1000 + 15 * 500) / 1_000_000 = 10500 / 1_000_000 = 0.0105
-  assertEquals(getCost(model, tokens), 0.0105)
+  assert.deepEqual(getCost(model, tokens), 0.0105)
 })
 
 Deno.test("getCost - with cache hit pricing", () => {
@@ -60,7 +61,7 @@ Deno.test("getCost - with cache hit pricing", () => {
   // uncached: 3 * (1000 - 800) = 600
   // output: 15 * 500 = 7500
   // total: (240 + 600 + 7500) / 1_000_000 = 0.00834
-  assertEquals(getCost(model, tokens), 0.00834)
+  assert.deepEqual(getCost(model, tokens), 0.00834)
 })
 
 Deno.test("getCost - cache hit but no cached pricing uses regular input price", () => {
@@ -75,7 +76,7 @@ Deno.test("getCost - cache hit but no cached pricing uses regular input price", 
   const tokens = { input: 1000, input_cache_hit: 800, output: 500 }
   // Falls back to regular calculation since no input_cached price
   // (3 * 1000 + 15 * 500) / 1_000_000 = 0.0105
-  assertEquals(getCost(model, tokens), 0.0105)
+  assert.deepEqual(getCost(model, tokens), 0.0105)
 })
 
 Deno.test("getCost - cache writes priced at write rate", () => {
@@ -94,7 +95,7 @@ Deno.test("getCost - cache writes priced at write rate", () => {
   // uncached: 4 * (1000 - 600 - 300) = 400
   // output: 20 * 100 = 2000
   // total: (240 + 1500 + 400 + 2000) / 1_000_000 = 0.00414
-  assertEquals(getCost(model, tokens), 0.00414)
+  assert.deepEqual(getCost(model, tokens), 0.00414)
 })
 
 Deno.test("getCost - cache writes without write pricing use input price", () => {
@@ -107,17 +108,17 @@ Deno.test("getCost - cache writes without write pricing use input price", () => 
   }
   const tokens = { input: 1000, input_cache_write: 300, output: 100 }
   // (4 * 1000 + 20 * 100) / 1_000_000 = 0.006
-  assertEquals(getCost(model, tokens), 0.006)
+  assert.deepEqual(getCost(model, tokens), 0.006)
 })
 
 Deno.test("getCost - long context prices apply over threshold", () => {
   const model = resolveModel("haiku-5.5")
   const short = { input: 100_000, input_cache_hit: 50_000, output: 1000 }
   // (0.01 * 50_000 + 0.10 * 50_000 + 0.50 * 1000) / 1_000_000
-  assertAlmostEquals(getCost(model, short), 0.006)
+  assertAlmostEqual(getCost(model, short), 0.006)
   const long = { input: 100_001, input_cache_hit: 50_000, output: 1000 }
   // (0.05 * 50_000 + 0.50 * 50_001 + 2.50 * 1000) / 1_000_000
-  assertAlmostEquals(getCost(model, long), 0.0300005)
+  assertAlmostEqual(getCost(model, long), 0.0300005)
 })
 
 Deno.test("getCost - zero tokens", () => {
@@ -129,45 +130,44 @@ Deno.test("getCost - zero tokens", () => {
     output: 15,
   }
   const tokens = { input: 0, output: 0 }
-  assertEquals(getCost(model, tokens), 0)
+  assert.deepEqual(getCost(model, tokens), 0)
 })
 
 // resolveModel tests
 
 Deno.test("resolveModel - returns default when undefined", () => {
-  assertEquals(resolveTestModel(undefined), testModels[2])
+  assert.deepEqual(resolveTestModel(undefined), testModels[2])
 })
 
 Deno.test("resolveModel - exact match on id", () => {
-  assertEquals(resolveTestModel("alpha"), testModels[2])
+  assert.deepEqual(resolveTestModel("alpha"), testModels[2])
 })
 
 Deno.test("resolveModel - exact match on key", () => {
-  assertEquals(resolveTestModel("vendor-alpha"), testModels[2])
+  assert.deepEqual(resolveTestModel("vendor-alpha"), testModels[2])
 })
 
 Deno.test("resolveModel - substring match on id", () => {
-  assertEquals(resolveTestModel("alpha-"), testModels[0])
+  assert.deepEqual(resolveTestModel("alpha-"), testModels[0])
 })
 
 Deno.test("resolveModel - substring match on key", () => {
-  assertEquals(resolveTestModel("vendor-alpha-"), testModels[0])
+  assert.deepEqual(resolveTestModel("vendor-alpha-"), testModels[0])
 })
 
 Deno.test("resolveModel - case insensitive", () => {
-  assertEquals(resolveTestModel("ALPHA-"), testModels[0])
+  assert.deepEqual(resolveTestModel("ALPHA-"), testModels[0])
 })
 
 Deno.test("resolveModel - throws on unknown model", () => {
-  assertThrows(
+  assert.throws(
     () => resolveTestModel("nonexistent-model-xyz"),
-    ValidationError,
-    "not found",
+    errorIncluding(ValidationError, "not found"),
   )
 })
 
 Deno.test("Must have exactly one default model", () => {
-  assertEquals(models.filter((m) => m.default).length, 1)
+  assert.deepEqual(models.filter((m) => m.default).length, 1)
 })
 
 // Modules that resolve hard-coded aliases at module scope (like
@@ -178,7 +178,7 @@ Deno.test("modules with hard-coded model aliases import cleanly", async () => {
 })
 
 Deno.test("image models resolve by nickname without shadowing text models", () => {
-  assertEquals(resolveModel("flare").key, "gpt-image-2.5-flare")
-  assertEquals(resolveModel("sunburst").key, "gpt-image-2.5-sunburst")
-  assertEquals(resolveModel("gpt").kind, undefined)
+  assert.deepEqual(resolveModel("flare").key, "gpt-image-2.5-flare")
+  assert.deepEqual(resolveModel("sunburst").key, "gpt-image-2.5-sunburst")
+  assert.deepEqual(resolveModel("gpt").kind, undefined)
 })

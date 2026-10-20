@@ -1,4 +1,4 @@
-import { assert, assertEquals } from "@std/assert"
+import assert from "node:assert/strict"
 import stringWidth from "string-width"
 import { alignColumns, formatPickerOptions, keyAction } from "./picker.ts"
 
@@ -16,7 +16,7 @@ Deno.test("picker options stay single-line and preserve their row mapping", () =
     },
   ], 60)
 
-  assertEquals(options.length, 2)
+  assert.deepEqual(options.length, 2)
   assert(options.every((option) => !option.includes("\n")))
   assert(options.every((option) => stringWidth(option) <= 58))
   assert(options[0].includes("…"))
@@ -36,21 +36,21 @@ Deno.test("picker options retain full summaries when they fit", () => {
 })
 
 Deno.test("picker keys map to actions and leave navigation alone", () => {
-  assertEquals(keyAction({ name: "r" }), "resume")
-  assertEquals(keyAction({ name: "s" }), "show")
-  assertEquals(keyAction({ name: "s", shift: true }), "showAll")
-  assertEquals(keyAction({ name: "f" }), "fork")
-  assertEquals(keyAction({ name: "d" }), "delete")
-  assertEquals(keyAction({ name: "q" }), "quit")
-  assertEquals(keyAction({ name: "escape" }), "quit")
-  assertEquals(keyAction({ name: "j" }), undefined)
-  assertEquals(keyAction({ name: "return" }), undefined)
-  assertEquals(keyAction({ name: "d", ctrl: true }), undefined)
-  assertEquals(keyAction({ name: "c", ctrl: true }), undefined)
+  assert.deepEqual(keyAction({ name: "r" }), "resume")
+  assert.deepEqual(keyAction({ name: "s" }), "show")
+  assert.deepEqual(keyAction({ name: "s", shift: true }), "showAll")
+  assert.deepEqual(keyAction({ name: "f" }), "fork")
+  assert.deepEqual(keyAction({ name: "d" }), "delete")
+  assert.deepEqual(keyAction({ name: "q" }), "quit")
+  assert.deepEqual(keyAction({ name: "escape" }), "quit")
+  assert.deepEqual(keyAction({ name: "j" }), undefined)
+  assert.deepEqual(keyAction({ name: "return" }), undefined)
+  assert.deepEqual(keyAction({ name: "d", ctrl: true }), undefined)
+  assert.deepEqual(keyAction({ name: "c", ctrl: true }), undefined)
 })
 
 Deno.test("alignColumns pads every column but the last to its widest cell", () => {
-  assertEquals(
+  assert.deepEqual(
     alignColumns([
       ["1", "user", "hello"],
       ["10", "opus-5 🦀", "hi"],
@@ -60,5 +60,5 @@ Deno.test("alignColumns pads every column but the last to its widest cell", () =
       "10   opus-5 🦀   hi",
     ],
   )
-  assertEquals(alignColumns([]), [])
+  assert.deepEqual(alignColumns([]), [])
 })

@@ -1,4 +1,5 @@
-import { assertEquals, assertThrows } from "@std/assert"
+import assert from "node:assert/strict"
+import { errorIncluding } from "./testing.ts"
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import process from "node:process"
@@ -35,8 +36,8 @@ Deno.test("History.save stores chats independently and tracks current", () => {
     History.save(chat("one", "2026-01-01T00:00:00Z"), { current: true })
     History.save(chat("two", "2026-01-02T00:00:00Z"), { current: true })
 
-    assertEquals(History.list().map((c) => c.id), ["one", "two"])
-    assertEquals(History.current()?.id, "two")
+    assert.deepEqual(History.list().map((c) => c.id), ["one", "two"])
+    assert.deepEqual(History.current()?.id, "two")
   })
 })
 
@@ -51,7 +52,7 @@ Deno.test("History preserves multiple images and loads legacy single-image messa
       image_urls: images,
     })
     History.save(saved, { current: true })
-    assertEquals(History.current()?.messages[0], saved.messages[0])
+    assert.deepEqual(History.current()?.messages[0], saved.messages[0])
 
     const path = join(stateHome, "llm-cli", "chats", "images.json")
     const legacy = JSON.parse(readFileSync(path, "utf8"))
@@ -60,17 +61,20 @@ Deno.test("History preserves multiple images and loads legacy single-image messa
     writeFileSync(path, JSON.stringify(legacy))
 
     const loaded = History.current()!
-    assertEquals(loaded.messages[0], {
+    assert.deepEqual(loaded.messages[0], {
       role: "user",
       content: "Compare these",
       createdAt: saved.createdAt,
       image_urls: [images[0]],
     })
-    assertEquals(JSON.parse(readFileSync(path, "utf8")).messages[0].image_url, images[0])
+    assert.deepEqual(
+      JSON.parse(readFileSync(path, "utf8")).messages[0].image_url,
+      images[0],
+    )
     History.save(loaded)
     const persisted = JSON.parse(readFileSync(path, "utf8")).messages[0]
-    assertEquals(persisted.image_urls, [images[0]])
-    assertEquals("image_url" in persisted, false)
+    assert.deepEqual(persisted.image_urls, [images[0]])
+    assert.deepEqual("image_url" in persisted, false)
   })
 })
 
@@ -81,8 +85,8 @@ Deno.test("History.delete removes selected chat without rewriting others", () =>
 
     History.delete(["one"])
 
-    assertEquals(History.list().map((c) => c.id), ["two"])
-    assertEquals(History.current()?.id, "two")
+    assert.deepEqual(History.list().map((c) => c.id), ["two"])
+    assert.deepEqual(History.current()?.id, "two")
   })
 })
 
@@ -92,7 +96,7 @@ Deno.test("History.clear removes every chat", () => {
 
     History.clear()
 
-    assertEquals(History.list(), [])
+    assert.deepEqual(History.list(), [])
   })
 })
 
@@ -106,23 +110,19 @@ Deno.test("History.save rejects stale same-chat writes", () => {
     History.save(first)
 
     second.summary = "second"
-    assertThrows(
-      () => History.save(second),
-      Error,
-      "changed concurrently",
-    )
-    assertEquals(History.current()?.summary, "first")
+    assert.throws(() => History.save(second), errorIncluding(Error, "changed concurrently"))
+    assert.deepEqual(History.current()?.summary, "first")
   })
 })
 
 Deno.test("imageFilename uses local timestamp and prompt slug", () => {
   const date = new Date(2026, 8, 23, 14, 5, 9)
-  assertEquals(
+  assert.deepEqual(
     imageFilename("A cat, in a hat!", date, "png"),
     "20260923-140509-a-cat-in-a-hat.png",
   )
-  assertEquals(imageFilename("", date, "png", 1), "20260923-140509-2.png")
-  assertEquals(
+  assert.deepEqual(imageFilename("", date, "png", 1), "20260923-140509-2.png")
+  assert.deepEqual(
     imageFilename("x".repeat(50) + " tail", date, "png"),
     `20260923-140509-${"x".repeat(40)}.png`,
   )
@@ -136,7 +136,7 @@ Deno.test("saveImage keeps an existing file with the same name", () => {
     mkdirSync(dir, { recursive: true })
     writeFileSync(existing, new Uint8Array([1]))
     const saved = saveImage(new Uint8Array([2]), "same prompt", "png", 0, date)
-    assertEquals([...readFileSync(existing)], [1])
-    assertEquals([...readFileSync(saved)], [2])
+    assert.deepEqual([...readFileSync(existing)], [1])
+    assert.deepEqual([...readFileSync(saved)], [2])
   })
 })

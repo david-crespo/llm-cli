@@ -1,4 +1,5 @@
-import { assertAlmostEquals, assertEquals, assertThrows } from "@std/assert"
+import assert from "node:assert/strict"
+import { assertAlmostEqual, errorIncluding } from "../testing.ts"
 import { Buffer } from "node:buffer"
 
 import { resolveModel } from "../models.ts"
@@ -6,9 +7,9 @@ import { gptImageParams, openAIEffort, processGptImageResponse } from "./openai.
 import type { ChatInput } from "./types.ts"
 
 Deno.test("OpenAI reasoning intent resolves to native effort", () => {
-  assertEquals(openAIEffort(undefined), "medium")
-  assertEquals(openAIEffort("high"), "high")
-  assertEquals(openAIEffort("off"), "none")
+  assert.deepEqual(openAIEffort(undefined), "medium")
+  assert.deepEqual(openAIEffort("high"), "high")
+  assert.deepEqual(openAIEffort("off"), "none")
 })
 
 Deno.test("image response saves each image and prices usage", () => {
@@ -32,12 +33,12 @@ Deno.test("image response saves each image and prices usage", () => {
       return `/images/${i}.png`
     },
   )
-  assertEquals(saved, [[3, 0]])
-  assertEquals(response.images, ["/images/0.png"])
-  assertEquals(response.content, "/images/0.png")
-  assertEquals(response.effort, "low")
+  assert.deepEqual(saved, [[3, 0]])
+  assert.deepEqual(response.images, ["/images/0.png"])
+  assert.deepEqual(response.content, "/images/0.png")
+  assert.deepEqual(response.effort, "low")
   // (20 * 5 + 200 * 30) / 1_000_000
-  assertAlmostEquals(response.cost, 0.0061)
+  assertAlmostEqual(response.cost, 0.0061)
 })
 
 Deno.test("image generation rejects history and input images before requesting", () => {
@@ -47,7 +48,7 @@ Deno.test("image generation rejects history and input images before requesting",
     model: resolveModel("flare"),
     config: { search: false, think: undefined },
   }
-  assertEquals(gptImageParams(input).prompt, "a cat")
+  assert.deepEqual(gptImageParams(input).prompt, "a cat")
   for (
     const messages of [
       [user, { ...user, content: "make it blue" }],
@@ -59,6 +60,9 @@ Deno.test("image generation rejects history and input images before requesting",
     ]
   ) {
     input.chat.messages = messages
-    assertThrows(() => gptImageParams(input), Error, "fresh text-only prompt")
+    assert.throws(
+      () => gptImageParams(input),
+      errorIncluding(Error, "fresh text-only prompt"),
+    )
   }
 })

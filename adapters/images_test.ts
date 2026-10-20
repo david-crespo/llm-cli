@@ -1,4 +1,5 @@
-import { assertEquals, assertRejects } from "@std/assert"
+import assert from "node:assert/strict"
+import { errorIncluding } from "../testing.ts"
 import process from "node:process"
 import { ValidationError } from "../errors.ts"
 import { type } from "arktype"
@@ -128,7 +129,7 @@ for (const testCase of cases) {
         model: resolveModel(testCase.model),
         config: { search: false, think: undefined },
       })
-      assertEquals(
+      assert.deepEqual(
         requestBody?.messages ?? requestBody?.input ?? requestBody?.contents,
         testCase.messages,
       )
@@ -175,14 +176,13 @@ Deno.test("Gemini size validation matches the SDK's wire body including schema a
     await createMessage(input)
     message.content = "x".repeat(20_000_000 - wireSizes[0] + 1)
     await createMessage(input)
-    assertEquals(wireSizes[1], 20_000_000)
+    assert.deepEqual(wireSizes[1], 20_000_000)
     message.content += "x"
-    await assertRejects(
+    await assert.rejects(
       () => createMessage(input),
-      ValidationError,
-      "Gemini request is larger than the 20 MB limit",
+      errorIncluding(ValidationError, "Gemini request is larger than the 20 MB limit"),
     )
-    assertEquals(wireSizes.length, 2)
+    assert.deepEqual(wireSizes.length, 2)
   } finally {
     globalThis.fetch = originalFetch
     if (oldKey === undefined) delete process.env["GEMINI_API_KEY"]
@@ -234,16 +234,16 @@ Deno.test("OpenAI background requests use high image detail and send only the ch
         ],
       },
     })
-    assertEquals(requestBody?.input, [{
+    assert.deepEqual(requestBody?.input, [{
       role: "user",
       content: [
         { type: "input_image", image_url: secondImage, detail: "high" },
         { type: "input_image", image_url: imageUrl, detail: "high" },
       ],
     }])
-    assertEquals(requestBody?.previous_response_id, "previous-response")
-    assertEquals(requestBody?.background, true)
-    assertEquals(requestBody?.store, true)
+    assert.deepEqual(requestBody?.previous_response_id, "previous-response")
+    assert.deepEqual(requestBody?.background, true)
+    assert.deepEqual(requestBody?.store, true)
   } finally {
     globalThis.fetch = originalFetch
     if (oldKey === undefined) delete process.env["OPENAI_API_KEY"]
@@ -306,30 +306,26 @@ for (
       return Promise.resolve(Response.json(response))
     }
     try {
-      await assertRejects(
-        () =>
-          createMessage({
-            model: resolveModel(testCase.model),
-            config: { search: false, think: undefined },
-            chat: {
-              id: "test",
-              createdAt: new Date(0),
-              systemPrompt: "test",
-              messages: [
-                {
-                  role: "user",
-                  content: testCase.prompt,
-                  image_urls: testCase.images,
-                  createdAt: new Date(0),
-                },
-                { role: "user", content: "Follow up", createdAt: new Date(0) },
-              ],
-            },
-          }),
-        ValidationError,
-        testCase.error,
-      )
-      assertEquals(apiCalls, 0)
+      await assert.rejects(() =>
+        createMessage({
+          model: resolveModel(testCase.model),
+          config: { search: false, think: undefined },
+          chat: {
+            id: "test",
+            createdAt: new Date(0),
+            systemPrompt: "test",
+            messages: [
+              {
+                role: "user",
+                content: testCase.prompt,
+                image_urls: testCase.images,
+                createdAt: new Date(0),
+              },
+              { role: "user", content: "Follow up", createdAt: new Date(0) },
+            ],
+          },
+        }), errorIncluding(ValidationError, testCase.error))
+      assert.deepEqual(apiCalls, 0)
     } finally {
       globalThis.fetch = originalFetch
       if (oldKey === undefined) delete process.env[testCase.env]

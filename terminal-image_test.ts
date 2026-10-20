@@ -1,5 +1,5 @@
 // deno-lint-ignore-file no-control-regex
-import { assert, assertEquals } from "@std/assert"
+import assert from "node:assert/strict"
 import {
   imageColumns,
   kittyPng,
@@ -17,26 +17,26 @@ function fakePng(width: number, height: number, extra = 0) {
 }
 
 Deno.test("pngDimensions reads IHDR", () => {
-  assertEquals(pngDimensions(fakePng(1536, 1024)), { width: 1536, height: 1024 })
+  assert.deepEqual(pngDimensions(fakePng(1536, 1024)), { width: 1536, height: 1024 })
 })
 
 Deno.test("imageColumns caps at 80 and fits the screen height", () => {
   const term = { columns: 200, rows: 100 }
-  assertEquals(imageColumns(fakePng(1024, 1024), term), 80)
+  assert.deepEqual(imageColumns(fakePng(1024, 1024), term), 80)
   // 44 usable rows × 2 cells tall per column → 88 columns for a square image
-  assertEquals(imageColumns(fakePng(1024, 1024), { columns: 200, rows: 48 }), 80)
-  assertEquals(imageColumns(fakePng(1024, 1024), { columns: 200, rows: 24 }), 40)
-  assertEquals(imageColumns(fakePng(1024, 1024), { columns: 30, rows: 100 }), 30)
+  assert.deepEqual(imageColumns(fakePng(1024, 1024), { columns: 200, rows: 48 }), 80)
+  assert.deepEqual(imageColumns(fakePng(1024, 1024), { columns: 200, rows: 24 }), 40)
+  assert.deepEqual(imageColumns(fakePng(1024, 1024), { columns: 30, rows: 100 }), 30)
   // portrait: 20 rows × 2 × (1024/1536) = 26.67
-  assertEquals(imageColumns(fakePng(1024, 1536), { columns: 200, rows: 24 }), 26)
+  assert.deepEqual(imageColumns(fakePng(1024, 1536), { columns: 200, rows: 24 }), 26)
 })
 
 Deno.test("kittyPng places in one command with chunked payload", () => {
   const out = kittyPng(fakePng(10, 10, 9000), 40)
   const chunks = [...out.matchAll(/\x1b_G([^;]*);/g)].map((m) => m[1])
-  assertEquals(chunks[0], "a=T,f=100,t=d,q=2,c=40,m=1")
-  assertEquals(chunks.slice(1), ["q=2,m=1", "q=2,m=0"])
-  assertEquals(out.at(-1), "\n")
+  assert.deepEqual(chunks[0], "a=T,f=100,t=d,q=2,c=40,m=1")
+  assert.deepEqual(chunks.slice(1), ["q=2,m=1", "q=2,m=0"])
+  assert.deepEqual(out.at(-1), "\n")
 })
 
 Deno.test("Kitty detection requires a supported terminal outside multiplexers", () => {

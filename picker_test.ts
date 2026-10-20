@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert"
 import stringWidth from "string-width"
-import { formatPickerOptions, keyAction } from "./picker.ts"
+import { alignColumns, formatPickerOptions, keyAction } from "./picker.ts"
 
 Deno.test("picker options stay single-line and preserve their row mapping", () => {
   const options = formatPickerOptions([
@@ -47,4 +47,18 @@ Deno.test("picker keys map to actions and leave navigation alone", () => {
   assertEquals(keyAction({ name: "return" }), undefined)
   assertEquals(keyAction({ name: "d", ctrl: true }), undefined)
   assertEquals(keyAction({ name: "c", ctrl: true }), undefined)
+})
+
+Deno.test("alignColumns pads every column but the last to its widest cell", () => {
+  assertEquals(
+    alignColumns([
+      ["1", "user", "hello"],
+      ["10", "opus-5 🦀", "hi"],
+    ]),
+    [
+      "1    user        hello",
+      "10   opus-5 🦀   hi",
+    ],
+  )
+  assertEquals(alignColumns([]), [])
 })

@@ -11,9 +11,9 @@
     "semiColons": false
   },
   "imports": {
-    "@cliffy/command": "jsr:@cliffy/command@1.2.1",
-    "@cliffy/prompt": "jsr:@cliffy/prompt@1.2.1",
-    "@cliffy/table": "jsr:@cliffy/table@1.2.1",
+    "@commander-js/extra-typings": "npm:@commander-js/extra-typings@^15.0.0",
+    "commander": "npm:commander@^15.0.0",
+    "@inquirer/core": "npm:@inquirer/core@^12",
     "@david/dax": "jsr:@david/dax@^0.49.0",
     "@mathjax/src": "npm:@mathjax/src@4.1.3",
     "@resvg/resvg-wasm": "npm:@resvg/resvg-wasm@2.6.2",

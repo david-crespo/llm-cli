@@ -1,9 +1,9 @@
 #! /usr/bin/env -S deno run --allow-env --allow-read --allow-write --allow-net --allow-run=gh,osascript,sips
 
 import { readAll } from "@std/io"
-import { Command, EnumType, ValidationError } from "@cliffy/command"
-import { Table } from "@cliffy/table"
+import { Command, InvalidArgumentError, Option } from "@commander-js/extra-typings"
 import $ from "@david/dax"
+import { blueBright, bold, magentaBright, red } from "ansis"
 
 import * as R from "remeda"
 
@@ -21,6 +21,7 @@ import {
   shortDateFmt,
 } from "./display.ts"
 import { parseMessageSpec, resolveImage } from "./utils.ts"
+import { ValidationError } from "./errors.ts"
 import { type Chat, resolveThink, type ThinkOverride } from "./types.ts"
 import {
   type ChatInput,
@@ -35,7 +36,7 @@ import { History } from "./storage.ts"
 import { genMissingSummaries } from "./summarize.ts"
 import { parseType } from "./schema.ts"
 import { requestProblems, usesBackground } from "./validate.ts"
-import { formatPickerOptions, pickWithAction, singleLine } from "./picker.ts"
+import { alignColumns, formatPickerOptions, pickWithAction, singleLine } from "./picker.ts"
 
 const getLastModelId = (chat: Chat) =>
   chat.messages.findLast((m) => m.role === "assistant")?.model
@@ -55,14 +56,13 @@ function chatPickerOptions(chats: Chat[]) {
   }))
 }
 
-/** use cliffy's table to align columns for message picker, then split on newline to get lines as strings */
+/** One line per message for the fork picker, with columns aligned */
 function messagePickerOptions(messages: Chat["messages"]) {
-  const table = new Table(...messages.map((msg, i) => {
+  return alignColumns(messages.map((msg, i) => {
     const preview = truncate(msg.content.replace(/\n/g, " "), 50)
     const actor = msg.role === "assistant" ? msg.model : "user"
     return [`${i + 1}`, actor, preview]
   }))
-  return table.padding(3).toString().split("\n")
 }
 
 const bell = () => Deno.stdout.write(new TextEncoder().encode("\x07"))
@@ -308,100 +308,6 @@ async function historyPicker() {
   }
 }
 
-const historyCmd = new Command()
-  .description("Browse recent chats: resume, show, fork, or delete")
-  .action(historyPicker)
-  .command("delete", "Pick recent chats to delete")
-  .action(async () => {
-    const history = History.list()
-    await genMissingSummaries(history)
-    if (history.length === 0) throw new ValidationError("No chat history")
-
-    const reversed = R.reverse(history)
-    const selected = await $.multiSelect({
-      message: "Pick chats to delete",
-      options: chatPickerOptions(reversed),
-      noClear: true,
-    })
-    if (selected.length === 0) return
-    const label = `${selected.length} chat${selected.length === 1 ? "" : "s"}`
-    const yes = await $.maybeConfirm(`Delete ${label}?`, { noClear: true })
-    if (!yes) return
-    History.delete(selected.map((s) => reversed[s.index].id))
-    console.log(`Deleted ${label}`)
-  })
-  .command("clear", "Delete saved chat history")
-  .action(async () => {
-    const history = History.list()
-    const n = history.length
-    const yes = await $.maybeConfirm(`Delete ${n} chats?`, { noClear: true })
-    if (!yes) return
-    History.clear()
-    console.log("Deleted chat history")
-  })
-
-const showCmd = new Command()
-  .description("Show chat so far (last N, default 1)")
-  .option("-a, --all", "Show all messages")
-  .option("-n, --limit <n:integer>", "Number of messages (default 1)", { default: 1 })
-  .option(
-    "-p, --pick <spec:string>",
-    "Pick specific messages (e.g., '1,3-4,7', 'even', 'odd')",
-  )
-  .option("-v, --verbose", "Include reasoning in output")
-  .option("--raw", "Print LLM output directly (no metadata or reasoning)")
-  .action(async (opts) => {
-    const chat = History.current()
-    if (!chat) throw new ValidationError("No chat in progress")
-    const mode = getMode(opts)
-    if (opts.pick) {
-      const indices = parseMessageSpec(opts.pick, chat.messages.length)
-      await renderMd(chatToMd({ chat, indices, mode }), opts.raw)
-    } else {
-      const lastN = opts.all ? chat.messages.length : opts.limit
-      await renderMd(chatToMd({ chat, lastN, mode }), opts.raw)
-    }
-  })
-
-const gistCmd = new Command()
-  .description("Save chat to GitHub Gist with gh CLI")
-  .option("-t, --title <title>", "Gist title")
-  .option("-a, --all", "Include all messages")
-  .option("-n, --limit <n:integer>", "Number of messages (default 1)", { default: 1 })
-  .option(
-    "-p, --pick <spec:string>",
-    "Pick specific messages (e.g., '1,3-4,7', 'even', 'odd')",
-  )
-  .option("--id <id:string>", "Replace contents of an existing gist by ID")
-  .action(async (opts) => {
-    const lastChat = History.current()
-    if (!lastChat) throw new ValidationError("No chat in progress")
-    await genMissingSummaries([lastChat])
-
-    if (!$.commandExistsSync("gh")) {
-      throw new Error(
-        "Creating a gist requires the `gh` CLI (https://cli.github.com/)",
-      )
-    }
-
-    let md: string
-    if (opts.pick) {
-      const indices = parseMessageSpec(opts.pick, lastChat.messages.length)
-      md = chatToMd({ chat: lastChat, indices, mode: "gist" })
-    } else {
-      const n = opts.all ? lastChat.messages.length : opts.limit
-      md = chatToMd({ chat: lastChat, lastN: n, mode: "gist" })
-    }
-
-    if (opts.id) {
-      await $`gh gist edit ${opts.id} -`.stdinText(md)
-    } else {
-      const title = opts.title || lastChat.summary
-      const filename = title ? `LLM chat - ${title}.md` : "LLM chat.md"
-      await $`gh gist create -f ${filename} --web`.stdinText(md)
-    }
-  })
-
 function modelInfoMd(modelArg: string) {
   const model = resolveModel(modelArg)
   const { provider, key, id } = model
@@ -436,80 +342,38 @@ function modelInfoMd(modelArg: string) {
   return lines.join("\n")
 }
 
-const modelsCmd = new Command()
-  .description("List models or show info for a specific model")
-  .argument("[model:string]", "Model key or substring")
-  .option("-v, --verbose", "Show model keys")
-  .action((opts, modelArg) => {
-    if (modelArg) {
-      renderMd(modelInfoMd(modelArg))
-    } else {
-      renderMd(modelsMd(opts.verbose))
-    }
-  })
-
 function exit(msg: string): never {
   console.log(msg)
   Deno.exit()
 }
 
-const bgCmd = new Command()
-  .description("Manage background responses")
-  .action(() => {
-    throw new ValidationError("Subcommand required")
-  })
-  .command("status", "Check status of current chat's background request")
-  .action(async () => {
-    const chat = History.findLatestBackground()
-    if (!chat?.background) exit("No background task found")
+/** Commander option parser for integer values */
+function parseInteger(value: string) {
+  const n = Number(value)
+  if (!Number.isInteger(n)) throw new InvalidArgumentError("Not an integer.")
+  return n
+}
 
-    const status = await gptBg.status(chat.background.id)
-    const elapsed = Date.now() - chat.background.startedAt.getTime()
-    console.log(`${formatElapsed(elapsed)} (${status})`)
-  })
-  .command("resume", "Resume polling for current chat's background request")
-  .action(async () => {
-    const chat = History.findLatestBackground()
-    if (!chat?.background) exit("No background task found")
+/** Commander option parser for repeatable options */
+const collect = (value: string, previous: string[] = []) => [...previous, value]
 
-    const model = { id: chat.background.modelId, provider: chat.background.provider }
-    await pollBackgroundResponse(chat, model, {})
-    History.save(chat)
-  })
-  .command("cancel", "Cancel current chat's background request")
-  .action(async () => {
-    const chat = History.findLatestBackground()
-    if (!chat?.background) exit("No background task found")
-
-    await gptBg.cancel(chat.background.id)
-    delete chat.background
-    History.save(chat)
-    console.log("Background response cancelled")
-  })
-
-await new Command()
+const program = new Command()
   .name("ai")
-  .description(`
-Input from [message], stdin, or --image is required unless using a
+  .description(`Input from [message], stdin, or --image is required unless using a
 command. If both message and stdin are present, stdin will be appended
-to MESSAGE.
-
-By default, this script will attempt to render output with glow,
-but if glow is not present or output is being piped, it will print
-the raw output to stdout.`)
-  // top level subcommands
-  .command("show", showCmd)
-  .command("history", historyCmd)
-  .command("gist", gistCmd)
-  .command("models", modelsCmd)
-  .command("bg", bgCmd)
-  .reset()
-  // top level `ai hello how are you` command
+to MESSAGE.`)
+  .helpCommand(false)
+  // subcommands copy these settings, so they get the same colors
+  .configureHelp({
+    styleTitle: bold,
+    styleOptionText: blueBright,
+    styleSubcommandText: blueBright,
+    styleArgumentText: magentaBright,
+  })
+  .configureOutput({ outputError: (str, write) => write(red(str)) })
   .argument("[message...]", "Message to send to the LLM")
-  .helpOption("-h, --help", "Show help")
-  .help({ hints: false })
   .option("-r, --reply", "Continue existing chat")
-  .option("-m, --model <model:string>", "Select model by substring (e.g., 'sonnet')")
+  .option("-m, --model <model>", "Select model by substring (e.g., 'sonnet')")
   .option("-s, --search", "Enable web search (sticky: stays on for -r replies)")
   .option("--no-search", "Disable web search for this turn")
   .option("--think", "Enable thinking")
@@ -517,35 +381,40 @@ the raw output to stdout.`)
   .option("-q, --quick", "Minimize thinking")
   .option("--think-default", "Clear inherited thinking and use the model default")
   .option(
-    "-i, --image <value:string>",
+    "-i, --image <value>",
     "Image: URL, local file path, or 'clipboard' (macOS). Repeat for multiple images",
-    { collect: true },
+    collect,
   )
-  .type("quality", new EnumType(imageQualities))
-  .option("--quality <quality:quality>", "Image quality (image models only)")
-  .option("--size <size:string>", "Image size, e.g. 1024x1536 or auto (image models only)")
-  .option("--system <system:string>", "Override entire system prompt")
+  .addOption(
+    new Option("--quality <quality>", "Image quality (image models only)")
+      .choices(imageQualities),
+  )
+  .option("--size <size>", "Image size, e.g. 1024x1536 or auto (image models only)")
+  .option("--system <system>", "Override entire system prompt")
   .option("-e, --ephemeral", "Don't save to history")
   .option("-b, --background", "Use background mode (OpenAI only)")
   .option("-v, --verbose", "Include reasoning in output")
   .option("--raw", "Print LLM text directly (no metadata or reasoning)")
-  .option("--json", "Print the full response message as JSON (for scripts)", {
-    conflicts: ["raw", "verbose"],
-  })
-  .option("-o, --output-schema <schema:string>", "ArkType schema for structured output")
-  .example("1)", "ai 'What is the capital of France?'")
-  .example("2)", "cat main.ts | ai 'what is this?'")
-  .example("3)", "echo 'what are you?' | ai")
-  .example("4)", "ai -r 'elaborate on that'")
-  .example("5)", "ai -m 4o 'What are generic types?'")
-  .example(
-    "6)",
-    "ai -o '{ urgent: \"boolean\", reason: \"string\" }' 'is this urgent? server is down'",
+  .addOption(
+    new Option("--json", "Print the full response message as JSON (for scripts)")
+      .conflicts(["raw", "verbose"]),
   )
-  .example("7)", "ai gist -t 'Generic types'")
-  .example("8)", "ai -m flare --quality low 'a lighthouse at dusk'")
-  .example("9)", "ai -i first.png -i second.jpg 'Compare these images'")
-  .action(async (opts, ...args) => {
+  .option("-o, --output-schema <schema>", "ArkType schema for structured output")
+  .addHelpText(
+    "after",
+    `
+Examples:
+  ai 'What is the capital of France?'
+  cat main.ts | ai 'what is this?'
+  echo 'what are you?' | ai
+  ai -r 'elaborate on that'
+  ai -m 4o 'What are generic types?'
+  ai -o '{ urgent: "boolean", reason: "string" }' 'is this urgent? server is down'
+  ai gist -t 'Generic types'
+  ai -m flare --quality low 'a lighthouse at dusk'
+  ai -i first.png -i second.jpg 'Compare these images'`,
+  )
+  .action(async (message, opts) => {
     let outputSchema
     if (opts.outputSchema) {
       try {
@@ -558,7 +427,7 @@ the raw output to stdout.`)
 
     const imageInputs = opts.image ?? []
     const hasImages = imageInputs.length > 0
-    const msg = args.join(" ")
+    const msg = message.join(" ")
     const piped = !Deno.stdin.isTerminal()
     const stdin = piped
       // read stdin to end
@@ -657,4 +526,159 @@ the raw output to stdout.`)
 
     if (!opts.ephemeral) History.save(chat, { current: true, touch: true })
   })
-  .parse(Deno.args)
+
+program
+  .command("show")
+  .description("Show chat so far (last N, default 1)")
+  .option("-a, --all", "Show all messages")
+  .option("-n, --limit <n>", "Number of messages", parseInteger, 1)
+  .option("-p, --pick <spec>", "Pick specific messages (e.g., '1,3-4,7', 'even', 'odd')")
+  .option("-v, --verbose", "Include reasoning in output")
+  .option("--raw", "Print LLM output directly (no metadata or reasoning)")
+  .action(async (opts) => {
+    const chat = History.current()
+    if (!chat) throw new ValidationError("No chat in progress")
+    const mode = getMode(opts)
+    if (opts.pick) {
+      const indices = parseMessageSpec(opts.pick, chat.messages.length)
+      await renderMd(chatToMd({ chat, indices, mode }), opts.raw)
+    } else {
+      const lastN = opts.all ? chat.messages.length : opts.limit
+      await renderMd(chatToMd({ chat, lastN, mode }), opts.raw)
+    }
+  })
+
+const historyCmd = program
+  .command("history")
+  .description("Browse recent chats: resume, show, fork, or delete")
+  .action(historyPicker)
+
+historyCmd
+  .command("delete")
+  .description("Pick recent chats to delete")
+  .action(async () => {
+    const history = History.list()
+    await genMissingSummaries(history)
+    if (history.length === 0) throw new ValidationError("No chat history")
+
+    const reversed = R.reverse(history)
+    const selected = await $.multiSelect({
+      message: "Pick chats to delete",
+      options: chatPickerOptions(reversed),
+      noClear: true,
+    })
+    if (selected.length === 0) return
+    const label = `${selected.length} chat${selected.length === 1 ? "" : "s"}`
+    const yes = await $.maybeConfirm(`Delete ${label}?`, { noClear: true })
+    if (!yes) return
+    History.delete(selected.map((s) => reversed[s.index].id))
+    console.log(`Deleted ${label}`)
+  })
+
+historyCmd
+  .command("clear")
+  .description("Delete saved chat history")
+  .action(async () => {
+    const history = History.list()
+    const n = history.length
+    const yes = await $.maybeConfirm(`Delete ${n} chats?`, { noClear: true })
+    if (!yes) return
+    History.clear()
+    console.log("Deleted chat history")
+  })
+
+program
+  .command("gist")
+  .description("Save chat to GitHub Gist with gh CLI")
+  .option("-t, --title <title>", "Gist title")
+  .option("-a, --all", "Include all messages")
+  .option("-n, --limit <n>", "Number of messages", parseInteger, 1)
+  .option("-p, --pick <spec>", "Pick specific messages (e.g., '1,3-4,7', 'even', 'odd')")
+  .option("--id <id>", "Replace contents of an existing gist by ID")
+  .action(async (opts) => {
+    const lastChat = History.current()
+    if (!lastChat) throw new ValidationError("No chat in progress")
+    await genMissingSummaries([lastChat])
+
+    if (!$.commandExistsSync("gh")) {
+      throw new Error(
+        "Creating a gist requires the `gh` CLI (https://cli.github.com/)",
+      )
+    }
+
+    let md: string
+    if (opts.pick) {
+      const indices = parseMessageSpec(opts.pick, lastChat.messages.length)
+      md = chatToMd({ chat: lastChat, indices, mode: "gist" })
+    } else {
+      const n = opts.all ? lastChat.messages.length : opts.limit
+      md = chatToMd({ chat: lastChat, lastN: n, mode: "gist" })
+    }
+
+    if (opts.id) {
+      await $`gh gist edit ${opts.id} -`.stdinText(md)
+    } else {
+      const title = opts.title || lastChat.summary
+      const filename = title ? `LLM chat - ${title}.md` : "LLM chat.md"
+      await $`gh gist create -f ${filename} --web`.stdinText(md)
+    }
+  })
+
+program
+  .command("models")
+  .description("List models or show info for a specific model")
+  .argument("[model]", "Model key or substring")
+  .option("-v, --verbose", "Show model keys")
+  .action((modelArg, opts) => {
+    if (modelArg) {
+      renderMd(modelInfoMd(modelArg))
+    } else {
+      renderMd(modelsMd(opts.verbose))
+    }
+  })
+
+const bgCmd = program.command("bg").description("Manage background responses")
+
+bgCmd
+  .command("status")
+  .description("Check status of current chat's background request")
+  .action(async () => {
+    const chat = History.findLatestBackground()
+    if (!chat?.background) exit("No background task found")
+
+    const status = await gptBg.status(chat.background.id)
+    const elapsed = Date.now() - chat.background.startedAt.getTime()
+    console.log(`${formatElapsed(elapsed)} (${status})`)
+  })
+
+bgCmd
+  .command("resume")
+  .description("Resume polling for current chat's background request")
+  .action(async () => {
+    const chat = History.findLatestBackground()
+    if (!chat?.background) exit("No background task found")
+
+    const model = { id: chat.background.modelId, provider: chat.background.provider }
+    await pollBackgroundResponse(chat, model, {})
+    History.save(chat)
+  })
+
+bgCmd
+  .command("cancel")
+  .description("Cancel current chat's background request")
+  .action(async () => {
+    const chat = History.findLatestBackground()
+    if (!chat?.background) exit("No background task found")
+
+    await gptBg.cancel(chat.background.id)
+    delete chat.background
+    History.save(chat)
+    console.log("Background response cancelled")
+  })
+
+try {
+  await program.parseAsync(Deno.args, { from: "user" })
+} catch (e) {
+  if (e instanceof ValidationError) program.error(`error: ${e.message}`)
+  throw e
+}

@@ -1,4 +1,4 @@
-import { ValidationError } from "@cliffy/command"
+import { ValidationError } from "./errors.ts"
 import { encodeBase64 } from "@std/encoding/base64"
 import { join } from "@std/path"
 import $ from "@david/dax"

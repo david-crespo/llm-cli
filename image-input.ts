@@ -8,13 +8,8 @@ import $ from "dax"
 
 import { isErrno, ValidationError } from "./errors.ts"
 
-const IMAGE_MIME_TYPES = [
-  "image/png",
-  "image/jpeg",
-  "image/gif",
-  "image/webp",
-] as const
-export type ImageMimeType = typeof IMAGE_MIME_TYPES[number]
+const IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"] as const
+export type ImageMimeType = (typeof IMAGE_MIME_TYPES)[number]
 
 function isImageMimeType(s: string): s is ImageMimeType {
   return (IMAGE_MIME_TYPES as readonly string[]).includes(s)
@@ -47,21 +42,19 @@ export function parseDataUrl(
  */
 async function readClipboardImage(): Promise<Uint8Array> {
   if (process.platform !== "darwin") {
-    throw new ValidationError(
-      "Clipboard image paste is only supported on macOS",
-    )
+    throw new ValidationError("Clipboard image paste is only supported on macOS")
   }
   const tmpPath = join(tmpdir(), `llm-clipboard-${crypto.randomUUID()}.png`)
+  const file = JSON.stringify(tmpPath)
   try {
     const result = await $`osascript \
       -e ${`set png_data to (the clipboard as «class PNGf»)`} \
-      -e ${`set f to open for access POSIX file ${
-      JSON.stringify(tmpPath)
-    } with write permission`} \
+      -e ${`set f to open for access POSIX file ${file} with write permission`} \
       -e ${`set eof f to 0`} \
       -e ${`write png_data to f`} \
       -e ${`close access f`}`
-      .stderr("piped").noThrow()
+      .stderr("piped")
+      .noThrow()
     if (result.code !== 0) {
       // osascript -1700 = "can't make ... into type PNGf" → no image on clipboard
       const noImage = /-1700|class PNGf/.test(result.stderr)
@@ -85,7 +78,7 @@ const execSips: SipsRunner = (args) =>
     execFile("sips", args, (error, _stdout, stderr) => {
       // A string code like ENOENT means the process never ran.
       if (typeof error?.code === "string") reject(error)
-      else resolve({ code: error ? error.code ?? 1 : 0, stderr })
+      else resolve({ code: error ? (error.code ?? 1) : 0, stderr })
     })
   })
 
@@ -139,8 +132,11 @@ async function convertHeicImage(value: string, runSips: SipsRunner): Promise<Uin
     }
     // sips can exit successfully after writing only JPEG headers if encoding fails.
     if (
-      bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8 ||
-      bytes.at(-2) !== 0xff || bytes.at(-1) !== 0xd9
+      bytes.length < 4 ||
+      bytes[0] !== 0xff ||
+      bytes[1] !== 0xd8 ||
+      bytes.at(-2) !== 0xff ||
+      bytes.at(-1) !== 0xd9
     ) {
       throw new ValidationError(
         `Could not convert HEIC image at '${value}': incomplete JPEG`,
@@ -184,9 +180,10 @@ export async function resolveImage(
   const mediaType = EXT_MIME[ext]
   if (!mediaType) {
     throw new ValidationError(
-      `Unsupported image extension '.${ext}'. Supported: ${
-        [...Object.keys(EXT_MIME), "heic/heif (requires sips)"].join(", ")
-      }`,
+      `Unsupported image extension '.${ext}'. Supported: ${[
+        ...Object.keys(EXT_MIME),
+        "heic/heif (requires sips)",
+      ].join(", ")}`,
     )
   }
   return `data:${mediaType};base64,${Buffer.from(bytes).toString("base64")}`

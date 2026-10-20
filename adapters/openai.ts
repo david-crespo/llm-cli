@@ -50,9 +50,7 @@ export function openAIEffort(think: ThinkLevel | undefined) {
     .exhaustive()
 }
 
-function gptConfig(
-  chatInput: ChatInput,
-): {
+function gptConfig(chatInput: ChatInput): {
   params: ResponseCreateParamsNonStreaming
   wrapped: boolean
   effort: string
@@ -73,9 +71,7 @@ function gptConfig(
   // response.id — chain via previous_response_id so encrypted reasoning items
   // carry over and we only need to send the new user message.
   // https://developers.openai.com/api/docs/guides/conversation-state
-  const lastAssistantMessage = chat.messages
-    .filter((m) => m.role === "assistant")
-    .at(-1)
+  const lastAssistantMessage = chat.messages.filter((m) => m.role === "assistant").at(-1)
   const previous_response_id = match(lastAssistantMessage?.provider)
     .with({ type: "openai" }, (p) => p.responseId)
     .with(P.nullish, () => undefined)
@@ -113,13 +109,13 @@ function gptConfig(
       instructions: chat.systemPrompt,
       text: prep
         ? {
-          format: {
-            type: "json_schema",
-            name: "output",
-            schema: prep.schema,
-            strict: true,
-          },
-        }
+            format: {
+              type: "json_schema",
+              name: "output",
+              schema: prep.schema,
+              strict: true,
+            },
+          }
         : undefined,
     },
     wrapped: prep?.wrapped ?? false,
@@ -171,12 +167,16 @@ export const gptBg = {
 }
 
 /** Image generation currently accepts only a fresh text prompt. */
-export function gptImageParams(
-  { chat, model, imageOptions }: ChatInput,
-): ImageGenerateParamsNonStreaming {
+export function gptImageParams({
+  chat,
+  model,
+  imageOptions,
+}: ChatInput): ImageGenerateParamsNonStreaming {
   const [message] = chat.messages
   if (
-    chat.messages.length !== 1 || message?.role !== "user" || message.image_urls?.length
+    chat.messages.length !== 1 ||
+    message?.role !== "user" ||
+    message.image_urls?.length
   ) {
     throw new ValidationError("Image generation requires a fresh text-only prompt")
   }
@@ -197,7 +197,7 @@ export function processGptImageResponse(
   save: (bytes: Uint8Array, index: number) => string,
 ): ModelResponse {
   const images = (response.data ?? []).flatMap((d, i) =>
-    d.b64_json ? [save(Buffer.from(d.b64_json, "base64"), i)] : []
+    d.b64_json ? [save(Buffer.from(d.b64_json, "base64"), i)] : [],
   )
   if (images.length === 0) throw new Error("No image in response")
   // Image models don't report cached input, and we don't send input images
@@ -220,10 +220,8 @@ export function processGptImageResponse(
 export async function gptImageCreateMessage(chatInput: ChatInput): Promise<ModelResponse> {
   const params = gptImageParams(chatInput)
   const response = await new OpenAI().images.generate(params, { signal: chatInput.signal })
-  return processGptImageResponse(
-    response,
-    chatInput.model,
-    (bytes, i) => saveImage(bytes, params.prompt, "png", i),
+  return processGptImageResponse(response, chatInput.model, (bytes, i) =>
+    saveImage(bytes, params.prompt, "png", i),
   )
 }
 
@@ -253,9 +251,9 @@ const makeOpenAIFunc =
       messages,
       response_format: prep
         ? {
-          type: "json_schema",
-          json_schema: { name: "output", schema: prep.schema, strict: true },
-        }
+            type: "json_schema",
+            json_schema: { name: "output", schema: prep.schema, strict: true },
+          }
         : undefined,
     }
     if (opts.think) {

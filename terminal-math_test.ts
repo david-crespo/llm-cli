@@ -24,10 +24,10 @@ test("inline glyphs share a baseline regardless of their height", async () => {
     const header = new DataView(image.png.buffer, image.png.byteOffset)
     const width = header.getUint32(16)
     const height = header.getUint32(20)
+    const href = `data:image/png;base64,${Buffer.from(image.png).toString("base64")}`
     const decoder = new Resvg(
-      `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><image width="${width}" height="${height}" href="data:image/png;base64,${
-        Buffer.from(image.png).toString("base64")
-      }"/></svg>`,
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">` +
+        `<image width="${width}" height="${height}" href="${href}"/></svg>`,
     )
     try {
       const decoded = decoder.render()
@@ -50,16 +50,14 @@ test("inline glyphs share a baseline regardless of their height", async () => {
 })
 
 test("math delimiters render inside prose without consuming punctuation", async () => {
-  for (
-    const math of [
-      String.raw`$\nu>0$`,
-      "$f=0$",
-      String.raw`\(x_i^2\)`,
-      "$$x^2$$",
-      String.raw`\[x^2\]`,
-      String.raw`$\sim\$900$`,
-    ]
-  ) {
+  for (const math of [
+    String.raw`$\nu>0$`,
+    "$f=0$",
+    String.raw`\(x_i^2\)`,
+    "$$x^2$$",
+    String.raw`\[x^2\]`,
+    String.raw`$\sim\$900$`,
+  ]) {
     const out = await renderMarkdown(`Before **${math}**, after.`, { math: true })
     assert.deepEqual(imageCount(out), 1, math)
     assert(strip(out).startsWith("Before "))
@@ -69,34 +67,30 @@ test("math delimiters render inside prose without consuming punctuation", async 
 })
 
 test("math leaves currency, escaped dollars, and code alone", async () => {
-  for (
-    const text of [
-      "between $50 to $100",
-      "between $50-$100",
-      "between $1,200-$1,500",
-      "between $5 + $10",
-      "**$30.7k** versus **$13.6k**",
-      String.raw`\$not math$`,
-      "`$x^2$`",
-      "`` `$x^2$` ``",
-      "```tex\n$x^2$\n```",
-      "~~~tex\n$x^2$\n~~~",
-      "    $x^2$",
-      "[link](https://example.com/$x$)",
-    ]
-  ) {
+  for (const text of [
+    "between $50 to $100",
+    "between $50-$100",
+    "between $1,200-$1,500",
+    "between $5 + $10",
+    "**$30.7k** versus **$13.6k**",
+    String.raw`\$not math$`,
+    "`$x^2$`",
+    "`` `$x^2$` ``",
+    "```tex\n$x^2$\n```",
+    "~~~tex\n$x^2$\n~~~",
+    "    $x^2$",
+    "[link](https://example.com/$x$)",
+  ]) {
     assert.deepEqual(imageCount(await renderMarkdown(text, { math: true })), 0, text)
   }
 })
 
 test("disabled and invalid math preserve the raw TeX", async () => {
-  for (
-    const text of [
-      String.raw`With $x_i^2$ and \(\nu>0\).`,
-      "$$\nx_i^2\n$$",
-      String.raw`\[x_i^2\]`,
-    ]
-  ) {
+  for (const text of [
+    String.raw`With $x_i^2$ and \(\nu>0\).`,
+    "$$\nx_i^2\n$$",
+    String.raw`\[x_i^2\]`,
+  ]) {
     assert.deepEqual(strip(await renderMarkdown(text, { math: false })), text)
   }
   const invalid = String.raw`$\notARealCommand{$`
@@ -111,16 +105,14 @@ test("display math interrupts paragraphs and retains following text", async () =
 })
 
 test("math graphics survive wrapping, blockquotes, lists, and tables", async () => {
-  for (
-    const text of [
-      "word ".repeat(20) + "$x^2$ after",
-      "> $x^2$ and $y$",
-      "> $$\n> x^2\n> $$",
-      "- $x^2$\n- $y$",
-      "| value |\n| --- |\n| $x^2$ |",
-      "User private character: \ue000, then $x$ and $y$.",
-    ]
-  ) {
+  for (const text of [
+    "word ".repeat(20) + "$x^2$ after",
+    "> $x^2$ and $y$",
+    "> $$\n> x^2\n> $$",
+    "- $x^2$\n- $y$",
+    "| value |\n| --- |\n| $x^2$ |",
+    "User private character: \ue000, then $x$ and $y$.",
+  ]) {
     const out = await renderMarkdown(text, { math: true })
     assert(imageCount(out) > 0, text)
     assert(!out.includes("\x00"), text)
@@ -151,8 +143,7 @@ test("PNG chunks roundtrip and row placements reserve the correct cells", () => 
 })
 
 test("MathJax rasterizes the example and constrains narrow/tall equations", async () => {
-  const tex = String
-    .raw`\partial_t u + (u\cdot\nabla)u = -\nabla p + \nu\Delta u + f, \qquad \nabla\cdot u = 0`
+  const tex = String.raw`\partial_t u + (u\cdot\nabla)u = -\nabla p + \nu\Delta u + f, \qquad \nabla\cdot u = 0`
   for (const width of [20, 80]) {
     const image = await renderMathImage(tex, true, width, "#c8c8c8")
     assert.deepEqual(Array.from(image.png.slice(0, 8)), [137, 80, 78, 71, 13, 10, 26, 10])

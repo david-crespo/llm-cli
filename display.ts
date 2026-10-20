@@ -43,12 +43,17 @@ const modelsTable = (verbose: boolean) =>
   ])
 
 /** Split, add `"> "` to the beginning of each line, and rejoin */
-const quote = (s: string) => s.split("\n").map((line) => "> " + line).join("\n")
+const quote = (s: string) =>
+  s
+    .split("\n")
+    .map((line) => "> " + line)
+    .join("\n")
 
-export const modelsMd = (verbose = false) =>
-  `Models are matched on ID or key. Prices are per million tokens. Image model output is priced per image token.\n\n${
-    modelsTable(verbose)
-  }`
+const modelsIntro =
+  "Models are matched on ID or key. Prices are per million tokens. " +
+  "Image model output is priced per image token."
+
+export const modelsMd = (verbose = false) => `${modelsIntro}\n\n${modelsTable(verbose)}`
 
 // Collapse long user inputs in gists, unless the input already contains a
 // <details> block (e.g., from `cb`), in which case the user has already
@@ -74,9 +79,7 @@ export function formatElapsed(ms: number) {
 }
 
 const escapeThinkTags = (content: string) =>
-  content
-    .replace("<think>", "\\<think>")
-    .replace("</think>", "\\</think>")
+  content.replace("<think>", "\\<think>").replace("</think>", "\\</think>")
 
 // TODO: add `verbose` mode and hide reasoning from `nice` mode
 
@@ -106,7 +109,8 @@ export function metaLineMd(msg: ChatMessage): string {
   out += ` | ${moneyFmt.format(msg.cost)}`
 
   // show cached tokens in parens if there are any
-  const input = msg.tokens.input +
+  const input =
+    msg.tokens.input +
     (msg.tokens.input_cache_hit ? ` (${msg.tokens.input_cache_hit})` : "")
   out += ` | ${input} -> ${msg.tokens.output}`
 
@@ -154,7 +158,8 @@ export function messageContentMd(msg: ChatMessage, mode: DisplayMode) {
   }
   // For long user inputs in gist mode, collapse in a details block
   if (
-    msg.role === "user" && mode === "gist" &&
+    msg.role === "user" &&
+    mode === "gist" &&
     !hasDetails(msg.content) &&
     msg.content.split("\n").length > COLLAPSE_LINES
   ) {

@@ -121,7 +121,7 @@ for (const testCase of cases) {
           headers: { "content-type": "image/webp; charset=binary" },
         })
       }
-      requestBody = await request.json() as Record<string, unknown>
+      requestBody = (await request.json()) as Record<string, unknown>
       return Response.json(testCase.response)
     }
     try {
@@ -197,7 +197,7 @@ test("OpenAI background requests use high image detail and send only the chained
   let requestBody: Record<string, unknown> | undefined
   process.env["OPENAI_API_KEY"] = "test-key"
   globalThis.fetch = async (input, init) => {
-    requestBody = await new Request(input, init).json() as Record<string, unknown>
+    requestBody = (await new Request(input, init).json()) as Record<string, unknown>
     return Response.json({ id: "new-response", output: [], status: "queued" })
   }
   try {
@@ -235,13 +235,15 @@ test("OpenAI background requests use high image detail and send only the chained
         ],
       },
     })
-    assert.deepEqual(requestBody?.input, [{
-      role: "user",
-      content: [
-        { type: "input_image", image_url: secondImage, detail: "high" },
-        { type: "input_image", image_url: imageUrl, detail: "high" },
-      ],
-    }])
+    assert.deepEqual(requestBody?.input, [
+      {
+        role: "user",
+        content: [
+          { type: "input_image", image_url: secondImage, detail: "high" },
+          { type: "input_image", image_url: imageUrl, detail: "high" },
+        ],
+      },
+    ])
     assert.deepEqual(requestBody?.previous_response_id, "previous-response")
     assert.deepEqual(requestBody?.background, true)
     assert.deepEqual(requestBody?.store, true)
@@ -252,42 +254,40 @@ test("OpenAI background requests use high image detail and send only the chained
   }
 })
 
-for (
-  const testCase of [
-    {
-      model: "sonnet",
-      env: "ANTHROPIC_API_KEY",
-      images: ["data:image/png;base64," + "A".repeat(10_000_004)],
-      prompt: "Describe this",
-      error: "Claude image is larger than the 10 MB base64 limit",
-    },
-    {
-      model: "sonnet",
-      env: "ANTHROPIC_API_KEY",
-      images: Array.from(
-        { length: 4 },
-        () => "data:image/png;base64," + "A".repeat(8_000_000),
-      ),
-      prompt: "Compare these",
-      error: "Claude request is larger than the 32 MB limit",
-    },
-    {
-      model: "gemini-3.8-flash",
-      env: "GEMINI_API_KEY",
-      images: ["data:image/png;base64," + "A".repeat(19_999_000)],
-      // UTF-8 text and JSON overhead push an otherwise in-limit image over the limit.
-      prompt: "猫".repeat(400),
-      error: "Gemini request is larger than the 20 MB limit",
-    },
-    {
-      model: "gemini-3.8-flash",
-      env: "GEMINI_API_KEY",
-      images: [imageUrl],
-      prompt: "Describe this",
-      error: "Gemini request is larger than the 20 MB limit",
-    },
-  ]
-) {
+for (const testCase of [
+  {
+    model: "sonnet",
+    env: "ANTHROPIC_API_KEY",
+    images: ["data:image/png;base64," + "A".repeat(10_000_004)],
+    prompt: "Describe this",
+    error: "Claude image is larger than the 10 MB base64 limit",
+  },
+  {
+    model: "sonnet",
+    env: "ANTHROPIC_API_KEY",
+    images: Array.from(
+      { length: 4 },
+      () => "data:image/png;base64," + "A".repeat(8_000_000),
+    ),
+    prompt: "Compare these",
+    error: "Claude request is larger than the 32 MB limit",
+  },
+  {
+    model: "gemini-3.8-flash",
+    env: "GEMINI_API_KEY",
+    images: ["data:image/png;base64," + "A".repeat(19_999_000)],
+    // UTF-8 text and JSON overhead push an otherwise in-limit image over the limit.
+    prompt: "猫".repeat(400),
+    error: "Gemini request is larger than the 20 MB limit",
+  },
+  {
+    model: "gemini-3.8-flash",
+    env: "GEMINI_API_KEY",
+    images: [imageUrl],
+    prompt: "Describe this",
+    error: "Gemini request is larger than the 20 MB limit",
+  },
+]) {
   test(`${testCase.model} rejects oversized encoded images and requests before sending: ${testCase.error}`, async () => {
     const originalFetch = globalThis.fetch
     const oldKey = process.env[testCase.env]
@@ -307,25 +307,28 @@ for (
       return Promise.resolve(Response.json(response))
     }
     try {
-      await assert.rejects(() =>
-        createMessage({
-          model: resolveModel(testCase.model),
-          config: { search: false, think: undefined },
-          chat: {
-            id: "test",
-            createdAt: new Date(0),
-            systemPrompt: "test",
-            messages: [
-              {
-                role: "user",
-                content: testCase.prompt,
-                image_urls: testCase.images,
-                createdAt: new Date(0),
-              },
-              { role: "user", content: "Follow up", createdAt: new Date(0) },
-            ],
-          },
-        }), errorIncluding(ValidationError, testCase.error))
+      await assert.rejects(
+        () =>
+          createMessage({
+            model: resolveModel(testCase.model),
+            config: { search: false, think: undefined },
+            chat: {
+              id: "test",
+              createdAt: new Date(0),
+              systemPrompt: "test",
+              messages: [
+                {
+                  role: "user",
+                  content: testCase.prompt,
+                  image_urls: testCase.images,
+                  createdAt: new Date(0),
+                },
+                { role: "user", content: "Follow up", createdAt: new Date(0) },
+              ],
+            },
+          }),
+        errorIncluding(ValidationError, testCase.error),
+      )
       assert.deepEqual(apiCalls, 0)
     } finally {
       globalThis.fetch = originalFetch

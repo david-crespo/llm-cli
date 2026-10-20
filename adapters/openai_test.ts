@@ -50,16 +50,16 @@ test("image generation rejects history and input images before requesting", () =
     config: { search: false, think: undefined },
   }
   assert.deepEqual(gptImageParams(input).prompt, "a cat")
-  for (
-    const messages of [
-      [user, { ...user, content: "make it blue" }],
-      [{
+  for (const messages of [
+    [user, { ...user, content: "make it blue" }],
+    [
+      {
         ...user,
         image_urls: ["data:image/png;base64,AQID", "https://example.com/image.jpg"],
-      }],
-      [],
-    ]
-  ) {
+      },
+    ],
+    [],
+  ]) {
     input.chat.messages = messages
     assert.throws(
       () => gptImageParams(input),

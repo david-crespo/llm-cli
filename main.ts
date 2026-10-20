@@ -54,23 +54,27 @@ const truncate = (str: string, maxLength: number) =>
 
 /** Keep one width-aware selector option per chat so option indexes stay aligned. */
 function chatPickerOptions(chats: Chat[]) {
-  return formatPickerOptions(chats.map((chat) => {
-    const date = shortDateFmt.format(chat.createdAt).replace(",", "")
-    return {
-      summary: chat.summary || "",
-      model: getLastModelId(chat) || "",
-      meta: `${date} (${chat.messages.length})`,
-    }
-  }))
+  return formatPickerOptions(
+    chats.map((chat) => {
+      const date = shortDateFmt.format(chat.createdAt).replace(",", "")
+      return {
+        summary: chat.summary || "",
+        model: getLastModelId(chat) || "",
+        meta: `${date} (${chat.messages.length})`,
+      }
+    }),
+  )
 }
 
 /** One line per message for the fork picker, with columns aligned */
 function messagePickerOptions(messages: Chat["messages"]) {
-  return alignColumns(messages.map((msg, i) => {
-    const preview = truncate(msg.content.replace(/\n/g, " "), 50)
-    const actor = msg.role === "assistant" ? msg.model : "user"
-    return [`${i + 1}`, actor, preview]
-  }))
+  return alignColumns(
+    messages.map((msg, i) => {
+      const preview = truncate(msg.content.replace(/\n/g, " "), 50)
+      const actor = msg.role === "assistant" ? msg.model : "user"
+      return [`${i + 1}`, actor, preview]
+    }),
+  )
 }
 
 const bell = () => new Promise((resolve) => process.stdout.write("\x07", resolve))
@@ -135,7 +139,7 @@ async function pollBackgroundResponse(
 
     if (chat.background.status === "completed") {
       const response = {
-        ...await gptBg.retrieve(id, resolveModel(modelId)),
+        ...(await gptBg.retrieve(id, resolveModel(modelId))),
         effort,
       }
       const assistantMsg = makeAssMsg(model.id, startTime, response)
@@ -157,10 +161,7 @@ async function pollBackgroundResponse(
 /**
  * Generate a response for a chat with the given input and options
  */
-async function genResponse(
-  chatInput: ChatInput,
-  displayOpts: DisplayOpts = {},
-) {
+async function genResponse(chatInput: ChatInput, displayOpts: DisplayOpts = {}) {
   // don't want progress spinner when piping output
   const showProgress = process.stdout.isTTY && !displayOpts.raw && !displayOpts.json
   const label = chatInput.model.kind === "image" ? "Generating image..." : "Thinking..."
@@ -226,7 +227,10 @@ async function pickModel(defaultId: string | undefined) {
   const index = await selectIndex({
     message: "Pick a model to answer",
     options: textModels.map((m) => m.id),
-    initialIndex: Math.max(0, textModels.findIndex((m) => m.id === defaultId)),
+    initialIndex: Math.max(
+      0,
+      textModels.findIndex((m) => m.id === defaultId),
+    ),
   })
   return textModels[index]
 }
@@ -251,8 +255,9 @@ async function forkChat(chat: Chat) {
 
   if (selectedMessage.role === "user") {
     // default to the model that originally answered this message
-    const nextModel = chat.messages.slice(selectedIdx).find((m) => m.role === "assistant")
-      ?.model
+    const nextModel = chat.messages
+      .slice(selectedIdx)
+      .find((m) => m.role === "assistant")?.model
     const model = await pickModel(nextModel)
     const chatInput: ChatInput = {
       chat: newChat,
@@ -282,9 +287,8 @@ async function historyPicker() {
     const picked = await pickWithAction({
       message: "Chat history",
       options: chatPickerOptions(chats),
-      initialIndex: initialIndex === undefined
-        ? undefined
-        : Math.min(initialIndex, chats.length - 1),
+      initialIndex:
+        initialIndex === undefined ? undefined : Math.min(initialIndex, chats.length - 1),
     })
     if (!picked) return
     const chat = chats[picked.index]
@@ -392,8 +396,9 @@ to MESSAGE.`)
     collect,
   )
   .addOption(
-    new Option("--quality <quality>", "Image quality (image models only)")
-      .choices(imageQualities),
+    new Option("--quality <quality>", "Image quality (image models only)").choices(
+      imageQualities,
+    ),
   )
   .option("--size <size>", "Image size, e.g. 1024x1536 or auto (image models only)")
   .option("--system <system>", "Override entire system prompt")
@@ -402,8 +407,9 @@ to MESSAGE.`)
   .option("-v, --verbose", "Include reasoning in output")
   .option("--raw", "Print LLM text directly (no metadata or reasoning)")
   .addOption(
-    new Option("--json", "Print the full response message as JSON (for scripts)")
-      .conflicts(["raw", "verbose"]),
+    new Option("--json", "Print the full response message as JSON (for scripts)").conflicts(
+      ["raw", "verbose"],
+    ),
   )
   .option("-o, --output-schema <schema>", "ArkType schema for structured output")
   .addHelpText(
@@ -438,17 +444,15 @@ Examples:
     const msg = message.join(" ")
     const piped = !process.stdin.isTTY
     const stdin = piped
-      // read stdin to end
-      ? (await text(process.stdin)).trim()
+      ? // read stdin to end
+        (await text(process.stdin)).trim()
       : null
 
     // Input was piped but arrived empty — the upstream command likely failed or
     // produced nothing (e.g. `cb x | ai ...` where `cb` errors). Abort rather
     // than calling the API with only the message.
     if (piped && !stdin && !hasImages) {
-      throw new ValidationError(
-        "Piped input was empty (did an upstream command fail?)",
-      )
+      throw new ValidationError("Piped input was empty (did an upstream command fail?)")
     }
 
     if (!msg && !stdin && !hasImages) {
@@ -466,12 +470,12 @@ Examples:
     const thinkOverride: ThinkOverride = opts.quick
       ? "off"
       : opts.thinkHard
-      ? "high"
-      : opts.think
-      ? "on"
-      : opts.thinkDefault
-      ? "default"
-      : undefined
+        ? "high"
+        : opts.think
+          ? "on"
+          : opts.thinkDefault
+            ? "default"
+            : undefined
     // Search is sticky across replies: an explicit -s/--no-search wins, else a
     // reply inherits the chat's last setting. Persisting it keeps the search
     // tool stable across turns so prompt caching keeps hitting — every provider
@@ -576,7 +580,7 @@ historyCmd
     })
     if (selected.length === 0) return
     const label = `${selected.length} chat${selected.length === 1 ? "" : "s"}`
-    if (!await confirmed(`Delete ${label}?`)) return
+    if (!(await confirmed(`Delete ${label}?`))) return
     History.delete(selected.map((i) => reversed[i].id))
     console.log(`Deleted ${label}`)
   })
@@ -587,7 +591,7 @@ historyCmd
   .action(async () => {
     const history = History.list()
     const n = history.length
-    if (!await confirmed(`Delete ${n} chats?`)) return
+    if (!(await confirmed(`Delete ${n} chats?`))) return
     History.clear()
     console.log("Deleted chat history")
   })
@@ -606,9 +610,7 @@ program
     await genMissingSummaries([lastChat])
 
     if (!$.commandExistsSync("gh")) {
-      throw new Error(
-        "Creating a gist requires the `gh` CLI (https://cli.github.com/)",
-      )
+      throw new Error("Creating a gist requires the `gh` CLI (https://cli.github.com/)")
     }
 
     let md: string

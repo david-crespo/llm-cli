@@ -1,9 +1,0 @@
-// Only `deno fmt` still uses Deno, until it's replaced by oxfmt.
-{
-  "fmt": {
-    // Preserve math delimiters and TeX lines that look like Markdown syntax.
-    "exclude": ["fixtures/terminal-math.md", "package-lock.json", ".claude"],
-    "lineWidth": 92,
-    "semiColons": false
-  }
-}

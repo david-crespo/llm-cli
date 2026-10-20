@@ -41,7 +41,10 @@ export async function renderMathImage(
   const markup = adaptor.serializeXML(node)
   if (markup.includes('data-mml-node="merror"')) throw new Error("Invalid TeX")
   const svg = markup.match(/<svg\b[\s\S]*<\/svg>/)?.[0]
-  const viewBox = svg?.match(/viewBox="([^"]+)"/)?.[1].split(/\s+/).map(Number)
+  const viewBox = svg
+    ?.match(/viewBox="([^"]+)"/)?.[1]
+    .split(/\s+/)
+    .map(Number)
   if (!svg || !viewBox || viewBox.length !== 4) throw new Error("Missing math SVG")
   const [x, y, width, height] = viewBox
   if (!(width > 0 && height > 0)) throw new Error("Empty math SVG")
@@ -52,10 +55,12 @@ export async function renderMathImage(
   const scale = Math.min(
     (display ? 20 : 16) / 1000,
     (maxColumns * 10 - horizontalPadding) / width,
-    display ? 300 / height : Math.min(
-      inlineBaseline / Math.max(1, -y),
-      (20 - inlineBaseline) / Math.max(1, y + height),
-    ),
+    display
+      ? 300 / height
+      : Math.min(
+          inlineBaseline / Math.max(1, -y),
+          (20 - inlineBaseline) / Math.max(1, y + height),
+        ),
   )
   const columns = Math.max(1, Math.ceil((width * scale + horizontalPadding) / 10))
   const rows = display ? Math.max(1, Math.ceil((height * scale + 4) / 20)) : 1
@@ -66,12 +71,11 @@ export async function renderMathImage(
   // MathJax's SVG baseline is y=0. Align it with the text baseline rather than
   // centering each glyph's bounds; short letters such as nu otherwise float.
   const offsetY = display ? (rows * 20 - height * scale) / 2 : inlineBaseline + y * scale
-  const padded =
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${pixelWidth}" height="${pixelHeight}" viewBox="0 0 ${
-      columns * 10
-    } ${
-      rows * 20
-    }" color="${color}"><g transform="translate(${offsetX} ${offsetY}) scale(${scale}) translate(${-x} ${-y})">${inner}</g></svg>`
+  const padded = `<svg xmlns="http://www.w3.org/2000/svg" width="${pixelWidth}" height="${pixelHeight}" viewBox="0 0 ${
+    columns * 10
+  } ${
+    rows * 20
+  }" color="${color}"><g transform="translate(${offsetX} ${offsetY}) scale(${scale}) translate(${-x} ${-y})">${inner}</g></svg>`
   const renderer = new Resvg(padded)
   try {
     const rendered = renderer.render()

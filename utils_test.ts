@@ -10,8 +10,18 @@ test("range excludes the end and is empty when end <= start", () => {
 })
 
 test("uniqueBy keeps the first item for each key", () => {
-  const items = [{ k: "a", n: 1 }, { k: "b", n: 2 }, { k: "a", n: 3 }]
-  assert.deepEqual(uniqueBy(items, (i) => i.k), [{ k: "a", n: 1 }, { k: "b", n: 2 }])
+  const items = [
+    { k: "a", n: 1 },
+    { k: "b", n: 2 },
+    { k: "a", n: 3 },
+  ]
+  assert.deepEqual(
+    uniqueBy(items, (i) => i.k),
+    [
+      { k: "a", n: 1 },
+      { k: "b", n: 2 },
+    ],
+  )
 })
 
 test("pick copies only the given keys", () => {

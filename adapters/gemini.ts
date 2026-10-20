@@ -40,9 +40,13 @@ export function geminiThinkParams(key: string, think: ThinkLevel | undefined) {
     : { thinkingLevel: ThinkingLevel.LOW, effort: "low" }
 }
 
-export async function geminiCreateMessage(
-  { chat, model, config, signal, outputSchema }: ChatInput,
-) {
+export async function geminiCreateMessage({
+  chat,
+  model,
+  config,
+  signal,
+  outputSchema,
+}: ChatInput) {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) throw Error("GEMINI_API_KEY missing")
 
@@ -66,17 +70,19 @@ export async function geminiCreateMessage(
     { urlContext: {} },
     ...(config.search ? [{ googleSearch: {} }] : []),
   ]
-  const contents = await Promise.all(chat.messages.map(async (msg) => {
-    const parts: Part[] = msg.content ? [{ text: msg.content }] : []
-    if (msg.role === "user" && msg.image_urls?.length) {
-      parts.unshift(...await Promise.all(msg.image_urls.map(imageToInlinePart)))
-    }
-    return {
-      // gemini uses model instead of assistant
-      role: msg.role === "assistant" ? "model" : "user",
-      parts,
-    }
-  }))
+  const contents = await Promise.all(
+    chat.messages.map(async (msg) => {
+      const parts: Part[] = msg.content ? [{ text: msg.content }] : []
+      if (msg.role === "user" && msg.image_urls?.length) {
+        parts.unshift(...(await Promise.all(msg.image_urls.map(imageToInlinePart))))
+      }
+      return {
+        // gemini uses model instead of assistant
+        role: msg.role === "assistant" ? "model" : "user",
+        parts,
+      }
+    }),
+  )
   // The SDK moves systemInstruction/tools out of config and places its remaining
   // fields in generationConfig. Measure that REST body after inlining URL images.
   validateRequestSize("Gemini", { contents, systemInstruction, tools, generationConfig })
@@ -89,17 +95,23 @@ export async function geminiCreateMessage(
   // console.log(JSON.stringify(result, null, 2))
 
   const parts = result.candidates?.[0].content?.parts ?? []
-  const reasoning = parts.filter((p) => p.text && p.thought).map((p) => p.text!).join(
-    "\n\n",
-  )
-  let content = parts.filter((p) => p.text && !p.thought).map((p) => p.text!).join("\n\n")
+  const reasoning = parts
+    .filter((p) => p.text && p.thought)
+    .map((p) => p.text!)
+    .join("\n\n")
+  let content = parts
+    .filter((p) => p.text && !p.thought)
+    .map((p) => p.text!)
+    .join("\n\n")
 
   const searchResults = result.candidates?.[0].groundingMetadata?.groundingChunks
   const searches = searchResults && searchResults.length > 0 ? 1 : 0
   const searchResultsMd = searchResults
-    ? "\n\n### Sources\n\n" + searchResults
-      .filter((chunk) => chunk.web)
-      .map((chunk) => `- [${chunk.web!.title}](${chunk.web!.uri})`).join("\n")
+    ? "\n\n### Sources\n\n" +
+      searchResults
+        .filter((chunk) => chunk.web)
+        .map((chunk) => `- [${chunk.web!.title}](${chunk.web!.uri})`)
+        .join("\n")
     : ""
 
   if (!prep) content += searchResultsMd
@@ -108,7 +120,8 @@ export async function geminiCreateMessage(
 
   const tokens = {
     input: result.usageMetadata?.promptTokenCount || 0,
-    output: (result.usageMetadata?.candidatesTokenCount || 0) +
+    output:
+      (result.usageMetadata?.candidatesTokenCount || 0) +
       (result.usageMetadata?.thoughtsTokenCount || 0),
     input_cache_hit: result.usageMetadata?.cachedContentTokenCount || 0,
   }

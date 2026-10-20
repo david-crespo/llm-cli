@@ -33,7 +33,10 @@ const parsePart = (part: string, msgCount: number): number[] => {
  * Throws if a range has start > end or if any number is out of bounds.
  */
 export function parseMessageSpec(spec: string, msgCount: number): number[] {
-  const parts = spec.replaceAll(" ", "").split(",").filter((p) => p.length > 0)
+  const parts = spec
+    .replaceAll(" ", "")
+    .split(",")
+    .filter((p) => p.length > 0)
   const numbers = parts.flatMap((part) => parsePart(part, msgCount))
   const indices = [...new Set(numbers)].sort((a, b) => a - b)
 

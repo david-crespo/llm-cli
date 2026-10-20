@@ -30,11 +30,13 @@ export async function summarize(chat: Chat): Promise<string> {
       id: crypto.randomUUID(),
       systemPrompt:
         "You are summarizing an LLM chat in as few words as possible. Ideally 4-6 words, but up to 10 if necessary. This is for a list of chats in an LLM client UI. You will receive an excerpt of the beginning and end of the first two messages. Be concise and accurate. Only provide the summary; do not include explanation or followup questions. Do not end with a period. Do not use slashes.",
-      messages: [{
-        role: "user",
-        content: `<message-1>${abridged1}</message-1><message-2>${abridged2}</message-2>`,
-        createdAt: new Date(),
-      }],
+      messages: [
+        {
+          role: "user",
+          content: `<message-1>${abridged1}</message-1><message-2>${abridged2}</message-2>`,
+          createdAt: new Date(),
+        },
+      ],
       createdAt: new Date(),
     },
     model: luna,
@@ -47,11 +49,13 @@ export async function summarize(chat: Chat): Promise<string> {
 /** Create and save summaries for any chat without one */
 export async function genMissingSummaries(history: Chat[]) {
   const pb = $.progress("Summarizing...")
-  await Promise.all((history
-    .filter((chat) => !chat.summary))
-    .map(async (chat) => {
-      chat.summary = await summarize(chat)
-      History.save(chat)
-    }))
+  await Promise.all(
+    history
+      .filter((chat) => !chat.summary)
+      .map(async (chat) => {
+        chat.summary = await summarize(chat)
+        History.save(chat)
+      }),
+  )
   pb.finish()
 }

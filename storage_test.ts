@@ -38,7 +38,10 @@ test("History.save stores chats independently and tracks current", () => {
     History.save(chat("one", "2026-01-01T00:00:00Z"), { current: true })
     History.save(chat("two", "2026-01-02T00:00:00Z"), { current: true })
 
-    assert.deepEqual(History.list().map((c) => c.id), ["one", "two"])
+    assert.deepEqual(
+      History.list().map((c) => c.id),
+      ["one", "two"],
+    )
     assert.deepEqual(History.current()?.id, "two")
   })
 })
@@ -87,7 +90,10 @@ test("History.delete removes selected chat without rewriting others", () => {
 
     History.delete(["one"])
 
-    assert.deepEqual(History.list().map((c) => c.id), ["two"])
+    assert.deepEqual(
+      History.list().map((c) => c.id),
+      ["two"],
+    )
     assert.deepEqual(History.current()?.id, "two")
   })
 })

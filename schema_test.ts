@@ -4,10 +4,7 @@ import { errorIncluding } from "./testing.ts"
 import { parseType, postprocessSchemaContent, prepareSchema } from "./schema.ts"
 
 function schema(input: string): Record<string, unknown> {
-  const { $schema: _, ...rest } = parseType(input).toJsonSchema() as Record<
-    string,
-    unknown
-  >
+  const { $schema: _, ...rest } = parseType(input).toJsonSchema() as Record<string, unknown>
   return rest
 }
 

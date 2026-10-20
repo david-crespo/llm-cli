@@ -61,8 +61,9 @@ function padEnd(text: string, width: number): string {
 export function alignColumns(rows: string[][]): string[] {
   const widths = rows[0]?.map((_, i) => maxWidth(rows.map((row) => row[i]))) ?? []
   return rows.map((row) =>
-    row.map((cell, i) => i < row.length - 1 ? padEnd(cell, widths[i]) : cell)
-      .join(" ".repeat(COLUMN_GAP))
+    row
+      .map((cell, i) => (i < row.length - 1 ? padEnd(cell, widths[i]) : cell))
+      .join(" ".repeat(COLUMN_GAP)),
   )
 }
 
@@ -88,11 +89,9 @@ export function formatPickerOptions(
 
   return normalized.map((row) => {
     const summary = truncateWidth(row.summary, summaryWidth)
-    return [
-      padEnd(summary, summaryWidth),
-      padEnd(row.model, modelWidth),
-      row.meta,
-    ].join(" ".repeat(COLUMN_GAP))
+    return [padEnd(summary, summaryWidth), padEnd(row.model, modelWidth), row.meta].join(
+      " ".repeat(COLUMN_GAP),
+    )
   })
 }
 
@@ -212,23 +211,28 @@ export function selectIndex(opts: {
   options: string[]
   initialIndex?: number
 }): Promise<number> {
-  return exitOnCancel(select({
-    message: opts.message,
-    choices: indexChoices(opts.options),
-    default: opts.initialIndex,
-    pageSize: Math.max(3, terminalRows() - 2),
-  }))
+  return exitOnCancel(
+    select({
+      message: opts.message,
+      choices: indexChoices(opts.options),
+      default: opts.initialIndex,
+      pageSize: Math.max(3, terminalRows() - 2),
+    }),
+  )
 }
 
 /** Pick any number of `options` and return their indexes. */
-export function selectIndexes(
-  opts: { message: string; options: string[] },
-): Promise<number[]> {
-  return exitOnCancel(checkbox({
-    message: opts.message,
-    choices: indexChoices(opts.options),
-    pageSize: Math.max(3, terminalRows() - 3),
-  }))
+export function selectIndexes(opts: {
+  message: string
+  options: string[]
+}): Promise<number[]> {
+  return exitOnCancel(
+    checkbox({
+      message: opts.message,
+      choices: indexChoices(opts.options),
+      pageSize: Math.max(3, terminalRows() - 3),
+    }),
+  )
 }
 
 /** A yes/no question that defaults to no. Ctrl+C also counts as no. */

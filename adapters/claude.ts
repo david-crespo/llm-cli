@@ -4,7 +4,7 @@ import { match } from "ts-pattern"
 
 import { postprocessSchemaContent, prepareSchema } from "../schema.ts"
 import { getCost } from "../models.ts"
-import { parseDataUrl } from "../utils.ts"
+import { parseDataUrl } from "../image-input.ts"
 import type { ThinkLevel } from "../types.ts"
 import type { ChatInput } from "./types.ts"
 import { validateClaudeImageSize, validateRequestSize } from "./request_size.ts"

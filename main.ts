@@ -21,7 +21,8 @@ import {
   renderResponse,
   shortDateFmt,
 } from "./display.ts"
-import { parseMessageSpec, resolveImage } from "./utils.ts"
+import { resolveImage } from "./image-input.ts"
+import { parseMessageSpec } from "./message-spec.ts"
 import { ValidationError } from "./errors.ts"
 import { type Chat, resolveThink, type ThinkOverride } from "./types.ts"
 import {

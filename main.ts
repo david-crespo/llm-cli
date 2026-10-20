@@ -34,6 +34,7 @@ import {
   thinkProviders,
 } from "./adapters/mod.ts"
 import { History } from "./storage.ts"
+import { getApiKey } from "./config.ts"
 import { genMissingSummaries } from "./summarize.ts"
 import { requestProblems, usesBackground } from "./validate.ts"
 import {
@@ -118,13 +119,14 @@ async function pollBackgroundResponse(
   if (!chat.background) throw new Error("No background response to poll")
 
   const { id, startedAt, modelId, effort } = chat.background
+  const apiKey = getApiKey(model.provider)
   const showProgress = process.stdout.isTTY && !displayOpts.raw && !displayOpts.json
   const pb = showProgress ? $.progress("Waiting...") : null
 
   try {
     const startTime = startedAt.getTime()
     while (true) {
-      const status = await gptBg.status(id)
+      const status = await gptBg.status(id, apiKey)
       if (status !== "queued" && status !== "in_progress") {
         chat.background.status = status
         break
@@ -139,7 +141,7 @@ async function pollBackgroundResponse(
 
     if (chat.background.status === "completed") {
       const response = {
-        ...(await gptBg.retrieve(id, resolveModel(modelId))),
+        ...(await gptBg.retrieve(id, resolveModel(modelId), apiKey)),
         effort,
       }
       const assistantMsg = makeAssMsg(model.id, startTime, response)
@@ -262,6 +264,7 @@ async function forkChat(chat: Chat) {
     const chatInput: ChatInput = {
       chat: newChat,
       model,
+      apiKey: getApiKey(model.provider),
       config: { search: false, think: undefined },
     }
     await genResponse(chatInput, {})
@@ -486,6 +489,7 @@ Examples:
     const chatInput: ChatInput = {
       chat,
       model,
+      apiKey: getApiKey(model.provider),
       config: { search: chat.search, think: chat.think },
       outputSchema,
       imageOptions: { quality: opts.quality, size: opts.size },
@@ -653,7 +657,10 @@ bgCmd
     const chat = History.findLatestBackground()
     if (!chat?.background) exit("No background task found")
 
-    const status = await gptBg.status(chat.background.id)
+    const status = await gptBg.status(
+      chat.background.id,
+      getApiKey(chat.background.provider),
+    )
     const elapsed = Date.now() - chat.background.startedAt.getTime()
     console.log(`${formatElapsed(elapsed)} (${status})`)
   })
@@ -677,7 +684,7 @@ bgCmd
     const chat = History.findLatestBackground()
     if (!chat?.background) exit("No background task found")
 
-    await gptBg.cancel(chat.background.id)
+    await gptBg.cancel(chat.background.id, getApiKey(chat.background.provider))
     delete chat.background
     History.save(chat)
     console.log("Background response cancelled")

@@ -1,7 +1,6 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
 import { errorIncluding } from "../testing.ts"
-import process from "node:process"
 import { ValidationError } from "../errors.ts"
 import { type } from "arktype"
 
@@ -17,7 +16,6 @@ const imageUrl = "https://example.com/third.webp"
 const cases = [
   {
     model: "sonnet",
-    env: "ANTHROPIC_API_KEY",
     response: {
       content: [{ type: "text", text: "ok" }],
       usage: { input_tokens: 0, output_tokens: 0 },
@@ -47,7 +45,6 @@ const cases = [
   },
   {
     model: "gpt-6.1-sol",
-    env: "OPENAI_API_KEY",
     response: { id: "response", output: [], status: "completed" },
     messages: [
       {
@@ -67,7 +64,6 @@ const cases = [
   },
   {
     model: "gemini-3.8-flash",
-    env: "GEMINI_API_KEY",
     response: { candidates: [{ content: { parts: [{ text: "ok" }] } }] },
     messages: [
       {
@@ -85,7 +81,7 @@ const cases = [
 ]
 
 for (const testCase of cases) {
-  test(`${testCase.env} sends all images in order, including history and image-only turns`, async () => {
+  test(`${testCase.model} sends all images in order, including history and image-only turns`, async () => {
     const chat: Chat = {
       id: "test",
       createdAt: new Date(0),
@@ -110,10 +106,8 @@ for (const testCase of cases) {
         { role: "user", content: "", createdAt: new Date(0), image_urls: [imageUrl] },
       ],
     }
-    const oldKey = process.env[testCase.env]
     const originalFetch = globalThis.fetch
     let requestBody: Record<string, unknown> | undefined
-    process.env[testCase.env] = "test-key"
     globalThis.fetch = async (input, init) => {
       const request = new Request(input, init)
       if (request.url === imageUrl) {
@@ -128,6 +122,7 @@ for (const testCase of cases) {
       await createMessage({
         chat,
         model: resolveModel(testCase.model),
+        apiKey: "test-key",
         config: { search: false, think: undefined },
       })
       assert.deepEqual(
@@ -136,8 +131,6 @@ for (const testCase of cases) {
       )
     } finally {
       globalThis.fetch = originalFetch
-      if (oldKey === undefined) delete process.env[testCase.env]
-      else process.env[testCase.env] = oldKey
     }
   })
 }
@@ -148,9 +141,7 @@ test("Claude's per-image base64 limit accepts the boundary", () => {
 
 test("Gemini size validation matches the SDK's wire body including schema and tools", async () => {
   const originalFetch = globalThis.fetch
-  const oldKey = process.env["GEMINI_API_KEY"]
   const wireSizes: number[] = []
-  process.env["GEMINI_API_KEY"] = "test-key"
   globalThis.fetch = async (input, init) => {
     const request = new Request(input, init)
     wireSizes.push((await request.arrayBuffer()).byteLength)
@@ -164,6 +155,7 @@ test("Gemini size validation matches the SDK's wire body including schema and to
   }
   const input = {
     model: resolveModel("gemini-3.8-flash"),
+    apiKey: "test-key",
     config: { search: true, think: "high" as const },
     outputSchema: type({ answer: "string" }),
     chat: {
@@ -186,16 +178,12 @@ test("Gemini size validation matches the SDK's wire body including schema and to
     assert.deepEqual(wireSizes.length, 2)
   } finally {
     globalThis.fetch = originalFetch
-    if (oldKey === undefined) delete process.env["GEMINI_API_KEY"]
-    else process.env["GEMINI_API_KEY"] = oldKey
   }
 })
 
 test("OpenAI background requests use high image detail and send only the chained turn", async () => {
   const originalFetch = globalThis.fetch
-  const oldKey = process.env["OPENAI_API_KEY"]
   let requestBody: Record<string, unknown> | undefined
-  process.env["OPENAI_API_KEY"] = "test-key"
   globalThis.fetch = async (input, init) => {
     requestBody = (await new Request(input, init).json()) as Record<string, unknown>
     return Response.json({ id: "new-response", output: [], status: "queued" })
@@ -203,6 +191,7 @@ test("OpenAI background requests use high image detail and send only the chained
   try {
     await gptBg.initiate({
       model: resolveModel("gpt-6.1-sol"),
+      apiKey: "test-key",
       config: { search: false, think: undefined },
       chat: {
         id: "test",
@@ -249,22 +238,18 @@ test("OpenAI background requests use high image detail and send only the chained
     assert.deepEqual(requestBody?.store, true)
   } finally {
     globalThis.fetch = originalFetch
-    if (oldKey === undefined) delete process.env["OPENAI_API_KEY"]
-    else process.env["OPENAI_API_KEY"] = oldKey
   }
 })
 
 for (const testCase of [
   {
     model: "sonnet",
-    env: "ANTHROPIC_API_KEY",
     images: ["data:image/png;base64," + "A".repeat(10_000_004)],
     prompt: "Describe this",
     error: "Claude image is larger than the 10 MB base64 limit",
   },
   {
     model: "sonnet",
-    env: "ANTHROPIC_API_KEY",
     images: Array.from(
       { length: 4 },
       () => "data:image/png;base64," + "A".repeat(8_000_000),
@@ -274,7 +259,6 @@ for (const testCase of [
   },
   {
     model: "gemini-3.8-flash",
-    env: "GEMINI_API_KEY",
     images: ["data:image/png;base64," + "A".repeat(19_999_000)],
     // UTF-8 text and JSON overhead push an otherwise in-limit image over the limit.
     prompt: "猫".repeat(400),
@@ -282,7 +266,6 @@ for (const testCase of [
   },
   {
     model: "gemini-3.8-flash",
-    env: "GEMINI_API_KEY",
     images: [imageUrl],
     prompt: "Describe this",
     error: "Gemini request is larger than the 20 MB limit",
@@ -290,9 +273,7 @@ for (const testCase of [
 ]) {
   test(`${testCase.model} rejects oversized encoded images and requests before sending: ${testCase.error}`, async () => {
     const originalFetch = globalThis.fetch
-    const oldKey = process.env[testCase.env]
     let apiCalls = 0
-    process.env[testCase.env] = "test-key"
     globalThis.fetch = (input, init) => {
       const request = new Request(input, init)
       if (request.url === imageUrl) {
@@ -311,6 +292,7 @@ for (const testCase of [
         () =>
           createMessage({
             model: resolveModel(testCase.model),
+            apiKey: "test-key",
             config: { search: false, think: undefined },
             chat: {
               id: "test",
@@ -332,8 +314,6 @@ for (const testCase of [
       assert.deepEqual(apiCalls, 0)
     } finally {
       globalThis.fetch = originalFetch
-      if (oldKey === undefined) delete process.env[testCase.env]
-      else process.env[testCase.env] = oldKey
     }
   })
 }

@@ -1,6 +1,5 @@
 import { GoogleGenAI, type Part, ThinkingLevel } from "@google/genai"
 import { Buffer } from "node:buffer"
-import process from "node:process"
 
 import { postprocessSchemaContent, prepareSchema } from "../schema.ts"
 import { getCost } from "../models.ts"
@@ -43,13 +42,11 @@ export function geminiThinkParams(key: string, think: ThinkLevel | undefined) {
 export async function geminiCreateMessage({
   chat,
   model,
+  apiKey,
   config,
   signal,
   outputSchema,
 }: ChatInput) {
-  const apiKey = process.env.GEMINI_API_KEY
-  if (!apiKey) throw Error("GEMINI_API_KEY missing")
-
   const { thinkingLevel, effort } = geminiThinkParams(model.key, config.think)
 
   // Gemini accepts primitive roots; no wrap needed.

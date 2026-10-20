@@ -83,6 +83,7 @@ export function claudeThinkParams(think: ThinkLevel | undefined): ClaudeThinkPar
 export async function claudeCreateMessage({
   chat,
   model,
+  apiKey,
   config,
   signal,
   outputSchema,
@@ -114,7 +115,7 @@ export async function claudeCreateMessage({
     tools: toolsList.length > 0 ? toolsList : undefined,
   }
   validateRequestSize("Claude", params)
-  const response = await new Anthropic().beta.messages.create(
+  const response = await new Anthropic({ apiKey }).beta.messages.create(
     {
       ...params,
       betas: ["code-execution-web-tools-2026-02-09"],

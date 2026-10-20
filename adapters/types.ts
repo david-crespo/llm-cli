@@ -23,6 +23,7 @@ export type ToolConfig = {
 export type ChatInput = {
   chat: Chat
   model: Model
+  apiKey: string
   config: ToolConfig
   signal?: AbortSignal
   outputSchema?: Type

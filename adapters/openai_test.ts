@@ -47,6 +47,7 @@ test("image generation rejects history and input images before requesting", () =
   const input: ChatInput = {
     chat: { id: "test", createdAt: new Date(), systemPrompt: "", messages: [user] },
     model: resolveModel("flare"),
+    apiKey: "test-key",
     config: { search: false, think: undefined },
   }
   assert.deepEqual(gptImageParams(input).prompt, "a cat")

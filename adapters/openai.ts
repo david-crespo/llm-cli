@@ -2,7 +2,6 @@ import OpenAI from "openai"
 import type { ResponseCreateParamsNonStreaming } from "openai/resources/responses/responses"
 import type { ImageGenerateParamsNonStreaming } from "openai/resources/images"
 import { Buffer } from "node:buffer"
-import process from "node:process"
 import { ValidationError } from "../errors.ts"
 import { match, P } from "ts-pattern"
 
@@ -124,7 +123,7 @@ function gptConfig(chatInput: ChatInput): {
 }
 
 export async function gptCreateMessage(chatInput: ChatInput) {
-  const client = new OpenAI()
+  const client = new OpenAI({ apiKey: chatInput.apiKey })
   const { params, wrapped, effort } = gptConfig(chatInput)
   validateRequestSize("OpenAI", params)
   const response = await client.responses.create(params, { signal: chatInput.signal })
@@ -137,7 +136,7 @@ export const gptBg = {
     status: BackgroundStatus
     effort: string
   }> {
-    const client = new OpenAI()
+    const client = new OpenAI({ apiKey: chatInput.apiKey })
     const { params, effort } = gptConfig(chatInput)
     const request = {
       ...params,
@@ -148,20 +147,20 @@ export const gptBg = {
     const response = await client.responses.create(request)
     return { id: response.id, status: response.status ?? "queued", effort }
   },
-  async retrieve(responseId: string, model: Model): Promise<ModelResponse> {
-    const response = await new OpenAI().responses.retrieve(responseId)
+  async retrieve(responseId: string, model: Model, apiKey: string): Promise<ModelResponse> {
+    const response = await new OpenAI({ apiKey }).responses.retrieve(responseId)
     // Background retrieve: schema wrap info isn't reconstructed here. Structured
     // output via `-b` + `-o` isn't supported yet.
     return processGptResponse(response, model, undefined, false)
   },
-  async status(responseId: string): Promise<BackgroundStatus> {
-    const client = new OpenAI()
+  async status(responseId: string, apiKey: string): Promise<BackgroundStatus> {
+    const client = new OpenAI({ apiKey })
     const response = await client.responses.retrieve(responseId)
     if (!response.status) throw new Error("Missing status for background response")
     return response.status
   },
-  async cancel(responseId: string): Promise<void> {
-    const client = new OpenAI()
+  async cancel(responseId: string, apiKey: string): Promise<void> {
+    const client = new OpenAI({ apiKey })
     await client.responses.cancel(responseId)
   },
 }
@@ -219,18 +218,17 @@ export function processGptImageResponse(
 
 export async function gptImageCreateMessage(chatInput: ChatInput): Promise<ModelResponse> {
   const params = gptImageParams(chatInput)
-  const response = await new OpenAI().images.generate(params, { signal: chatInput.signal })
+  const response = await new OpenAI({ apiKey: chatInput.apiKey }).images.generate(params, {
+    signal: chatInput.signal,
+  })
   return processGptImageResponse(response, chatInput.model, (bytes, i) =>
     saveImage(bytes, params.prompt, "png", i),
   )
 }
 
 const makeOpenAIFunc =
-  (baseURL: string, envVarName: string, opts: { think?: boolean } = {}) =>
-  async ({ chat, model, signal, outputSchema, config }: ChatInput) => {
-    // without this check the SDK would fall back to OPENAI_API_KEY
-    const apiKey = process.env[envVarName]
-    if (!apiKey) throw new Error(`${envVarName} missing`)
+  (baseURL: string, opts: { think?: boolean } = {}) =>
+  async ({ chat, model, apiKey, signal, outputSchema, config }: ChatInput) => {
     const client = new OpenAI({ baseURL, apiKey })
     const systemMsg = chat.systemPrompt
       ? [{ role: "system" as const, content: chat.systemPrompt }]
@@ -305,7 +303,4 @@ const makeOpenAIFunc =
     }
   }
 
-export const openrouterCreateMessage = makeOpenAIFunc(
-  "https://openrouter.ai/api/v1",
-  "OPENROUTER_API_KEY",
-)
+export const openrouterCreateMessage = makeOpenAIFunc("https://openrouter.ai/api/v1")

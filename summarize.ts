@@ -4,6 +4,7 @@ import { createMessage } from "./adapters/mod.ts"
 import { type Chat } from "./types.ts"
 import { History } from "./storage.ts"
 import { resolveModel } from "./models.ts"
+import { getApiKey } from "./config.ts"
 
 // resolved at module scope so a stale alias fails at import time (caught by
 // tests and at CLI startup) rather than mid-summarize
@@ -40,6 +41,7 @@ export async function summarize(chat: Chat): Promise<string> {
       createdAt: new Date(),
     },
     model: luna,
+    apiKey: getApiKey(luna.provider),
     config: { search: false, think: "off" },
   })
 

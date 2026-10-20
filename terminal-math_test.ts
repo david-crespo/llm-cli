@@ -1,4 +1,3 @@
-// deno-lint-ignore-file no-control-regex
 import assert from "node:assert/strict"
 import { test } from "node:test"
 import { Buffer } from "node:buffer"
@@ -156,7 +155,7 @@ test("MathJax rasterizes the example and constrains narrow/tall equations", asyn
     .raw`\partial_t u + (u\cdot\nabla)u = -\nabla p + \nu\Delta u + f, \qquad \nabla\cdot u = 0`
   for (const width of [20, 80]) {
     const image = await renderMathImage(tex, true, width, "#c8c8c8")
-    assert.deepEqual([...image.png.slice(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10])
+    assert.deepEqual(Array.from(image.png.slice(0, 8)), [137, 80, 78, 71, 13, 10, 26, 10])
     assert(image.columns <= width)
     const header = new DataView(image.png.buffer, image.png.byteOffset)
     assert.deepEqual(header.getUint32(16), image.columns * 30)

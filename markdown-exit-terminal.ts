@@ -1,4 +1,3 @@
-// deno-lint-ignore-file no-control-regex
 //
 // markdown-exit plugin that renders to ANSI-styled terminal output.
 // Install with md.use(terminalPlugin), then call md.renderAsync(src, env).
@@ -94,7 +93,7 @@ function freshState(): RenderState {
   }
 }
 
-// deno-lint-ignore no-explicit-any
+// oxlint-disable-next-line typescript/no-explicit-any
 function getState(env: any): RenderState {
   if (!env._termState) env._termState = freshState()
   return env._termState
@@ -174,7 +173,7 @@ function postProcessTables(text: string): string {
 
 function reflowParagraphs(text: string, width: number): string {
   return text.replace(/^([^\n]+)\n\n/gm, (match, para) => {
-    if (/^(\s*(#|[*\-]|\d+\.)|│|╭|├|╰| {4})/.test(stripAnsi(para))) {
+    if (/^(\s*(#|[*-]|\d+\.)|│|╭|├|╰| {4})/.test(stripAnsi(para))) {
       return match
     }
     return reflowText(para, width) + "\n\n"

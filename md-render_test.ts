@@ -1,4 +1,3 @@
-// deno-lint-ignore-file no-control-regex
 import assert from "node:assert/strict"
 import { test } from "node:test"
 import process from "node:process"

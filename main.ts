@@ -83,7 +83,7 @@ const createChat = (systemPrompt: string): Chat => ({
   messages: [],
 })
 
-// deno-lint-ignore no-explicit-any
+// oxlint-disable-next-line typescript/no-explicit-any
 function renderError(e: any, opts: DisplayOpts = {}) {
   process.exitCode = 1
   // keep stdout clean for scripts: JSON mode reports errors on stderr only
@@ -517,7 +517,7 @@ Examples:
         }
         if (!opts.ephemeral) History.save(chat, { current: true, touch: true })
         await pollBackgroundResponse(chat, model, displayOpts)
-        // deno-lint-ignore no-explicit-any
+        // oxlint-disable-next-line typescript/no-explicit-any
       } catch (e: any) {
         renderError(e, displayOpts)
       }

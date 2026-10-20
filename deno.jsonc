@@ -1,35 +1,9 @@
+// Only `deno fmt` still uses Deno, until it's replaced by oxfmt.
 {
-  "tasks": {
-    "ci": "deno fmt --check && deno lint && deno check && deno task test",
-    "test": "deno test --allow-env --allow-read --allow-write=/tmp",
-    "math-demo": "deno run --allow-env --allow-read math-demo.ts"
-  },
   "fmt": {
     // Preserve math delimiters and TeX lines that look like Markdown syntax.
-    "exclude": ["fixtures/terminal-math.md"],
+    "exclude": ["fixtures/terminal-math.md", "package-lock.json", ".claude"],
     "lineWidth": 92,
     "semiColons": false
-  },
-  "imports": {
-    "@commander-js/extra-typings": "npm:@commander-js/extra-typings@^15.0.0",
-    "commander": "npm:commander@^15.0.0",
-    "@inquirer/core": "npm:@inquirer/core@^12",
-    "dax": "npm:dax@^0.50.1",
-    "@mathjax/src": "npm:@mathjax/src@4.1.3",
-    "@resvg/resvg-wasm": "npm:@resvg/resvg-wasm@2.6.2",
-    "@shikijs/cli": "npm:@shikijs/cli@^4.4.3",
-    "ansis": "npm:ansis@^4.3.1",
-    "markdown-exit": "npm:markdown-exit@^1.3.0",
-    "markdown-table": "npm:markdown-table@3.0.4",
-    "openai": "npm:openai@7.21.0",
-    "@anthropic-ai/sdk": "npm:@anthropic-ai/sdk@0.123.0",
-    "arktype": "npm:arktype@^2.2.3",
-    "json5": "npm:json5@^2.2.3",
-    "@google/genai": "npm:@google/genai@2.21.0",
-    "remeda": "npm:remeda@^2.45.0",
-    "ts-pattern": "npm:ts-pattern@^5.9.0",
-    "string-width": "npm:string-width@7.2.0",
-    "supports-hyperlinks": "npm:supports-hyperlinks@^4.5.0",
-    "wrap-ansi": "npm:wrap-ansi@9.0.0"
   }
 }

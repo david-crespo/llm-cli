@@ -21,7 +21,7 @@ And it's easy to add more.
 <img width="711" alt="image" src="https://github.com/user-attachments/assets/0acab93c-4062-46db-9779-8e48f9ccc1e9" />
 
 Equations render as images in Ghostty and Kitty, with raw TeX elsewhere. Try
-`deno task math-demo` for examples.
+`npm run math-demo` for examples.
 
 ### Continue chat with replies
 

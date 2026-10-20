@@ -2,7 +2,6 @@
 
 import { readAll } from "@std/io"
 import { Command, InvalidArgumentError, Option } from "@commander-js/extra-typings"
-import { Table } from "@cliffy/table"
 import $ from "@david/dax"
 import { blueBright, bold, magentaBright, red } from "ansis"
 
@@ -37,7 +36,7 @@ import { History } from "./storage.ts"
 import { genMissingSummaries } from "./summarize.ts"
 import { parseType } from "./schema.ts"
 import { requestProblems, usesBackground } from "./validate.ts"
-import { formatPickerOptions, pickWithAction, singleLine } from "./picker.ts"
+import { alignColumns, formatPickerOptions, pickWithAction, singleLine } from "./picker.ts"
 
 const getLastModelId = (chat: Chat) =>
   chat.messages.findLast((m) => m.role === "assistant")?.model
@@ -57,14 +56,13 @@ function chatPickerOptions(chats: Chat[]) {
   }))
 }
 
-/** use cliffy's table to align columns for message picker, then split on newline to get lines as strings */
+/** One line per message for the fork picker, with columns aligned */
 function messagePickerOptions(messages: Chat["messages"]) {
-  const table = new Table(...messages.map((msg, i) => {
+  return alignColumns(messages.map((msg, i) => {
     const preview = truncate(msg.content.replace(/\n/g, " "), 50)
     const actor = msg.role === "assistant" ? msg.model : "user"
     return [`${i + 1}`, actor, preview]
   }))
-  return table.padding(3).toString().split("\n")
 }
 
 const bell = () => Deno.stdout.write(new TextEncoder().encode("\x07"))

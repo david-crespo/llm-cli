@@ -5,7 +5,6 @@
     "jsr:@cliffy/internal@1.2.1": "1.2.1",
     "jsr:@cliffy/keycode@1.2.1": "1.2.1",
     "jsr:@cliffy/prompt@1.2.1": "1.2.1",
-    "jsr:@cliffy/table@1.2.1": "1.2.1",
     "jsr:@david/console-static-text@~0.3.4": "0.3.5",
     "jsr:@david/dax@0.49": "0.49.0",
     "jsr:@david/path@0.3": "0.3.4",
@@ -68,12 +67,6 @@
         "jsr:@std/fmt@^1.0.10",
         "jsr:@std/io@~0.225.3",
         "jsr:@std/text"
-      ]
-    },
-    "@cliffy/table@1.2.1": {
-      "integrity": "be333e62f2c754f8bf75a38c8177515b152040572c9f75298e9bcef1314b82ff",
-      "dependencies": [
-        "jsr:@std/fmt@^1.0.10"
       ]
     },
     "@david/console-static-text@0.3.5": {
@@ -895,7 +888,6 @@
   "workspace": {
     "dependencies": [
       "jsr:@cliffy/prompt@1.2.1",
-      "jsr:@cliffy/table@1.2.1",
       "jsr:@david/dax@0.49",
       "jsr:@std/assert@^1.0.19",
       "jsr:@std/encoding@^1.0.11",

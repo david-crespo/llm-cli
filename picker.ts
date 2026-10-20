@@ -49,6 +49,15 @@ function padEnd(text: string, width: number): string {
   return text + " ".repeat(width - stringWidth(text))
 }
 
+/** Pad each column to its widest cell so rows line up. The last column isn't padded. */
+export function alignColumns(rows: string[][]): string[] {
+  const widths = rows[0]?.map((_, i) => maxWidth(rows.map((row) => row[i]))) ?? []
+  return rows.map((row) =>
+    row.map((cell, i) => i < row.length - 1 ? padEnd(cell, widths[i]) : cell)
+      .join(" ".repeat(COLUMN_GAP))
+  )
+}
+
 /** Format one single-line selector option per row, fitting the summary to the terminal. */
 export function formatPickerOptions(
   rows: PickerRow[],

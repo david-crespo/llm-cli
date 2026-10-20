@@ -35,7 +35,6 @@ import {
 } from "./adapters/mod.ts"
 import { History } from "./storage.ts"
 import { genMissingSummaries } from "./summarize.ts"
-import { parseType } from "./schema.ts"
 import { requestProblems, usesBackground } from "./validate.ts"
 import {
   alignColumns,
@@ -424,6 +423,8 @@ Examples:
   .action(async (message, opts) => {
     let outputSchema
     if (opts.outputSchema) {
+      // arktype takes ~70 ms to load, so only load it when it's needed
+      const { parseType } = await import("./schema.ts")
       try {
         outputSchema = parseType(opts.outputSchema)
       } catch (e) {

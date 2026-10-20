@@ -1,6 +1,6 @@
 import { ValidationError } from "./errors.ts"
 import { type TokenCounts } from "./types.ts"
-import $ from "@david/dax"
+import $ from "dax"
 
 // prices are per million tokens
 export type Model = {

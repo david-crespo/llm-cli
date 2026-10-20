@@ -1,9 +1,10 @@
 import { GoogleGenAI, type Part, ThinkingLevel } from "@google/genai"
-import { encodeBase64 } from "@std/encoding/base64"
+import { Buffer } from "node:buffer"
+import process from "node:process"
 
 import { postprocessSchemaContent, prepareSchema } from "../schema.ts"
 import { getCost } from "../models.ts"
-import { parseDataUrl } from "../utils.ts"
+import { parseDataUrl } from "../image-input.ts"
 import type { ThinkLevel } from "../types.ts"
 import type { ChatInput } from "./types.ts"
 import { validateRequestSize } from "./request_size.ts"
@@ -18,7 +19,7 @@ async function imageToInlinePart(image_url: string): Promise<Part> {
   if (!res.ok) throw new Error(`Failed to fetch image: ${res.status}`)
   const buf = new Uint8Array(await res.arrayBuffer())
   const mimeType = res.headers.get("content-type")?.split(";")[0] || "image/png"
-  return { inlineData: { mimeType, data: encodeBase64(buf) } }
+  return { inlineData: { mimeType, data: Buffer.from(buf).toString("base64") } }
 }
 
 export function geminiThinkParams(key: string, think: ThinkLevel | undefined) {
@@ -42,7 +43,7 @@ export function geminiThinkParams(key: string, think: ThinkLevel | undefined) {
 export async function geminiCreateMessage(
   { chat, model, config, signal, outputSchema }: ChatInput,
 ) {
-  const apiKey = Deno.env.get("GEMINI_API_KEY")
+  const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) throw Error("GEMINI_API_KEY missing")
 
   const { thinkingLevel, effort } = geminiThinkParams(model.key, config.think)

@@ -1,3 +1,4 @@
+import process from "node:process"
 import stringWidth from "string-width"
 import {
   createPrompt,
@@ -11,6 +12,7 @@ import {
   usePrefix,
   useState,
 } from "@inquirer/core"
+import { checkbox, confirm, select } from "@inquirer/prompts"
 
 const COLUMN_GAP = 3
 const SELECT_PREFIX_WIDTH = 2
@@ -23,13 +25,8 @@ export interface PickerRow {
 }
 
 function terminalColumns(): number {
-  try {
-    return Deno.consoleSize().columns
-  } catch {
-    // The selector will report the non-TTY error; this only keeps formatting
-    // from replacing it with a console-size error first.
-    return 120
-  }
+  // Undefined when stdout isn't a TTY. The selector reports that error itself.
+  return process.stdout.columns ?? 120
 }
 
 export function singleLine(text: string): string {
@@ -170,11 +167,7 @@ const actionSelect = createPrompt<
 })
 
 function terminalRows(): number {
-  try {
-    return Deno.consoleSize().rows
-  } catch {
-    return 24
-  }
+  return process.stdout.rows ?? 24
 }
 
 /**
@@ -197,6 +190,53 @@ export async function pickWithAction(opts: {
   } catch (e) {
     // Ctrl+C
     if (e instanceof ExitPromptError) return undefined
+    throw e
+  }
+}
+
+/** Ctrl+C exits with 130, as dax's prompts did, instead of throwing. */
+async function exitOnCancel<T>(prompt: Promise<T>): Promise<T> {
+  try {
+    return await prompt
+  } catch (e) {
+    if (e instanceof ExitPromptError) process.exit(130)
+    throw e
+  }
+}
+
+const indexChoices = (options: string[]) => options.map((name, value) => ({ name, value }))
+
+/** Pick one of `options` and return its index. */
+export function selectIndex(opts: {
+  message: string
+  options: string[]
+  initialIndex?: number
+}): Promise<number> {
+  return exitOnCancel(select({
+    message: opts.message,
+    choices: indexChoices(opts.options),
+    default: opts.initialIndex,
+    pageSize: Math.max(3, terminalRows() - 2),
+  }))
+}
+
+/** Pick any number of `options` and return their indexes. */
+export function selectIndexes(
+  opts: { message: string; options: string[] },
+): Promise<number[]> {
+  return exitOnCancel(checkbox({
+    message: opts.message,
+    choices: indexChoices(opts.options),
+    pageSize: Math.max(3, terminalRows() - 3),
+  }))
+}
+
+/** A yes/no question that defaults to no. Ctrl+C also counts as no. */
+export async function confirmed(message: string, opts: { clear?: boolean } = {}) {
+  try {
+    return await confirm({ message, default: false }, { clearPromptOnDone: opts.clear })
+  } catch (e) {
+    if (e instanceof ExitPromptError) return false
     throw e
   }
 }

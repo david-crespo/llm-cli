@@ -1,7 +1,8 @@
 import OpenAI from "openai"
 import type { ResponseCreateParamsNonStreaming } from "openai/resources/responses/responses"
 import type { ImageGenerateParamsNonStreaming } from "openai/resources/images"
-import { decodeBase64 } from "@std/encoding/base64"
+import { Buffer } from "node:buffer"
+import process from "node:process"
 import { ValidationError } from "../errors.ts"
 import { match, P } from "ts-pattern"
 
@@ -196,7 +197,7 @@ export function processGptImageResponse(
   save: (bytes: Uint8Array, index: number) => string,
 ): ModelResponse {
   const images = (response.data ?? []).flatMap((d, i) =>
-    d.b64_json ? [save(decodeBase64(d.b64_json), i)] : []
+    d.b64_json ? [save(Buffer.from(d.b64_json, "base64"), i)] : []
   )
   if (images.length === 0) throw new Error("No image in response")
   // Image models don't report cached input, and we don't send input images
@@ -230,7 +231,7 @@ const makeOpenAIFunc =
   (baseURL: string, envVarName: string, opts: { think?: boolean } = {}) =>
   async ({ chat, model, signal, outputSchema, config }: ChatInput) => {
     // without this check the SDK would fall back to OPENAI_API_KEY
-    const apiKey = Deno.env.get(envVarName)
+    const apiKey = process.env[envVarName]
     if (!apiKey) throw new Error(`${envVarName} missing`)
     const client = new OpenAI({ baseURL, apiKey })
     const systemMsg = chat.systemPrompt

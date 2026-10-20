@@ -1,8 +1,9 @@
-import { encodeBase64 } from "@std/encoding/base64"
+import { Buffer } from "node:buffer"
+import process from "node:process"
 
 export function supportsKittyGraphics(
-  isTerminal = Deno.stdout.isTerminal(),
-  env: (key: string) => string | undefined = (key) => Deno.env.get(key),
+  isTerminal = process.stdout.isTTY ?? false,
+  env: (key: string) => string | undefined = (key) => process.env[key],
 ): boolean {
   if (!isTerminal || env("TMUX") || env("STY") || env("TERM") === "dumb") return false
   return env("TERM_PROGRAM") === "ghostty" ||
@@ -16,7 +17,7 @@ export function supportsKittyGraphics(
  * also works over SSH.
  */
 export function kittyTransmit(png: Uint8Array, control: string): string {
-  const payload = encodeBase64(png)
+  const payload = Buffer.from(png).toString("base64")
   let out = ""
   for (let offset = 0; offset < payload.length; offset += 4096) {
     const more = offset + 4096 < payload.length ? 1 : 0

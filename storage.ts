@@ -1,7 +1,16 @@
-import { dirname, join } from "@std/path"
+import {
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs"
+import { dirname, join } from "node:path"
+import process from "node:process"
+import { isErrno } from "./errors.ts"
 import { type Chat } from "./types.ts"
 
-const HISTORY_KEY = "llm-cli"
 const HISTORY_LENGTH = 30
 
 export type StoredChat = Chat & {
@@ -11,8 +20,8 @@ export type StoredChat = Chat & {
 }
 
 function stateRoot(): string {
-  const stateHome = Deno.env.get("XDG_STATE_HOME") ||
-    join(Deno.env.get("HOME")!, ".local", "state")
+  const stateHome = process.env.XDG_STATE_HOME ||
+    join(process.env.HOME!, ".local", "state")
   return join(stateHome, "llm-cli")
 }
 
@@ -44,18 +53,23 @@ export function imageFilename(prompt: string, date: Date, ext: string, index = 0
  * Save a generated image under the state dir and return its absolute path.
  * Images are not pruned along with chat history.
  */
-export function saveImage(bytes: Uint8Array, prompt: string, ext: string, index = 0) {
+export function saveImage(
+  bytes: Uint8Array,
+  prompt: string,
+  ext: string,
+  index = 0,
+  date = new Date(),
+) {
   const dir = imagesPath()
-  Deno.mkdirSync(dir, { recursive: true })
-  const date = new Date()
+  mkdirSync(dir, { recursive: true })
   for (let i = index;; i++) {
     const path = join(dir, imageFilename(prompt, date, ext, i))
     try {
-      Deno.writeFileSync(path, bytes, { createNew: true })
+      writeFileSync(path, bytes, { flag: "wx" })
       return path
     } catch (e) {
       // Another generation may have finished in the same second with the same slug.
-      if (!(e instanceof Deno.errors.AlreadyExists)) throw e
+      if (!isErrno(e, "EEXIST")) throw e
     }
   }
 }
@@ -81,25 +95,6 @@ function date(value: Date | string): Date {
   return value instanceof Date ? value : new Date(value)
 }
 
-function backfillLegacyMessageTimes(chats: Chat[], baseTime = Date.now()): Chat[] {
-  const totalTicks = chats.reduce(
-    (sum, chat) => sum + Math.max(1, chat.messages.length),
-    0,
-  )
-  const startTime = baseTime - totalTicks
-  let i = 0
-
-  for (const chat of chats) {
-    for (const message of chat.messages) {
-      message.createdAt ??= new Date(startTime + i)
-      i++
-    }
-    if (chat.messages.length === 0) i++
-  }
-
-  return chats
-}
-
 function normalizeChat(chat: Chat): Chat {
   chat.createdAt = date(chat.createdAt)
   for (const message of chat.messages) {
@@ -119,15 +114,6 @@ function lastMessageTime(chat: Chat): Date | undefined {
   return chat.messages.at(-1)?.createdAt
 }
 
-function parseHistory(contents: string): Chat[] {
-  const chats = parseJson<Chat[]>(contents)
-  for (const chat of chats) {
-    if (!chat.id) chat.id = crypto.randomUUID()
-    normalizeChat(chat)
-  }
-  return backfillLegacyMessageTimes(chats)
-}
-
 function toStoredChat(chat: Chat | StoredChat): StoredChat {
   const now = new Date()
   const maybeStored = chat as Partial<StoredChat>
@@ -142,22 +128,14 @@ function toStoredChat(chat: Chat | StoredChat): StoredChat {
 }
 
 function writeJsonAtomic(path: string, value: unknown) {
-  Deno.mkdirSync(dirname(path), { recursive: true })
+  mkdirSync(dirname(path), { recursive: true })
   const tmp = `${path}.tmp.${crypto.randomUUID()}`
-  Deno.writeTextFileSync(tmp, JSON.stringify(value))
-  Deno.renameSync(tmp, path)
-}
-
-function removeLegacyHistory() {
-  try {
-    localStorage.removeItem(HISTORY_KEY)
-  } catch {
-    // Legacy cleanup is best-effort once the file store is authoritative.
-  }
+  writeFileSync(tmp, JSON.stringify(value))
+  renameSync(tmp, path)
 }
 
 function readChatFile(path: string): StoredChat {
-  return toStoredChat(parseJson<StoredChat>(Deno.readTextFileSync(path)))
+  return toStoredChat(parseJson<StoredChat>(readFileSync(path, "utf8")))
 }
 
 function writeChatFile(chat: StoredChat): StoredChat {
@@ -179,7 +157,7 @@ function assertCurrentRevision(chat: StoredChat) {
       )
     }
   } catch (e) {
-    if (e instanceof Deno.errors.NotFound) return
+    if (isErrno(e, "ENOENT")) return
     throw e
   }
 }
@@ -188,73 +166,18 @@ function writeCurrent(id: string | undefined) {
   if (id) {
     writeJsonAtomic(currentPath(), { id })
   } else {
-    try {
-      Deno.removeSync(currentPath())
-    } catch (e) {
-      if (!(e instanceof Deno.errors.NotFound)) throw e
-    }
+    rmSync(currentPath(), { force: true })
   }
 }
 
 function readCurrentId(): string | undefined {
   try {
-    const current = parseJson<{ id?: string }>(Deno.readTextFileSync(currentPath()))
+    const current = parseJson<{ id?: string }>(readFileSync(currentPath(), "utf8"))
     return current.id
   } catch (e) {
-    if (e instanceof Deno.errors.NotFound) return undefined
+    if (isErrno(e, "ENOENT")) return undefined
     throw e
   }
-}
-
-function removeIfExists(path: string, options?: Deno.RemoveOptions) {
-  try {
-    Deno.removeSync(path, options)
-  } catch (e) {
-    if (!(e instanceof Deno.errors.NotFound)) throw e
-  }
-}
-
-function chatsDirExists(): boolean {
-  try {
-    return Deno.statSync(chatsPath()).isDirectory
-  } catch (e) {
-    if (e instanceof Deno.errors.NotFound) return false
-    throw e
-  }
-}
-
-function migrateFromHistory(history: Chat[]) {
-  const truncated = history.slice(-HISTORY_LENGTH)
-  for (const chat of truncated) normalizeChat(chat)
-  backfillLegacyMessageTimes(truncated)
-  const activeBase = Date.now() - truncated.length
-  const storedChats = truncated.map((chat, index) => ({
-    ...toStoredChat(chat),
-    lastActiveAt: lastMessageTime(chat) ?? new Date(activeBase + index),
-  }))
-  Deno.mkdirSync(chatsPath(), { recursive: true })
-  for (const chat of storedChats) {
-    writeJsonAtomic(chatPath(chat.id), chat)
-  }
-  writeCurrent(storedChats.at(-1)?.id)
-  removeLegacyHistory()
-}
-
-function migrateIfNeeded() {
-  if (chatsDirExists()) return
-
-  let contents: string | null = null
-  try {
-    contents = localStorage.getItem(HISTORY_KEY)
-  } catch {
-    contents = null
-  }
-  if (contents) {
-    migrateFromHistory(parseHistory(contents))
-    return
-  }
-
-  Deno.mkdirSync(chatsPath(), { recursive: true })
 }
 
 function sortChats(chats: StoredChat[]): StoredChat[] {
@@ -267,33 +190,28 @@ function sortChats(chats: StoredChat[]): StoredChat[] {
 function prune(chats: StoredChat[]) {
   const toDelete = sortChats([...chats]).slice(0, -HISTORY_LENGTH)
   for (const chat of toDelete) {
-    Deno.removeSync(chatPath(chat.id))
+    rmSync(chatPath(chat.id))
   }
 }
 
 export const History = {
   list(): StoredChat[] {
-    migrateIfNeeded()
+    mkdirSync(chatsPath(), { recursive: true })
     const chats: StoredChat[] = []
-    for (const entry of Deno.readDirSync(chatsPath())) {
-      if (!entry.isFile || !entry.name.endsWith(".json")) continue
+    for (const entry of readdirSync(chatsPath(), { withFileTypes: true })) {
+      if (!entry.isFile() || !entry.name.endsWith(".json")) continue
       chats.push(readChatFile(join(chatsPath(), entry.name)))
     }
     return sortChats(chats)
   },
 
-  read(): StoredChat[] {
-    return this.list()
-  },
-
   current(): StoredChat | undefined {
-    migrateIfNeeded()
     const id = readCurrentId()
     if (id) {
       try {
         return readChatFile(chatPath(id))
       } catch (e) {
-        if (!(e instanceof Deno.errors.NotFound)) throw e
+        if (!isErrno(e, "ENOENT")) throw e
       }
     }
     return undefined
@@ -304,7 +222,6 @@ export const History = {
   },
 
   save(chat: Chat | StoredChat, opts: { current?: boolean; touch?: boolean } = {}) {
-    migrateIfNeeded()
     const stored = toStoredChat(chat)
     if ("revision" in chat) assertCurrentRevision(stored)
     if (opts.touch) stored.lastActiveAt = new Date()
@@ -324,34 +241,21 @@ export const History = {
   },
 
   get(id: string): StoredChat {
-    migrateIfNeeded()
     return readChatFile(chatPath(id))
   },
 
   delete(ids: string[]) {
-    migrateIfNeeded()
     const idSet = new Set(ids)
     for (const id of idSet) {
-      try {
-        Deno.removeSync(chatPath(id))
-      } catch (e) {
-        if (!(e instanceof Deno.errors.NotFound)) throw e
-      }
+      rmSync(chatPath(id), { force: true })
     }
     if (idSet.has(readCurrentId() ?? "")) {
       writeCurrent(this.list().at(-1)?.id)
     }
   },
 
-  write(history: Chat[]) {
-    removeIfExists(chatsPath(), { recursive: true })
-    migrateFromHistory(history)
-  },
-
   clear() {
-    removeIfExists(chatsPath(), { recursive: true })
-    Deno.mkdirSync(chatsPath(), { recursive: true })
-    removeIfExists(currentPath())
-    removeLegacyHistory()
+    rmSync(chatsPath(), { recursive: true, force: true })
+    rmSync(currentPath(), { force: true })
   },
 }

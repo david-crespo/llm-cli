@@ -1,4 +1,5 @@
 import type { MarkdownExit, RenderRule } from "markdown-exit"
+import process from "node:process"
 import { kittyTransmit } from "./terminal-image.ts"
 import type { MathImage } from "./math-image.ts"
 
@@ -102,9 +103,7 @@ export default function mathPlugin(md: MarkdownExit): void {
     if (!env.math) return token.markup + suffix
     try {
       const { renderMathImage } = await import("./math-image.ts")
-      const width = Deno.stdout.isTerminal()
-        ? Math.min(Deno.consoleSize().columns, 100)
-        : 80
+      const width = process.stdout.isTTY ? Math.min(process.stdout.columns, 100) : 80
       const image = await renderMathImage(
         token.content,
         block,

@@ -1,4 +1,5 @@
-import { assertEquals } from "@std/assert"
+import assert from "node:assert/strict"
+import { test } from "node:test"
 import { chatToMd, formatElapsed, metaLineMd } from "./display.ts"
 import { systemBase } from "./models.ts"
 import type { Chat, ChatMessage } from "./types.ts"
@@ -15,7 +16,7 @@ const assistantMessage = (effort?: string): ChatMessage => ({
   effort,
 })
 
-Deno.test("chatToMd includes every attached image in order", () => {
+test("chatToMd includes every attached image in order", () => {
   const chat: Chat = {
     id: "images",
     createdAt: new Date(0),
@@ -28,60 +29,60 @@ Deno.test("chatToMd includes every attached image in order", () => {
     }],
   }
   const md = chatToMd({ chat })
-  assertEquals(
+  assert.deepEqual(
     md.includes("[Image 1 (inline)]\n\n[Image 2](https://example.com/second.jpg)"),
     true,
   )
 })
 
-Deno.test("formatElapsed - seconds only", () => {
-  assertEquals(formatElapsed(5000), "5s")
-  assertEquals(formatElapsed(30000), "30s")
+test("formatElapsed - seconds only", () => {
+  assert.deepEqual(formatElapsed(5000), "5s")
+  assert.deepEqual(formatElapsed(30000), "30s")
 })
 
-Deno.test("formatElapsed - minutes and seconds", () => {
-  assertEquals(formatElapsed(65000), "1m5s")
-  assertEquals(formatElapsed(125000), "2m5s")
+test("formatElapsed - minutes and seconds", () => {
+  assert.deepEqual(formatElapsed(65000), "1m5s")
+  assert.deepEqual(formatElapsed(125000), "2m5s")
 })
 
-Deno.test("formatElapsed - fractional seconds", () => {
-  assertEquals(formatElapsed(1500), "1.5s")
-  assertEquals(formatElapsed(2750), "2.75s")
+test("formatElapsed - fractional seconds", () => {
+  assert.deepEqual(formatElapsed(1500), "1.5s")
+  assert.deepEqual(formatElapsed(2750), "2.75s")
 })
 
-Deno.test("formatElapsed - fractional seconds truncated in minutes", () => {
+test("formatElapsed - fractional seconds truncated in minutes", () => {
   // 90.5 seconds = 1m30s (seconds truncated to integer when minutes > 0)
-  assertEquals(formatElapsed(90500), "1m30s")
+  assert.deepEqual(formatElapsed(90500), "1m30s")
 })
 
-Deno.test("formatElapsed - zero", () => {
-  assertEquals(formatElapsed(0), "0s")
+test("formatElapsed - zero", () => {
+  assert.deepEqual(formatElapsed(0), "0s")
 })
 
-Deno.test("formatElapsed - large values", () => {
-  assertEquals(formatElapsed(3600000), "60m0s") // 1 hour
+test("formatElapsed - large values", () => {
+  assert.deepEqual(formatElapsed(3600000), "60m0s") // 1 hour
 })
 
-Deno.test("metaLineMd abbreviates known reasoning efforts", () => {
-  assertEquals(
+test("metaLineMd abbreviates known reasoning efforts", () => {
+  assert.deepEqual(
     metaLineMd(assistantMessage("minimal")).startsWith("`gpt-5.6-sol` (min) |"),
     true,
   )
-  assertEquals(
+  assert.deepEqual(
     metaLineMd(assistantMessage("medium")).startsWith("`gpt-5.6-sol` (med) |"),
     true,
   )
 })
 
-Deno.test("metaLineMd passes through unknown efforts and preserves legacy output", () => {
-  assertEquals(
+test("metaLineMd passes through unknown efforts and preserves legacy output", () => {
+  assert.deepEqual(
     metaLineMd(assistantMessage("future")),
     "`gpt-5.6-sol` (future) | 1s | $0 | 1 -> 2",
   )
-  assertEquals(metaLineMd(assistantMessage()), "`gpt-5.6-sol` | 1s | $0 | 1 -> 2")
+  assert.deepEqual(metaLineMd(assistantMessage()), "`gpt-5.6-sol` | 1s | $0 | 1 -> 2")
 })
 
-Deno.test("chatToMd ignores date differences in the default system prompt", () => {
+test("chatToMd ignores date differences in the default system prompt", () => {
   // Simulate a chat created on a previous day: same default prompt but with a
   // stale date baked in. It should still be treated as the default prompt.
   const stalePrompt = systemBase.replace(
@@ -94,9 +95,9 @@ Deno.test("chatToMd ignores date differences in the default system prompt", () =
     messages: [assistantMessage()],
     createdAt: new Date(0),
   }
-  assertEquals(chatToMd({ chat }).includes("**System prompt:**"), false)
+  assert.deepEqual(chatToMd({ chat }).includes("**System prompt:**"), false)
 
   // A genuinely customized prompt is still reported.
   const chatCustom: Chat = { ...chat, systemPrompt: stalePrompt + "\n- extra" }
-  assertEquals(chatToMd({ chat: chatCustom }).includes("**System prompt:**"), true)
+  assert.deepEqual(chatToMd({ chat: chatCustom }).includes("**System prompt:**"), true)
 })

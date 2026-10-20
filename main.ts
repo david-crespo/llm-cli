@@ -1,11 +1,10 @@
-#! /usr/bin/env -S deno run --allow-env --allow-read --allow-write --allow-net --allow-run=gh,osascript,sips
+#!/usr/bin/env node
 
-import { readAll } from "@std/io"
+import process from "node:process"
+import { text } from "node:stream/consumers"
 import { Command, InvalidArgumentError, Option } from "@commander-js/extra-typings"
-import $ from "@david/dax"
+import $ from "dax"
 import { blueBright, bold, magentaBright, red } from "ansis"
-
-import * as R from "remeda"
 
 import { type Model, models, resolveModel, systemBase } from "./models.ts"
 import {
@@ -20,7 +19,9 @@ import {
   renderResponse,
   shortDateFmt,
 } from "./display.ts"
-import { parseMessageSpec, resolveImage } from "./utils.ts"
+import { resolveImage } from "./image-input.ts"
+import { parseMessageSpec } from "./message-spec.ts"
+import { pick } from "./utils.ts"
 import { ValidationError } from "./errors.ts"
 import { type Chat, resolveThink, type ThinkOverride } from "./types.ts"
 import {
@@ -34,9 +35,16 @@ import {
 } from "./adapters/mod.ts"
 import { History } from "./storage.ts"
 import { genMissingSummaries } from "./summarize.ts"
-import { parseType } from "./schema.ts"
 import { requestProblems, usesBackground } from "./validate.ts"
-import { alignColumns, formatPickerOptions, pickWithAction, singleLine } from "./picker.ts"
+import {
+  alignColumns,
+  confirmed,
+  formatPickerOptions,
+  pickWithAction,
+  selectIndex,
+  selectIndexes,
+  singleLine,
+} from "./picker.ts"
 
 const getLastModelId = (chat: Chat) =>
   chat.messages.findLast((m) => m.role === "assistant")?.model
@@ -65,7 +73,7 @@ function messagePickerOptions(messages: Chat["messages"]) {
   }))
 }
 
-const bell = () => Deno.stdout.write(new TextEncoder().encode("\x07"))
+const bell = () => new Promise((resolve) => process.stdout.write("\x07", resolve))
 
 const makeAssMsg = (modelId: string, startTime: number, response: ModelResponse) => ({
   role: "assistant" as const,
@@ -82,9 +90,9 @@ const createChat = (systemPrompt: string): Chat => ({
   messages: [],
 })
 
-// deno-lint-ignore no-explicit-any
+// oxlint-disable-next-line typescript/no-explicit-any
 function renderError(e: any, opts: DisplayOpts = {}) {
-  Deno.exitCode = 1
+  process.exitCode = 1
   // keep stdout clean for scripts: JSON mode reports errors on stderr only
   if (opts.json) {
     const detail = e.response?.data ?? e.response?.error
@@ -106,7 +114,7 @@ async function pollBackgroundResponse(
   if (!chat.background) throw new Error("No background response to poll")
 
   const { id, startedAt, modelId, effort } = chat.background
-  const showProgress = Deno.stdout.isTerminal() && !displayOpts.raw && !displayOpts.json
+  const showProgress = process.stdout.isTTY && !displayOpts.raw && !displayOpts.json
   const pb = showProgress ? $.progress("Waiting...") : null
 
   try {
@@ -137,7 +145,7 @@ async function pollBackgroundResponse(
     } else {
       const { status } = chat.background
       delete chat.background
-      Deno.exitCode = 1
+      process.exitCode = 1
       console.log(`Background response ${status}`)
     }
   } finally {
@@ -154,7 +162,7 @@ async function genResponse(
   displayOpts: DisplayOpts = {},
 ) {
   // don't want progress spinner when piping output
-  const showProgress = Deno.stdout.isTerminal() && !displayOpts.raw && !displayOpts.json
+  const showProgress = process.stdout.isTTY && !displayOpts.raw && !displayOpts.json
   const label = chatInput.model.kind === "image" ? "Generating image..." : "Thinking..."
   const pb = showProgress ? $.progress(label) : null
 
@@ -163,8 +171,8 @@ async function genResponse(
   const abortController = new AbortController()
   const sigintHandler = () => abortController.abort()
   const sigtermHandler = () => abortController.abort()
-  Deno.addSignalListener("SIGINT", sigintHandler)
-  Deno.addSignalListener("SIGTERM", sigtermHandler)
+  process.on("SIGINT", sigintHandler)
+  process.on("SIGTERM", sigtermHandler)
 
   try {
     const startTime = Date.now()
@@ -179,8 +187,8 @@ async function genResponse(
   } catch (e: unknown) {
     renderError(e, displayOpts)
   } finally {
-    Deno.removeSignalListener("SIGINT", sigintHandler)
-    Deno.removeSignalListener("SIGTERM", sigtermHandler)
+    process.off("SIGINT", sigintHandler)
+    process.off("SIGTERM", sigtermHandler)
     if (pb) pb.finish() // otherwise it hangs around
     // terminal bell to indicate it's done
     if (showProgress) await bell()
@@ -215,11 +223,10 @@ function promptTarget(
 /** Pick a model for forking from a user message, starting on `defaultId` if given */
 async function pickModel(defaultId: string | undefined) {
   const textModels = models.filter((m) => m.kind !== "image")
-  const { index } = await $.select({
+  const index = await selectIndex({
     message: "Pick a model to answer",
     options: textModels.map((m) => m.id),
     initialIndex: Math.max(0, textModels.findIndex((m) => m.id === defaultId)),
-    noClear: true,
   })
   return textModels[index]
 }
@@ -228,12 +235,11 @@ async function pickModel(defaultId: string | undefined) {
 async function forkChat(chat: Chat) {
   if (chat.messages.length === 0) throw new ValidationError("Chat has no messages")
 
-  const { index: selectedIdx } = await $.select({
+  const selectedIdx = await selectIndex({
     message: "Pick a message to fork from",
     options: messagePickerOptions(chat.messages),
     // start on the latest answer so Enter continues it without asking for a model
     initialIndex: chat.messages.length - 1,
-    noClear: true,
   })
 
   const selectedMessage = chat.messages[selectedIdx]
@@ -272,7 +278,7 @@ async function historyPicker() {
     }
     await genMissingSummaries(history)
 
-    const chats = R.reverse(history)
+    const chats = history.toReversed()
     const picked = await pickWithAction({
       message: "Chat history",
       options: chatPickerOptions(chats),
@@ -298,7 +304,7 @@ async function historyPicker() {
         return
       case "delete": {
         const label = truncate(singleLine(chat.summary || "chat"), 60)
-        if (await $.maybeConfirm(`Delete "${label}"?`)) {
+        if (await confirmed(`Delete "${label}"?`, { clear: true })) {
           History.delete([chat.id])
           console.log(`Deleted "${label}"`)
         }
@@ -344,7 +350,7 @@ function modelInfoMd(modelArg: string) {
 
 function exit(msg: string): never {
   console.log(msg)
-  Deno.exit()
+  process.exit()
 }
 
 /** Commander option parser for integer values */
@@ -417,21 +423,23 @@ Examples:
   .action(async (message, opts) => {
     let outputSchema
     if (opts.outputSchema) {
+      // arktype takes ~70 ms to load, so only load it when it's needed
+      const { parseType } = await import("./schema.ts")
       try {
         outputSchema = parseType(opts.outputSchema)
       } catch (e) {
         console.error(e instanceof Error ? e.message : String(e))
-        Deno.exit(1)
+        process.exit(1)
       }
     }
 
     const imageInputs = opts.image ?? []
     const hasImages = imageInputs.length > 0
     const msg = message.join(" ")
-    const piped = !Deno.stdin.isTerminal()
+    const piped = !process.stdin.isTTY
     const stdin = piped
       // read stdin to end
-      ? new TextDecoder().decode(await readAll(Deno.stdin)).trim()
+      ? (await text(process.stdin)).trim()
       : null
 
     // Input was piped but arrived empty — the upstream command likely failed or
@@ -448,7 +456,7 @@ Examples:
     }
     const input = [stdin, msg].filter(Boolean).join("\n\n")
 
-    const displayOpts = R.pick(opts, ["raw", "verbose", "json"])
+    const displayOpts = pick(opts, ["raw", "verbose", "json"])
     const { chat, model } = promptTarget(
       !!opts.reply,
       opts.model,
@@ -492,7 +500,7 @@ Examples:
     if (problems.length > 0) throw new ValidationError(problems.join("\n"))
 
     const image_urls = hasImages
-      ? await Promise.all(imageInputs.map(resolveImage))
+      ? await Promise.all(imageInputs.map((value) => resolveImage(value)))
       : undefined
 
     chat.messages.push({
@@ -516,7 +524,7 @@ Examples:
         }
         if (!opts.ephemeral) History.save(chat, { current: true, touch: true })
         await pollBackgroundResponse(chat, model, displayOpts)
-        // deno-lint-ignore no-explicit-any
+        // oxlint-disable-next-line typescript/no-explicit-any
       } catch (e: any) {
         renderError(e, displayOpts)
       }
@@ -561,17 +569,15 @@ historyCmd
     await genMissingSummaries(history)
     if (history.length === 0) throw new ValidationError("No chat history")
 
-    const reversed = R.reverse(history)
-    const selected = await $.multiSelect({
+    const reversed = history.toReversed()
+    const selected = await selectIndexes({
       message: "Pick chats to delete",
       options: chatPickerOptions(reversed),
-      noClear: true,
     })
     if (selected.length === 0) return
     const label = `${selected.length} chat${selected.length === 1 ? "" : "s"}`
-    const yes = await $.maybeConfirm(`Delete ${label}?`, { noClear: true })
-    if (!yes) return
-    History.delete(selected.map((s) => reversed[s.index].id))
+    if (!await confirmed(`Delete ${label}?`)) return
+    History.delete(selected.map((i) => reversed[i].id))
     console.log(`Deleted ${label}`)
   })
 
@@ -581,8 +587,7 @@ historyCmd
   .action(async () => {
     const history = History.list()
     const n = history.length
-    const yes = await $.maybeConfirm(`Delete ${n} chats?`, { noClear: true })
-    if (!yes) return
+    if (!await confirmed(`Delete ${n} chats?`)) return
     History.clear()
     console.log("Deleted chat history")
   })
@@ -677,7 +682,7 @@ bgCmd
   })
 
 try {
-  await program.parseAsync(Deno.args, { from: "user" })
+  await program.parseAsync()
 } catch (e) {
   if (e instanceof ValidationError) program.error(`error: ${e.message}`)
   throw e

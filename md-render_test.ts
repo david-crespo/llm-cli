@@ -1,6 +1,8 @@
-// deno-lint-ignore-file no-control-regex
-import { assert, assertEquals } from "@std/assert"
+import assert from "node:assert/strict"
+import { test } from "node:test"
+import process from "node:process"
 
+import { codespan } from "./markdown-exit-terminal.ts"
 import { renderMarkdown } from "./md-render.ts"
 
 const ANSI_RE = new RegExp("\\x1b\\[[0-9;]*m|\\x1b\\]8;;[^\\x07]*\\x07", "g")
@@ -8,7 +10,7 @@ const ANSI_RE = new RegExp("\\x1b\\[[0-9;]*m|\\x1b\\]8;;[^\\x07]*\\x07", "g")
 // unbreakable; normalize to regular spaces for visual-equality assertions.
 const stripAnsi = (s: string) => s.replace(ANSI_RE, "").replaceAll(" ", " ")
 
-Deno.test("renderMarkdown reflows long blockquote text", async () => {
+test("renderMarkdown reflows long blockquote text", async () => {
   const long = "word ".repeat(30).trim() // 149 chars, well over 77-char blockquote width
   const output = stripAnsi(await renderMarkdown(`> ${long}`))
   const lines = output.split("\n")
@@ -19,18 +21,18 @@ Deno.test("renderMarkdown reflows long blockquote text", async () => {
   )
 })
 
-Deno.test("renderMarkdown handles nested blockquotes", async () => {
+test("renderMarkdown handles nested blockquotes", async () => {
   const output = await renderMarkdown("> outer\n> > inner\n> back")
   assert(!output.includes("\x00"))
-  assertEquals(stripAnsi(output), " │ outer\n │\n │  │ inner\n │  │ back")
+  assert.deepEqual(stripAnsi(output), " │ outer\n │\n │  │ inner\n │  │ back")
 })
 
-Deno.test("renderMarkdown preserves list item paragraph breaks", async () => {
+test("renderMarkdown preserves list item paragraph breaks", async () => {
   const output = await renderMarkdown("- first paragraph\n\n  second paragraph")
-  assertEquals(stripAnsi(output), "* first paragraph\n  second paragraph")
+  assert.deepEqual(stripAnsi(output), "* first paragraph\n  second paragraph")
 })
 
-Deno.test("renderMarkdown sizes tables from visible link text", async () => {
+test("renderMarkdown sizes tables from visible link text", async () => {
   const output = stripAnsi(
     await renderMarkdown("| h |\n| - |\n| [x](https://example.com) |"),
   )
@@ -39,15 +41,15 @@ Deno.test("renderMarkdown sizes tables from visible link text", async () => {
   const headerWidth = lines[1].slice(2, -2).trimEnd().length
   const bodyWidth = lines[3].slice(2, -2).trimEnd().length
 
-  assertEquals(paddedWidth, Math.max(3, headerWidth, bodyWidth))
+  assert.deepEqual(paddedWidth, Math.max(3, headerWidth, bodyWidth))
 })
 
-Deno.test("renderMarkdown sizes emoji grapheme clusters as width 2 in tables", async () => {
+test("renderMarkdown sizes emoji grapheme clusters as width 2 in tables", async () => {
   const output = stripAnsi(
     await renderMarkdown("| x |\n| - |\n| 👨‍👩‍👧‍👦 |\n| 🇯🇵 |\n| 🏴‍☠️ |"),
   )
 
-  assertEquals(
+  assert.deepEqual(
     output,
     [
       "╭─────╮",
@@ -61,14 +63,14 @@ Deno.test("renderMarkdown sizes emoji grapheme clusters as width 2 in tables", a
   )
 })
 
-Deno.test("renderMarkdown keeps mixed-width emoji columns aligned", async () => {
+test("renderMarkdown keeps mixed-width emoji columns aligned", async () => {
   const output = stripAnsi(
     await renderMarkdown(
       "| kind | value |\n| --- | --- |\n| family | 👨‍👩‍👧‍👦 |\n| flag | 🇯🇵 |\n| pirate | 🏴‍☠️ |",
     ),
   )
 
-  assertEquals(
+  assert.deepEqual(
     output,
     [
       "╭────────┬───────╮",
@@ -82,36 +84,39 @@ Deno.test("renderMarkdown keeps mixed-width emoji columns aligned", async () => 
   )
 })
 
-Deno.test("renderMarkdown handles common inline markdown", async () => {
+test("renderMarkdown handles common inline markdown", async () => {
   const output = stripAnsi(
     await renderMarkdown(
       "# Title\n\nParagraph with **bold**, *italic*, ~~strike~~, `code`, and [link](https://example.com).",
     ),
   )
 
-  assertEquals(
+  assert.deepEqual(
     output,
     "# Title\n\nParagraph with bold, italic, strike,  code , and link (https://example.com).",
   )
 })
 
-Deno.test("renderMarkdown handles basic lists", async () => {
+test("renderMarkdown handles basic lists", async () => {
   const output = stripAnsi(
     await renderMarkdown("- first\n- second\n  - nested\n\n1. one\n2. two"),
   )
 
-  assertEquals(output, "* first\n* second\n  * nested\n\n1. one\n2. two")
+  assert.deepEqual(output, "* first\n* second\n  * nested\n\n1. one\n2. two")
 })
 
-Deno.test("renderMarkdown handles basic fenced code blocks", async () => {
+test("renderMarkdown handles basic fenced code blocks", async () => {
   const output = stripAnsi(
     await renderMarkdown("```ts\nconst x = 1\nconsole.log(x)\n```"),
   )
 
-  assertEquals(output, "  const x = 1\n  console.log(x)")
+  assert.deepEqual(output, "  const x = 1\n  console.log(x)")
 })
 
-Deno.test("renderMarkdown keeps codespans on a single line when wrapped", async () => {
+test("renderMarkdown keeps codespans on a single line when wrapped", {
+  // Without colors there is no styled span to split
+  skip: !codespan.open && "colors are disabled",
+}, async () => {
   // wrap-ansi will split a styled codespan if it contains breakable spaces,
   // which either leaks bg color to end-of-line (BCE) or strands a lone styled
   // space at the line edge. Codespans pad with NBSP and replace internal
@@ -121,29 +126,30 @@ Deno.test("renderMarkdown keeps codespans on a single line when wrapped", async 
     "The type parameter `K extends PropertyKey` constrains keys to `string | number | symbol` — the only types JavaScript allows as object keys. This lets the return type be a precise `Record<K, T[]>` rather than a loose `Record<string, T[]>`.\n\n" +
     "Inside the loop, `result[key] ??= []` uses the operator: if `result[key]` is `undefined`, more text. The classic `if (!result[key]) result[key] = []; result[key].push(item);` form."
 
-  const origIsTerminal = Deno.stdout.isTerminal.bind(Deno.stdout)
-  const origConsoleSize = Deno.consoleSize
-  Deno.stdout.isTerminal = () => true
+  // The escape codes depend on the color level: `node --test` sets
+  // FORCE_COLOR=1 for test files when its own output is a terminal.
+  const { open, close } = codespan
+  // A codespan whose visible content is only whitespace means wrap-ansi sliced one out
+  const lone = new RegExp(`${RegExp.escape(open)}\\s*${RegExp.escape(close)}`)
+
+  const { stdout } = process
+  const original = Object.getOwnPropertyDescriptors(stdout)
+  stdout.isTTY = true
   try {
     for (const columns of [50, 62, 70, 80, 85, 88, 90, 92, 95, 100, 120]) {
-      Deno.consoleSize = () => ({ columns, rows: 40 })
+      stdout.columns = columns
       const out = await renderMarkdown(text)
       for (const [i, line] of out.split("\n").entries()) {
-        const opens = (line.match(/\x1b\[38;5;203m\x1b\[48;5;236m/g) ?? []).length
-        const closes = (line.match(/\x1b\[49m\x1b\[39m/g) ?? []).length
-        assertEquals(
+        const opens = line.split(open).length - 1
+        const closes = line.split(close).length - 1
+        assert.deepEqual(
           opens,
           closes,
           `columns=${columns} line ${i} has unbalanced codespan SGR: ${
             JSON.stringify(line)
           }`,
         )
-        // Catch the lone-styled-space artifact: a codespan whose visible
-        // content is only whitespace means wrap-ansi sliced one out.
-        const lone = new RegExp(
-          "\\x1b\\[38;5;203m\\x1b\\[48;5;236m\\s*\\x1b\\[49m\\x1b\\[39m",
-        )
-        assertEquals(
+        assert.deepEqual(
           lone.test(line),
           false,
           `columns=${columns} line ${i} contains a whitespace-only codespan: ${
@@ -153,15 +159,17 @@ Deno.test("renderMarkdown keeps codespans on a single line when wrapped", async 
       }
     }
   } finally {
-    Deno.stdout.isTerminal = origIsTerminal
-    Deno.consoleSize = origConsoleSize
+    for (const key of ["isTTY", "columns"] as const) {
+      if (original[key]) Object.defineProperty(stdout, key, original[key])
+      else delete stdout[key]
+    }
   }
 })
 
-Deno.test("renderMarkdown handles simple tables", async () => {
+test("renderMarkdown handles simple tables", async () => {
   const output = stripAnsi(await renderMarkdown("| a | b |\n| - | - |\n| 1 | 2 |"))
 
-  assertEquals(
+  assert.deepEqual(
     output,
     [
       "╭─────┬─────╮",

@@ -1,5 +1,6 @@
 import { renderMd } from "./display.ts"
+import { readFile } from "node:fs/promises"
 
 await renderMd(
-  await Deno.readTextFile(new URL("./fixtures/terminal-math.md", import.meta.url)),
+  await readFile(new URL("./fixtures/terminal-math.md", import.meta.url), "utf8"),
 )

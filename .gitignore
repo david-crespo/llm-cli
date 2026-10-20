@@ -2,3 +2,4 @@
 .env.*
 .helix
 
+node_modules

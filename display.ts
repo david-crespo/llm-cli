@@ -1,13 +1,14 @@
 import { markdownTable } from "markdown-table"
-import { writeAll } from "@std/io"
+import { readFile } from "node:fs/promises"
+import process from "node:process"
 
-import { Chat, type ChatMessage } from "./types.ts"
+import type { Chat, ChatMessage } from "./types.ts"
 import { models, systemBase } from "./models.ts"
 import { renderMarkdown } from "./md-render.ts"
 import { imageColumns, kittyPng, supportsKittyGraphics } from "./terminal-image.ts"
 
 export async function renderMd(md: string, raw = false) {
-  if (Deno.stdout.isTerminal() && !raw) {
+  if (process.stdout.isTTY && !raw) {
     console.log(await renderMarkdown(md))
   } else {
     console.log(md)
@@ -123,7 +124,7 @@ export function metaLineMd(msg: ChatMessage): string {
 export async function renderMetaToStderr(msg: ChatMessage) {
   const meta = metaLineMd(msg)
   if (!meta) return
-  const text = Deno.stderr.isTerminal() ? await renderMarkdown(meta) : meta
+  const text = process.stderr.isTTY ? await renderMarkdown(meta) : meta
   console.error()
   console.error(text)
   console.error()
@@ -265,11 +266,10 @@ export async function renderResponse(msg: ChatMessage, opts: DisplayOpts) {
     await renderMd(messageContentMd(msg, getMode(opts)), false)
     if (msg.role === "assistant" && msg.images && supportsKittyGraphics()) {
       for (const path of msg.images) {
-        const png = await Deno.readFile(path)
-        await writeAll(
-          Deno.stdout,
-          new TextEncoder().encode(kittyPng(png, imageColumns(png, Deno.consoleSize()))),
-        )
+        const png = await readFile(path)
+        const { columns, rows } = process.stdout
+        const data = kittyPng(png, imageColumns(png, { columns, rows }))
+        await new Promise((resolve) => process.stdout.write(data, resolve))
       }
     }
   }

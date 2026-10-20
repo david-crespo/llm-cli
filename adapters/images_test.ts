@@ -1,4 +1,7 @@
-import { assertEquals, assertRejects } from "@std/assert"
+import assert from "node:assert/strict"
+import { test } from "node:test"
+import { errorIncluding } from "../testing.ts"
+import process from "node:process"
 import { ValidationError } from "../errors.ts"
 import { type } from "arktype"
 
@@ -82,7 +85,7 @@ const cases = [
 ]
 
 for (const testCase of cases) {
-  Deno.test(`${testCase.env} sends all images in order, including history and image-only turns`, async () => {
+  test(`${testCase.env} sends all images in order, including history and image-only turns`, async () => {
     const chat: Chat = {
       id: "test",
       createdAt: new Date(0),
@@ -107,10 +110,10 @@ for (const testCase of cases) {
         { role: "user", content: "", createdAt: new Date(0), image_urls: [imageUrl] },
       ],
     }
-    const oldKey = Deno.env.get(testCase.env)
+    const oldKey = process.env[testCase.env]
     const originalFetch = globalThis.fetch
     let requestBody: Record<string, unknown> | undefined
-    Deno.env.set(testCase.env, "test-key")
+    process.env[testCase.env] = "test-key"
     globalThis.fetch = async (input, init) => {
       const request = new Request(input, init)
       if (request.url === imageUrl) {
@@ -118,7 +121,7 @@ for (const testCase of cases) {
           headers: { "content-type": "image/webp; charset=binary" },
         })
       }
-      requestBody = await request.json()
+      requestBody = await request.json() as Record<string, unknown>
       return Response.json(testCase.response)
     }
     try {
@@ -127,27 +130,27 @@ for (const testCase of cases) {
         model: resolveModel(testCase.model),
         config: { search: false, think: undefined },
       })
-      assertEquals(
+      assert.deepEqual(
         requestBody?.messages ?? requestBody?.input ?? requestBody?.contents,
         testCase.messages,
       )
     } finally {
       globalThis.fetch = originalFetch
-      if (oldKey === undefined) Deno.env.delete(testCase.env)
-      else Deno.env.set(testCase.env, oldKey)
+      if (oldKey === undefined) delete process.env[testCase.env]
+      else process.env[testCase.env] = oldKey
     }
   })
 }
 
-Deno.test("Claude's per-image base64 limit accepts the boundary", () => {
+test("Claude's per-image base64 limit accepts the boundary", () => {
   validateClaudeImageSize("A".repeat(10_000_000))
 })
 
-Deno.test("Gemini size validation matches the SDK's wire body including schema and tools", async () => {
+test("Gemini size validation matches the SDK's wire body including schema and tools", async () => {
   const originalFetch = globalThis.fetch
-  const oldKey = Deno.env.get("GEMINI_API_KEY")
+  const oldKey = process.env["GEMINI_API_KEY"]
   const wireSizes: number[] = []
-  Deno.env.set("GEMINI_API_KEY", "test-key")
+  process.env["GEMINI_API_KEY"] = "test-key"
   globalThis.fetch = async (input, init) => {
     const request = new Request(input, init)
     wireSizes.push((await request.arrayBuffer()).byteLength)
@@ -174,28 +177,27 @@ Deno.test("Gemini size validation matches the SDK's wire body including schema a
     await createMessage(input)
     message.content = "x".repeat(20_000_000 - wireSizes[0] + 1)
     await createMessage(input)
-    assertEquals(wireSizes[1], 20_000_000)
+    assert.deepEqual(wireSizes[1], 20_000_000)
     message.content += "x"
-    await assertRejects(
+    await assert.rejects(
       () => createMessage(input),
-      ValidationError,
-      "Gemini request is larger than the 20 MB limit",
+      errorIncluding(ValidationError, "Gemini request is larger than the 20 MB limit"),
     )
-    assertEquals(wireSizes.length, 2)
+    assert.deepEqual(wireSizes.length, 2)
   } finally {
     globalThis.fetch = originalFetch
-    if (oldKey === undefined) Deno.env.delete("GEMINI_API_KEY")
-    else Deno.env.set("GEMINI_API_KEY", oldKey)
+    if (oldKey === undefined) delete process.env["GEMINI_API_KEY"]
+    else process.env["GEMINI_API_KEY"] = oldKey
   }
 })
 
-Deno.test("OpenAI background requests use high image detail and send only the chained turn", async () => {
+test("OpenAI background requests use high image detail and send only the chained turn", async () => {
   const originalFetch = globalThis.fetch
-  const oldKey = Deno.env.get("OPENAI_API_KEY")
+  const oldKey = process.env["OPENAI_API_KEY"]
   let requestBody: Record<string, unknown> | undefined
-  Deno.env.set("OPENAI_API_KEY", "test-key")
+  process.env["OPENAI_API_KEY"] = "test-key"
   globalThis.fetch = async (input, init) => {
-    requestBody = await new Request(input, init).json()
+    requestBody = await new Request(input, init).json() as Record<string, unknown>
     return Response.json({ id: "new-response", output: [], status: "queued" })
   }
   try {
@@ -233,20 +235,20 @@ Deno.test("OpenAI background requests use high image detail and send only the ch
         ],
       },
     })
-    assertEquals(requestBody?.input, [{
+    assert.deepEqual(requestBody?.input, [{
       role: "user",
       content: [
         { type: "input_image", image_url: secondImage, detail: "high" },
         { type: "input_image", image_url: imageUrl, detail: "high" },
       ],
     }])
-    assertEquals(requestBody?.previous_response_id, "previous-response")
-    assertEquals(requestBody?.background, true)
-    assertEquals(requestBody?.store, true)
+    assert.deepEqual(requestBody?.previous_response_id, "previous-response")
+    assert.deepEqual(requestBody?.background, true)
+    assert.deepEqual(requestBody?.store, true)
   } finally {
     globalThis.fetch = originalFetch
-    if (oldKey === undefined) Deno.env.delete("OPENAI_API_KEY")
-    else Deno.env.set("OPENAI_API_KEY", oldKey)
+    if (oldKey === undefined) delete process.env["OPENAI_API_KEY"]
+    else process.env["OPENAI_API_KEY"] = oldKey
   }
 })
 
@@ -286,11 +288,11 @@ for (
     },
   ]
 ) {
-  Deno.test(`${testCase.model} rejects oversized encoded images and requests before sending: ${testCase.error}`, async () => {
+  test(`${testCase.model} rejects oversized encoded images and requests before sending: ${testCase.error}`, async () => {
     const originalFetch = globalThis.fetch
-    const oldKey = Deno.env.get(testCase.env)
+    const oldKey = process.env[testCase.env]
     let apiCalls = 0
-    Deno.env.set(testCase.env, "test-key")
+    process.env[testCase.env] = "test-key"
     globalThis.fetch = (input, init) => {
       const request = new Request(input, init)
       if (request.url === imageUrl) {
@@ -305,34 +307,30 @@ for (
       return Promise.resolve(Response.json(response))
     }
     try {
-      await assertRejects(
-        () =>
-          createMessage({
-            model: resolveModel(testCase.model),
-            config: { search: false, think: undefined },
-            chat: {
-              id: "test",
-              createdAt: new Date(0),
-              systemPrompt: "test",
-              messages: [
-                {
-                  role: "user",
-                  content: testCase.prompt,
-                  image_urls: testCase.images,
-                  createdAt: new Date(0),
-                },
-                { role: "user", content: "Follow up", createdAt: new Date(0) },
-              ],
-            },
-          }),
-        ValidationError,
-        testCase.error,
-      )
-      assertEquals(apiCalls, 0)
+      await assert.rejects(() =>
+        createMessage({
+          model: resolveModel(testCase.model),
+          config: { search: false, think: undefined },
+          chat: {
+            id: "test",
+            createdAt: new Date(0),
+            systemPrompt: "test",
+            messages: [
+              {
+                role: "user",
+                content: testCase.prompt,
+                image_urls: testCase.images,
+                createdAt: new Date(0),
+              },
+              { role: "user", content: "Follow up", createdAt: new Date(0) },
+            ],
+          },
+        }), errorIncluding(ValidationError, testCase.error))
+      assert.deepEqual(apiCalls, 0)
     } finally {
       globalThis.fetch = originalFetch
-      if (oldKey === undefined) Deno.env.delete(testCase.env)
-      else Deno.env.set(testCase.env, oldKey)
+      if (oldKey === undefined) delete process.env[testCase.env]
+      else process.env[testCase.env] = oldKey
     }
   })
 }

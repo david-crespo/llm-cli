@@ -1,9 +1,10 @@
-import { assertEquals } from "@std/assert"
+import assert from "node:assert/strict"
+import { test } from "node:test"
 
 import { resolveThink } from "./types.ts"
 
-Deno.test("resolveThink inherits, replaces, and clears sticky state", () => {
-  assertEquals(resolveThink(undefined, "high"), "high")
-  assertEquals(resolveThink("off", "high"), "off")
-  assertEquals(resolveThink("default", "high"), undefined)
+test("resolveThink inherits, replaces, and clears sticky state", () => {
+  assert.deepEqual(resolveThink(undefined, "high"), "high")
+  assert.deepEqual(resolveThink("off", "high"), "off")
+  assert.deepEqual(resolveThink("default", "high"), undefined)
 })

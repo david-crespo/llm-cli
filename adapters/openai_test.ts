@@ -1,24 +1,26 @@
-import { assertAlmostEquals, assertEquals, assertThrows } from "@std/assert"
-import { encodeBase64 } from "@std/encoding/base64"
+import assert from "node:assert/strict"
+import { test } from "node:test"
+import { assertAlmostEqual, errorIncluding } from "../testing.ts"
+import { Buffer } from "node:buffer"
 
 import { resolveModel } from "../models.ts"
 import { gptImageParams, openAIEffort, processGptImageResponse } from "./openai.ts"
 import type { ChatInput } from "./types.ts"
 
-Deno.test("OpenAI reasoning intent resolves to native effort", () => {
-  assertEquals(openAIEffort(undefined), "medium")
-  assertEquals(openAIEffort("high"), "high")
-  assertEquals(openAIEffort("off"), "none")
+test("OpenAI reasoning intent resolves to native effort", () => {
+  assert.deepEqual(openAIEffort(undefined), "medium")
+  assert.deepEqual(openAIEffort("high"), "high")
+  assert.deepEqual(openAIEffort("off"), "none")
 })
 
-Deno.test("image response saves each image and prices usage", () => {
+test("image response saves each image and prices usage", () => {
   const model = resolveModel("flare")
   const saved: [number, number][] = []
   const response = processGptImageResponse(
     {
       created: 0,
       quality: "low",
-      data: [{ b64_json: encodeBase64(new Uint8Array([1, 2, 3])) }],
+      data: [{ b64_json: Buffer.from([1, 2, 3]).toString("base64") }],
       usage: {
         input_tokens: 20,
         input_tokens_details: { text_tokens: 20, image_tokens: 0 },
@@ -32,22 +34,22 @@ Deno.test("image response saves each image and prices usage", () => {
       return `/images/${i}.png`
     },
   )
-  assertEquals(saved, [[3, 0]])
-  assertEquals(response.images, ["/images/0.png"])
-  assertEquals(response.content, "/images/0.png")
-  assertEquals(response.effort, "low")
+  assert.deepEqual(saved, [[3, 0]])
+  assert.deepEqual(response.images, ["/images/0.png"])
+  assert.deepEqual(response.content, "/images/0.png")
+  assert.deepEqual(response.effort, "low")
   // (20 * 5 + 200 * 30) / 1_000_000
-  assertAlmostEquals(response.cost, 0.0061)
+  assertAlmostEqual(response.cost, 0.0061)
 })
 
-Deno.test("image generation rejects history and input images before requesting", () => {
+test("image generation rejects history and input images before requesting", () => {
   const user = { role: "user" as const, content: "a cat", createdAt: new Date() }
   const input: ChatInput = {
     chat: { id: "test", createdAt: new Date(), systemPrompt: "", messages: [user] },
     model: resolveModel("flare"),
     config: { search: false, think: undefined },
   }
-  assertEquals(gptImageParams(input).prompt, "a cat")
+  assert.deepEqual(gptImageParams(input).prompt, "a cat")
   for (
     const messages of [
       [user, { ...user, content: "make it blue" }],
@@ -59,6 +61,9 @@ Deno.test("image generation rejects history and input images before requesting",
     ]
   ) {
     input.chat.messages = messages
-    assertThrows(() => gptImageParams(input), Error, "fresh text-only prompt")
+    assert.throws(
+      () => gptImageParams(input),
+      errorIncluding(Error, "fresh text-only prompt"),
+    )
   }
 })

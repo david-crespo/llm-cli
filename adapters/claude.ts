@@ -1,10 +1,10 @@
 import Anthropic from "@anthropic-ai/sdk"
-import * as R from "remeda"
 import { match } from "ts-pattern"
 
 import { postprocessSchemaContent, prepareSchema } from "../schema.ts"
 import { getCost } from "../models.ts"
 import { parseDataUrl } from "../image-input.ts"
+import { uniqueBy } from "../utils.ts"
 import type { ThinkLevel } from "../types.ts"
 import type { ChatInput } from "./types.ts"
 import { validateClaudeImageSize, validateRequestSize } from "./request_size.ts"
@@ -34,7 +34,7 @@ function renderClaudeContentBlock(msg: Anthropic.Beta.Messages.BetaContentBlock)
     const citations = (msg.citations || [])
       .filter((c) => c.type === "web_search_result_location")
     if (citations.length === 0) return msg.text
-    const unique = R.uniqueBy(citations, (c) => c.url)
+    const unique = uniqueBy(citations, (c) => c.url)
     const sources = unique.map((c) => `[${c.title || c.url}](${c.url})`).join(" · ")
     return msg.text + " (" + sources + ")"
   } else if (msg.type === "server_tool_use" && msg.name === "web_search") {

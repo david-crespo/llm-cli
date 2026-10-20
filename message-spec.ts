@@ -1,11 +1,10 @@
-import * as R from "remeda"
-
 import { ValidationError } from "./errors.ts"
+import { range } from "./utils.ts"
 
 const parsePart = (part: string, msgCount: number): number[] => {
   if (part === "even" || part === "odd") {
     const start = part === "even" ? 2 : 1
-    return R.range(start, msgCount + 1).filter((n) => n % 2 === (part === "even" ? 0 : 1))
+    return range(start, msgCount + 1).filter((n) => n % 2 === (part === "even" ? 0 : 1))
   }
 
   if (/^\d+-\d+$/.test(part)) {
@@ -15,7 +14,7 @@ const parsePart = (part: string, msgCount: number): number[] => {
     if (start > end) {
       throw new ValidationError(`Invalid range: start > end in "${part}"`)
     }
-    return R.range(start, end + 1)
+    return range(start, end + 1)
   }
 
   if (/^\d+$/.test(part)) {
@@ -34,13 +33,9 @@ const parsePart = (part: string, msgCount: number): number[] => {
  * Throws if a range has start > end or if any number is out of bounds.
  */
 export function parseMessageSpec(spec: string, msgCount: number): number[] {
-  const indices = R.pipe(
-    spec.replaceAll(" ", "").split(","),
-    R.filter((p) => p.length > 0),
-    R.flatMap((part) => parsePart(part, msgCount)),
-    R.unique(),
-    R.sortBy(R.identity()),
-  )
+  const parts = spec.replaceAll(" ", "").split(",").filter((p) => p.length > 0)
+  const numbers = parts.flatMap((part) => parsePart(part, msgCount))
+  const indices = [...new Set(numbers)].sort((a, b) => a - b)
 
   for (const num of indices) {
     if (num < 1 || num > msgCount) {
@@ -50,5 +45,5 @@ export function parseMessageSpec(spec: string, msgCount: number): number[] {
     }
   }
 
-  return R.map(indices, (n) => n - 1) // make 0-indexed
+  return indices.map((n) => n - 1) // make 0-indexed
 }

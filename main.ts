@@ -6,8 +6,6 @@ import { Command, InvalidArgumentError, Option } from "@commander-js/extra-typin
 import $ from "dax"
 import { blueBright, bold, magentaBright, red } from "ansis"
 
-import * as R from "remeda"
-
 import { type Model, models, resolveModel, systemBase } from "./models.ts"
 import {
   chatToMd,
@@ -23,6 +21,7 @@ import {
 } from "./display.ts"
 import { resolveImage } from "./image-input.ts"
 import { parseMessageSpec } from "./message-spec.ts"
+import { pick } from "./utils.ts"
 import { ValidationError } from "./errors.ts"
 import { type Chat, resolveThink, type ThinkOverride } from "./types.ts"
 import {
@@ -280,7 +279,7 @@ async function historyPicker() {
     }
     await genMissingSummaries(history)
 
-    const chats = R.reverse(history)
+    const chats = history.toReversed()
     const picked = await pickWithAction({
       message: "Chat history",
       options: chatPickerOptions(chats),
@@ -456,7 +455,7 @@ Examples:
     }
     const input = [stdin, msg].filter(Boolean).join("\n\n")
 
-    const displayOpts = R.pick(opts, ["raw", "verbose", "json"])
+    const displayOpts = pick(opts, ["raw", "verbose", "json"])
     const { chat, model } = promptTarget(
       !!opts.reply,
       opts.model,
@@ -569,7 +568,7 @@ historyCmd
     await genMissingSummaries(history)
     if (history.length === 0) throw new ValidationError("No chat history")
 
-    const reversed = R.reverse(history)
+    const reversed = history.toReversed()
     const selected = await selectIndexes({
       message: "Pick chats to delete",
       options: chatPickerOptions(reversed),

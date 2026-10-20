@@ -1,6 +1,6 @@
 # llm-cli
 
-A simple but full-featured CLI powered by Deno for chatting with LLMs.
+A simple but full-featured CLI for chatting with LLMs, written in TypeScript.
 
 Thanks to [Justin Bennett](https://github.com/zephraph) for the
 [script](https://github.com/zephraph/deno.run/blob/0972d0cd3d8f050cb11c3a6d1c1c201608d100a9/chat-gpt.ts)
@@ -85,7 +85,7 @@ environment.
 
 ### Dependencies
 
-- [Deno](https://docs.deno.com/runtime/manual) (essential)
+- [Node](https://nodejs.org/) 24 or later (essential)
 - [`gh`](https://cli.github.com/) (GitHub CLI, optional)
   - Only needed if you want to upload chats as GitHub gists
   - You'll need to be logged in
@@ -93,8 +93,8 @@ environment.
 
 ### Installation
 
-Clone the repo. Then you just need a way to run `main.ts`. I use this function in my
-`.zprofile`:
+Clone the repo and run `npm install` in it. Then you just need a way to run `main.ts`. I use
+this function in my `.zprofile`:
 
 ```bash
 function ai() {
@@ -103,11 +103,8 @@ function ai() {
 }
 ```
 
-The `"$@"` passes all command-line arguments to `main.ts`.
-
-You'll need to `chmod +x` the script in order to be able to execute it directly like above.
-Otherwise, you could run it with `deno run path/to/main.ts`, but that is less convenient
-because you'll have to set all the permissions I've set in the shebang line.
+The `"$@"` passes all command-line arguments to `main.ts`, which runs with `node` through
+its shebang line. You could also run it with `node path/to/main.ts`.
 
 ## Contributions
 

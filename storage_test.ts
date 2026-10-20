@@ -1,12 +1,5 @@
 import { assertEquals, assertThrows } from "@std/assert"
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  statSync,
-  writeFileSync,
-} from "node:fs"
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import process from "node:process"
 import { History, imageFilename, saveImage } from "./storage.ts"
@@ -42,7 +35,7 @@ Deno.test("History.save stores chats independently and tracks current", () => {
     History.save(chat("one", "2026-01-01T00:00:00Z"), { current: true })
     History.save(chat("two", "2026-01-02T00:00:00Z"), { current: true })
 
-    assertEquals(History.read().map((c) => c.id), ["one", "two"])
+    assertEquals(History.list().map((c) => c.id), ["one", "two"])
     assertEquals(History.current()?.id, "two")
   })
 })
@@ -88,70 +81,18 @@ Deno.test("History.delete removes selected chat without rewriting others", () =>
 
     History.delete(["one"])
 
-    assertEquals(History.read().map((c) => c.id), ["two"])
+    assertEquals(History.list().map((c) => c.id), ["two"])
     assertEquals(History.current()?.id, "two")
   })
 })
 
-Deno.test("History.clear leaves empty per-chat store tombstone", () => {
+Deno.test("History.clear removes every chat", () => {
   withTempState(() => {
     History.save(chat("one", "2026-01-01T00:00:00Z"), { current: true })
 
     History.clear()
 
-    assertEquals(History.read(), [])
-  })
-})
-
-Deno.test("History.write preserves legacy history recency order", () => {
-  withTempState((stateHome) => {
-    const root = join(stateHome, "llm-cli")
-    History.write([
-      chat("one", "2026-01-02T00:00:00Z"),
-      chat("two", "2026-01-01T00:00:00Z"),
-    ])
-
-    assertEquals(History.read().map((c) => c.id), ["one", "two"])
-    assertEquals(History.current()?.id, "two")
-    assertEquals(statSync(join(root, "chats", "one.json")).isFile(), true)
-    assertEquals(statSync(join(root, "chats", "two.json")).isFile(), true)
-  })
-})
-
-Deno.test("History.write backfills unique message timestamps", () => {
-  withTempState(() => {
-    History.write(JSON.parse(JSON.stringify([
-      {
-        id: "one",
-        createdAt: "2026-01-02T00:00:00Z",
-        systemPrompt: "test",
-        messages: [
-          { role: "user", content: "one" },
-          {
-            role: "assistant",
-            model: "test",
-            content: "two",
-            tokens: { input: 1, output: 1 },
-            stop_reason: "stop",
-            cost: 0,
-            timeMs: 1,
-          },
-        ],
-      },
-      {
-        id: "two",
-        createdAt: "2026-01-01T00:00:00Z",
-        systemPrompt: "test",
-        messages: [{ role: "user", content: "three" }],
-      },
-    ])))
-
-    const messages = History.read().flatMap((c) => c.messages)
-    const times = messages.map((m) => m.createdAt.getTime())
-
-    assertEquals(new Set(times).size, 3)
-    assertEquals([...times].sort((a, b) => a - b), times)
-    assertEquals(History.current()?.lastActiveAt, messages.at(-1)?.createdAt)
+    assertEquals(History.list(), [])
   })
 })
 

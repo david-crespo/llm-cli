@@ -6,8 +6,10 @@ export function supportsKittyGraphics(
   env: (key: string) => string | undefined = (key) => process.env[key],
 ): boolean {
   if (!isTerminal || env("TMUX") || env("STY") || env("TERM") === "dumb") return false
-  return env("TERM_PROGRAM") === "ghostty" ||
+  return (
+    env("TERM_PROGRAM") === "ghostty" ||
     ["xterm-ghostty", "xterm-kitty"].includes(env("TERM") ?? "")
+  )
 }
 
 /**
@@ -41,7 +43,7 @@ type TermSize = { columns: number; rows: number }
  */
 export function imageColumns(png: Uint8Array, term: TermSize): number {
   const { width, height } = pngDimensions(png)
-  const fitHeight = Math.floor((term.rows - 4) * 2 * width / height)
+  const fitHeight = Math.floor(((term.rows - 4) * 2 * width) / height)
   return Math.max(1, Math.min(term.columns, 80, fitHeight))
 }
 

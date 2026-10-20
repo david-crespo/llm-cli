@@ -43,9 +43,8 @@ function renderTable(rows: string[][], headerCount: number): string {
   if (rows.length === 0) return ""
 
   const cols = Math.max(...rows.map((r) => r.length))
-  const widths = Array.from(
-    { length: cols },
-    (_, c) => Math.max(3, ...rows.map((r) => stringWidth(r[c] ?? ""))),
+  const widths = Array.from({ length: cols }, (_, c) =>
+    Math.max(3, ...rows.map((r) => stringWidth(r[c] ?? ""))),
   )
 
   const pad = (s: string, w: number) => s + " ".repeat(w - stringWidth(s))
@@ -112,15 +111,19 @@ async function highlightCode(code: string, lang: string, theme = "ayu-mirage") {
   } catch {
     highlighted = code
   }
-  return highlighted.split("\n").map((l) => "  " + l).join("\n") + "\n\n"
+  return (
+    highlighted
+      .split("\n")
+      .map((l) => "  " + l)
+      .join("\n") + "\n\n"
+  )
 }
 
 // --- Post-processing ---------------------------------------------------
 
 function postProcessLinks(text: string): string {
-  return text.replace(
-    /\x00LINK:(.*?)\x00([\s\S]*?)\x00\/LINK\x00/g,
-    (_, href, linkText) => hyperlink(href, linkText),
+  return text.replace(/\x00LINK:(.*?)\x00([\s\S]*?)\x00\/LINK\x00/g, (_, href, linkText) =>
+    hyperlink(href, linkText),
   )
 }
 
@@ -133,17 +136,12 @@ function postProcessBlockquotes(text: string, width: number): string {
   let result = text
   for (let depth = maxDepth; depth > 0; depth--) {
     result = result.replace(
-      new RegExp(
-        `\x00BQ_OPEN:${depth}\x00([\\s\\S]*?)\x00BQ_CLOSE:${depth}\x00`,
-        "g",
-      ),
+      new RegExp(`\x00BQ_OPEN:${depth}\x00([\\s\\S]*?)\x00BQ_CLOSE:${depth}\x00`, "g"),
       (_, content: string) => {
         const prefix = gray(" │ ")
         const blankPrefix = gray(" │")
         const maxWidth = width - 3 // account for " │ " prefix
-        const paragraphs = content
-          .split("\x00BQ_PARA\x00")
-          .filter((p) => p.trim())
+        const paragraphs = content.split("\x00BQ_PARA\x00").filter((p) => p.trim())
         const reflowed = paragraphs.map((p) => {
           const lines = reflowText(p.trimEnd(), maxWidth).split("\n")
           return lines.map((l: string) => prefix + italic(l)).join("\n")
@@ -159,16 +157,14 @@ function postProcessTables(text: string): string {
   const extractCells = (row: string) =>
     [...row.matchAll(/\x00CELL\x00([\s\S]*?)\x00\/CELL\x00/g)].map((m) => m[1].trim())
 
-  return text.replace(
-    /\x00TABLE\x00([\s\S]*?)\x00\/TABLE\x00/g,
-    (_, content: string) => {
-      const rows = [...content.matchAll(/\x00TR\x00([\s\S]*?)\x00\/TR\x00/g)]
-        .map((m) => extractCells(m[1]))
-      const thead = content.match(/\x00THEAD\x00([\s\S]*?)\x00\/THEAD\x00/)
-      const headerRows = thead ? [...thead[1].matchAll(/\x00TR\x00/g)].length : 0
-      return renderTable(rows, headerRows) + "\n\n"
-    },
-  )
+  return text.replace(/\x00TABLE\x00([\s\S]*?)\x00\/TABLE\x00/g, (_, content: string) => {
+    const rows = [...content.matchAll(/\x00TR\x00([\s\S]*?)\x00\/TR\x00/g)].map((m) =>
+      extractCells(m[1]),
+    )
+    const thead = content.match(/\x00THEAD\x00([\s\S]*?)\x00\/THEAD\x00/)
+    const headerRows = thead ? [...thead[1].matchAll(/\x00TR\x00/g)].length : 0
+    return renderTable(rows, headerRows) + "\n\n"
+  })
 }
 
 function reflowParagraphs(text: string, width: number): string {
@@ -216,8 +212,7 @@ export default function terminalPlugin(md: MarkdownExit): void {
     link_close: () => "\x00/LINK\x00",
     image: (tokens, idx) => {
       const src = tokens[idx].attrGet("src") ?? ""
-      const alt = tokens[idx].content ||
-        tokens[idx].children?.[0]?.content || "image"
+      const alt = tokens[idx].content || tokens[idx].children?.[0]?.content || "image"
       return dim(`![${alt}](${src})`)
     },
 

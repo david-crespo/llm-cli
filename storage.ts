@@ -20,8 +20,7 @@ export type StoredChat = Chat & {
 }
 
 function stateRoot(): string {
-  const stateHome = process.env.XDG_STATE_HOME ||
-    join(process.env.HOME!, ".local", "state")
+  const stateHome = process.env.XDG_STATE_HOME || join(process.env.HOME!, ".local", "state")
   return join(stateHome, "llm-cli")
 }
 
@@ -41,9 +40,13 @@ const pad = (n: number) => String(n).padStart(2, "0")
 
 /** `20260923-143012-a-cat-in-a-hat.png`, local time */
 export function imageFilename(prompt: string, date: Date, ext: string, index = 0) {
-  const stamp = `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}-` +
+  const stamp =
+    `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}-` +
     `${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`
-  const slug = prompt.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40)
+  const slug = prompt
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .slice(0, 40)
     .replace(/^-+|-+$/g, "")
   const suffix = index > 0 ? `-${index + 1}` : ""
   return [stamp, slug].filter(Boolean).join("-") + suffix + "." + ext
@@ -62,7 +65,7 @@ export function saveImage(
 ) {
   const dir = imagesPath()
   mkdirSync(dir, { recursive: true })
-  for (let i = index;; i++) {
+  for (let i = index; ; i++) {
     const path = join(dir, imageFilename(prompt, date, ext, i))
     try {
       writeFileSync(path, bytes, { flag: "wx" })
@@ -81,7 +84,9 @@ function currentPath(): string {
 function parseJson<T>(contents: string): T {
   return JSON.parse(contents, (key, value) => {
     if (
-      (key === "createdAt" || key === "startedAt" || key === "updatedAt" ||
+      (key === "createdAt" ||
+        key === "startedAt" ||
+        key === "updatedAt" ||
         key === "lastActiveAt") &&
       typeof value === "string"
     ) {
@@ -152,9 +157,7 @@ function assertCurrentRevision(chat: StoredChat) {
   try {
     const current = readChatFile(chatPath(chat.id))
     if (current.revision !== chat.revision) {
-      throw new Error(
-        `Chat ${chat.id} changed concurrently; reload it before saving`,
-      )
+      throw new Error(`Chat ${chat.id} changed concurrently; reload it before saving`)
     }
   } catch (e) {
     if (isErrno(e, "ENOENT")) return

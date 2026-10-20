@@ -70,25 +70,29 @@ const commandOutput = (code = 0, stderr = "") => ({ code, stderr })
 
 for (const extension of ["HEIC", "heif"]) {
   test(`resolveImage converts ${extension} to JPEG and cleans up without changing the original`, async () => {
-    await withFakeSips(async (args) => {
-      await writeFile(args.at(-1)!, new Uint8Array([0xff, 0xd8, 0xff, 0xd9]))
-      return commandOutput()
-    }, async (input, calls, sips) => {
-      assert.deepEqual(await resolveImage(input, sips), "data:image/jpeg;base64,/9j/2Q==")
-      assert.deepEqual(calls.length, 1)
-      assert.deepEqual(calls[0].slice(0, -2), [
-        "--setProperty",
-        "format",
-        "jpeg",
-        "--setProperty",
-        "formatOptions",
-        "90",
-        await realpath(input),
-      ])
-      assert.deepEqual(calls[0].at(-2), "--out")
-      assert.deepEqual([...await readFile(input)], [1, 2, 3])
-      assert.deepEqual(existsSync(dirname(calls[0].at(-1)!)), false)
-    }, extension)
+    await withFakeSips(
+      async (args) => {
+        await writeFile(args.at(-1)!, new Uint8Array([0xff, 0xd8, 0xff, 0xd9]))
+        return commandOutput()
+      },
+      async (input, calls, sips) => {
+        assert.deepEqual(await resolveImage(input, sips), "data:image/jpeg;base64,/9j/2Q==")
+        assert.deepEqual(calls.length, 1)
+        assert.deepEqual(calls[0].slice(0, -2), [
+          "--setProperty",
+          "format",
+          "jpeg",
+          "--setProperty",
+          "formatOptions",
+          "90",
+          await realpath(input),
+        ])
+        assert.deepEqual(calls[0].at(-2), "--out")
+        assert.deepEqual([...(await readFile(input))], [1, 2, 3])
+        assert.deepEqual(existsSync(dirname(calls[0].at(-1)!)), false)
+      },
+      extension,
+    )
   })
 }
 
@@ -124,28 +128,34 @@ test("resolveImage reports conversion failure and cleans up", async () => {
 })
 
 test("resolveImage rejects incomplete sips output even when the process succeeds", async () => {
-  await withFakeSips(async (args) => {
-    await writeFile(args.at(-1)!, new Uint8Array([0xff, 0xd8, 0xff, 0xe0]))
-    return commandOutput()
-  }, async (input, calls, sips) => {
-    await assert.rejects(
-      () => resolveImage(input, sips),
-      errorIncluding(ValidationError, "incomplete JPEG"),
-    )
-    assert.deepEqual(calls.length, 1)
-    assert.deepEqual(existsSync(dirname(calls[0].at(-1)!)), false)
-  })
+  await withFakeSips(
+    async (args) => {
+      await writeFile(args.at(-1)!, new Uint8Array([0xff, 0xd8, 0xff, 0xe0]))
+      return commandOutput()
+    },
+    async (input, calls, sips) => {
+      await assert.rejects(
+        () => resolveImage(input, sips),
+        errorIncluding(ValidationError, "incomplete JPEG"),
+      )
+      assert.deepEqual(calls.length, 1)
+      assert.deepEqual(existsSync(dirname(calls[0].at(-1)!)), false)
+    },
+  )
 })
 
 test("resolveImage reports missing converter output and cleans up", async () => {
-  await withFakeSips(() => Promise.resolve(commandOutput()), async (input, calls, sips) => {
-    await assert.rejects(
-      () => resolveImage(input, sips),
-      errorIncluding(ValidationError, "did not produce a JPEG"),
-    )
-    assert.deepEqual(calls.length, 1)
-    assert.deepEqual(existsSync(dirname(calls[0].at(-1)!)), false)
-  })
+  await withFakeSips(
+    () => Promise.resolve(commandOutput()),
+    async (input, calls, sips) => {
+      await assert.rejects(
+        () => resolveImage(input, sips),
+        errorIncluding(ValidationError, "did not produce a JPEG"),
+      )
+      assert.deepEqual(calls.length, 1)
+      assert.deepEqual(existsSync(dirname(calls[0].at(-1)!)), false)
+    },
+  )
 })
 
 test("resolveImage leaves ordinary local images unchanged without invoking sips", async () => {

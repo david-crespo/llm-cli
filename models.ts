@@ -52,7 +52,7 @@ export const models: Model[] = [
     key: "claude-opus-5-5",
     id: "opus-5.5",
     input: 4,
-    input_cached: 0.20,
+    input_cached: 0.2,
     input_cache_write: 5,
     output: 20,
     search_cost: 0.01,
@@ -62,8 +62,8 @@ export const models: Model[] = [
     key: "claude-sonnet-5-5",
     id: "sonnet-5.5",
     input: 2,
-    input_cached: 0.10,
-    input_cache_write: 2.50,
+    input_cached: 0.1,
+    input_cache_write: 2.5,
     output: 10,
     search_cost: 0.01,
   },
@@ -71,18 +71,18 @@ export const models: Model[] = [
     provider: "anthropic",
     key: "claude-haiku-5-5",
     id: "haiku-5.5",
-    input: 0.10,
+    input: 0.1,
     input_cached: 0.01,
     input_cache_write: 0.125,
-    output: 0.50,
+    output: 0.5,
     search_cost: 0.01,
   },
   {
     provider: "openai",
     key: "gpt-6-astra",
     id: "gpt-6-astra",
-    input: 10.00,
-    input_cached: 1.00,
+    input: 10.0,
+    input_cached: 1.0,
     output: 50,
     search_cost: 0.01,
   },
@@ -91,7 +91,7 @@ export const models: Model[] = [
     key: "gpt-6.1-sol",
     id: "gpt-6.1-sol",
     input: 2,
-    input_cached: 0.10,
+    input_cached: 0.1,
     output: 10,
     search_cost: 0.01,
   },
@@ -99,9 +99,9 @@ export const models: Model[] = [
     provider: "openai",
     key: "gpt-6-luna",
     id: "gpt-6-luna",
-    input: 0.10,
+    input: 0.1,
     input_cached: 0.01,
-    output: 0.50,
+    output: 0.5,
     search_cost: 0.01,
   },
   {
@@ -127,7 +127,7 @@ export const models: Model[] = [
     key: "gemini-4-argon",
     id: "gemini-4-argon",
     input: 2,
-    input_cached: 0.10,
+    input_cached: 0.1,
     output: 10,
     // Introductory pricing through November 30, 2026; doubles to 4/20/0.20
     // starting December 1, 2026.
@@ -152,9 +152,9 @@ export const models: Model[] = [
     provider: "google",
     key: "gemini-3.5-flash-lite",
     id: "gemini-3.5-flash-lite",
-    input: .30,
+    input: 0.3,
     input_cached: 0.03,
-    output: 2.50,
+    output: 2.5,
     // 5,000 search queries/month free (shared across 3.x models), then $14 / 1,000.
     // We never get anywhere near the limit, so treat as free.
     search_cost: 0,
@@ -174,7 +174,8 @@ export function resolveModel(
   // First look for an exact match, then find the first model containing the arg
   // as a substring. See comment at allModels definition about ordering. Without
   // this logic, you could never match o1 if o1-mini is present.
-  const match = availableModels.find((m) => m.key === lower || m.id === lower) ||
+  const match =
+    availableModels.find((m) => m.key === lower || m.id === lower) ||
     availableModels.find((m) => m.key.includes(lower) || m.id.includes(lower))
 
   if (!match) {
@@ -195,9 +196,10 @@ export function getCost(model: Model, tokens: TokenCounts, searches = 0) {
 
   // Cache hits and writes are subsets of tokens.input. Price them separately
   // when the model has the corresponding price, otherwise at the input rate.
-  const hits = input_cached ? tokens.input_cache_hit ?? 0 : 0
-  const writes = input_cache_write ? tokens.input_cache_write ?? 0 : 0
-  const tokenCost = (input_cached ?? 0) * hits +
+  const hits = input_cached ? (tokens.input_cache_hit ?? 0) : 0
+  const writes = input_cache_write ? (tokens.input_cache_write ?? 0) : 0
+  const tokenCost =
+    (input_cached ?? 0) * hits +
     (input_cache_write ?? 0) * writes +
     input * (tokens.input - hits - writes) +
     output * tokens.output
@@ -206,7 +208,7 @@ export function getCost(model: Model, tokens: TokenCounts, searches = 0) {
   // cached tokens) exceeds 100k. Hack until another model needs tiers.
   const multiplier = model.key === "claude-haiku-5-5" && tokens.input > 100_000 ? 5 : 1
 
-  return multiplier * tokenCost / M + (search_cost ?? 0) * searches
+  return (multiplier * tokenCost) / M + (search_cost ?? 0) * searches
 }
 
 export const systemBase = $.dedent`

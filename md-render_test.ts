@@ -45,21 +45,13 @@ test("renderMarkdown sizes tables from visible link text", async () => {
 })
 
 test("renderMarkdown sizes emoji grapheme clusters as width 2 in tables", async () => {
-  const output = stripAnsi(
-    await renderMarkdown("| x |\n| - |\n| 👨‍👩‍👧‍👦 |\n| 🇯🇵 |\n| 🏴‍☠️ |"),
-  )
+  const output = stripAnsi(await renderMarkdown("| x |\n| - |\n| 👨‍👩‍👧‍👦 |\n| 🇯🇵 |\n| 🏴‍☠️ |"))
 
   assert.deepEqual(
     output,
-    [
-      "╭─────╮",
-      "│ x   │",
-      "├─────┤",
-      "│ 👨‍👩‍👧‍👦  │",
-      "│ 🇯🇵  │",
-      "│ 🏴‍☠️  │",
-      "╰─────╯",
-    ].join("\n"),
+    ["╭─────╮", "│ x   │", "├─────┤", "│ 👨‍👩‍👧‍👦  │", "│ 🇯🇵  │", "│ 🏴‍☠️  │", "╰─────╯"].join(
+      "\n",
+    ),
   )
 })
 
@@ -106,65 +98,64 @@ test("renderMarkdown handles basic lists", async () => {
 })
 
 test("renderMarkdown handles basic fenced code blocks", async () => {
-  const output = stripAnsi(
-    await renderMarkdown("```ts\nconst x = 1\nconsole.log(x)\n```"),
-  )
+  const output = stripAnsi(await renderMarkdown("```ts\nconst x = 1\nconsole.log(x)\n```"))
 
   assert.deepEqual(output, "  const x = 1\n  console.log(x)")
 })
 
-test("renderMarkdown keeps codespans on a single line when wrapped", {
-  // Without colors there is no styled span to split
-  skip: !codespan.open && "colors are disabled",
-}, async () => {
-  // wrap-ansi will split a styled codespan if it contains breakable spaces,
-  // which either leaks bg color to end-of-line (BCE) or strands a lone styled
-  // space at the line edge. Codespans pad with NBSP and replace internal
-  // spaces with NBSP so wrap-ansi treats them as a single unbreakable word.
-  const text =
-    "The function takes any iterable of `T` (arrays, sets, generators, etc.) and a `keyFn` that derives a grouping key from each item.\n\n" +
-    "The type parameter `K extends PropertyKey` constrains keys to `string | number | symbol` — the only types JavaScript allows as object keys. This lets the return type be a precise `Record<K, T[]>` rather than a loose `Record<string, T[]>`.\n\n" +
-    "Inside the loop, `result[key] ??= []` uses the operator: if `result[key]` is `undefined`, more text. The classic `if (!result[key]) result[key] = []; result[key].push(item);` form."
+test(
+  "renderMarkdown keeps codespans on a single line when wrapped",
+  {
+    // Without colors there is no styled span to split
+    skip: !codespan.open && "colors are disabled",
+  },
+  async () => {
+    // wrap-ansi will split a styled codespan if it contains breakable spaces,
+    // which either leaks bg color to end-of-line (BCE) or strands a lone styled
+    // space at the line edge. Codespans pad with NBSP and replace internal
+    // spaces with NBSP so wrap-ansi treats them as a single unbreakable word.
+    const text =
+      "The function takes any iterable of `T` (arrays, sets, generators, etc.) and a `keyFn` that derives a grouping key from each item.\n\n" +
+      "The type parameter `K extends PropertyKey` constrains keys to `string | number | symbol` — the only types JavaScript allows as object keys. This lets the return type be a precise `Record<K, T[]>` rather than a loose `Record<string, T[]>`.\n\n" +
+      "Inside the loop, `result[key] ??= []` uses the operator: if `result[key]` is `undefined`, more text. The classic `if (!result[key]) result[key] = []; result[key].push(item);` form."
 
-  // The escape codes depend on the color level: `node --test` sets
-  // FORCE_COLOR=1 for test files when its own output is a terminal.
-  const { open, close } = codespan
-  // A codespan whose visible content is only whitespace means wrap-ansi sliced one out
-  const lone = new RegExp(`${RegExp.escape(open)}\\s*${RegExp.escape(close)}`)
+    // The escape codes depend on the color level: `node --test` sets
+    // FORCE_COLOR=1 for test files when its own output is a terminal.
+    const { open, close } = codespan
+    // A codespan whose visible content is only whitespace means wrap-ansi sliced one out
+    const lone = new RegExp(`${RegExp.escape(open)}\\s*${RegExp.escape(close)}`)
 
-  const { stdout } = process
-  const original = Object.getOwnPropertyDescriptors(stdout)
-  stdout.isTTY = true
-  try {
-    for (const columns of [50, 62, 70, 80, 85, 88, 90, 92, 95, 100, 120]) {
-      stdout.columns = columns
-      const out = await renderMarkdown(text)
-      for (const [i, line] of out.split("\n").entries()) {
-        const opens = line.split(open).length - 1
-        const closes = line.split(close).length - 1
-        assert.deepEqual(
-          opens,
-          closes,
-          `columns=${columns} line ${i} has unbalanced codespan SGR: ${
-            JSON.stringify(line)
-          }`,
-        )
-        assert.deepEqual(
-          lone.test(line),
-          false,
-          `columns=${columns} line ${i} contains a whitespace-only codespan: ${
-            JSON.stringify(line)
-          }`,
-        )
+    const { stdout } = process
+    const original = Object.getOwnPropertyDescriptors(stdout)
+    stdout.isTTY = true
+    try {
+      for (const columns of [50, 62, 70, 80, 85, 88, 90, 92, 95, 100, 120]) {
+        stdout.columns = columns
+        const out = await renderMarkdown(text)
+        for (const [i, line] of out.split("\n").entries()) {
+          const shown = JSON.stringify(line)
+          const opens = line.split(open).length - 1
+          const closes = line.split(close).length - 1
+          assert.deepEqual(
+            opens,
+            closes,
+            `columns=${columns} line ${i} has unbalanced codespan SGR: ${shown}`,
+          )
+          assert.deepEqual(
+            lone.test(line),
+            false,
+            `columns=${columns} line ${i} contains a whitespace-only codespan: ${shown}`,
+          )
+        }
+      }
+    } finally {
+      for (const key of ["isTTY", "columns"] as const) {
+        if (original[key]) Object.defineProperty(stdout, key, original[key])
+        else delete stdout[key]
       }
     }
-  } finally {
-    for (const key of ["isTTY", "columns"] as const) {
-      if (original[key]) Object.defineProperty(stdout, key, original[key])
-      else delete stdout[key]
-    }
-  }
-})
+  },
+)
 
 test("renderMarkdown handles simple tables", async () => {
   const output = stripAnsi(await renderMarkdown("| a | b |\n| - | - |\n| 1 | 2 |"))

@@ -4,18 +4,21 @@ import stringWidth from "string-width"
 import { alignColumns, formatPickerOptions, keyAction } from "./picker.ts"
 
 test("picker options stay single-line and preserve their row mapping", () => {
-  const options = formatPickerOptions([
-    {
-      summary: "A summary with an embedded newline\nand a long second thought",
-      model: "gpt-5.6-sol",
-      meta: "8/28 12:44 (2)",
-    },
-    {
-      summary: "Short summary",
-      model: "opus-5",
-      meta: "8/27 09:24 (4)",
-    },
-  ], 60)
+  const options = formatPickerOptions(
+    [
+      {
+        summary: "A summary with an embedded newline\nand a long second thought",
+        model: "gpt-5.6-sol",
+        meta: "8/28 12:44 (2)",
+      },
+      {
+        summary: "Short summary",
+        model: "opus-5",
+        meta: "8/27 09:24 (4)",
+      },
+    ],
+    60,
+  )
 
   assert.deepEqual(options.length, 2)
   assert(options.every((option) => !option.includes("\n")))
@@ -26,11 +29,16 @@ test("picker options stay single-line and preserve their row mapping", () => {
 })
 
 test("picker options retain full summaries when they fit", () => {
-  const [option] = formatPickerOptions([{
-    summary: "  Emoji 🦀 summary  ",
-    model: "opus-5",
-    meta: "8/28 12:44 (2)",
-  }], 80)
+  const [option] = formatPickerOptions(
+    [
+      {
+        summary: "  Emoji 🦀 summary  ",
+        model: "opus-5",
+        meta: "8/28 12:44 (2)",
+      },
+    ],
+    80,
+  )
 
   assert(option.startsWith("Emoji 🦀 summary"))
   assert(!option.includes("…"))
@@ -56,10 +64,7 @@ test("alignColumns pads every column but the last to its widest cell", () => {
       ["1", "user", "hello"],
       ["10", "opus-5 🦀", "hi"],
     ]),
-    [
-      "1    user        hello",
-      "10   opus-5 🦀   hi",
-    ],
+    ["1    user        hello", "10   opus-5 🦀   hi"],
   )
   assert.deepEqual(alignColumns([]), [])
 })

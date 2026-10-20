@@ -32,7 +32,7 @@ export type ChatInput = {
 export const imageQualities = ["low", "medium", "high", "xhigh", "max", "auto"] as const
 
 export type ImageOptions = {
-  quality?: typeof imageQualities[number]
+  quality?: (typeof imageQualities)[number]
   /** `WIDTHxHEIGHT` or `auto` */
   size?: string
 }

@@ -21,12 +21,14 @@ test("chatToMd includes every attached image in order", () => {
     id: "images",
     createdAt: new Date(0),
     systemPrompt: systemBase,
-    messages: [{
-      role: "user",
-      content: "Compare these",
-      createdAt: new Date(0),
-      image_urls: ["data:image/png;base64,AQID", "https://example.com/second.jpg"],
-    }],
+    messages: [
+      {
+        role: "user",
+        content: "Compare these",
+        createdAt: new Date(0),
+        image_urls: ["data:image/png;base64,AQID", "https://example.com/second.jpg"],
+      },
+    ],
   }
   const md = chatToMd({ chat })
   assert.deepEqual(

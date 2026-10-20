@@ -31,8 +31,9 @@ function claudeMsg(
 
 function renderClaudeContentBlock(msg: Anthropic.Beta.Messages.BetaContentBlock) {
   if (msg.type === "text") {
-    const citations = (msg.citations || [])
-      .filter((c) => c.type === "web_search_result_location")
+    const citations = (msg.citations || []).filter(
+      (c) => c.type === "web_search_result_location",
+    )
     if (citations.length === 0) return msg.text
     const unique = uniqueBy(citations, (c) => c.url)
     const sources = unique.map((c) => `[${c.title || c.url}](${c.url})`).join(" · ")
@@ -79,9 +80,13 @@ export function claudeThinkParams(think: ThinkLevel | undefined): ClaudeThinkPar
   return { thinking, output_config: { effort }, max_tokens, effort }
 }
 
-export async function claudeCreateMessage(
-  { chat, model, config, signal, outputSchema }: ChatInput,
-) {
+export async function claudeCreateMessage({
+  chat,
+  model,
+  config,
+  signal,
+  outputSchema,
+}: ChatInput) {
   const toolsList: Anthropic.Beta.BetaToolUnion[] = []
   if (config.search) {
     toolsList.push({ type: "web_search_20260209", name: "web_search", max_uses: 5 })
@@ -101,7 +106,7 @@ export async function claudeCreateMessage(
     cache_control: { type: "ephemeral" },
     system: chat.systemPrompt,
     messages: chat.messages.map((m) =>
-      claudeMsg(m.role, m.content, m.role === "user" ? m.image_urls : undefined)
+      claudeMsg(m.role, m.content, m.role === "user" ? m.image_urls : undefined),
     ),
     max_tokens,
     thinking,
@@ -109,16 +114,18 @@ export async function claudeCreateMessage(
     tools: toolsList.length > 0 ? toolsList : undefined,
   }
   validateRequestSize("Claude", params)
-  const response = await new Anthropic().beta.messages.create({
-    ...params,
-    betas: ["code-execution-web-tools-2026-02-09"],
-  }, { signal })
+  const response = await new Anthropic().beta.messages.create(
+    {
+      ...params,
+      betas: ["code-execution-web-tools-2026-02-09"],
+    },
+    { signal },
+  )
 
   const searches = response.usage.server_tool_use?.web_search_requests ?? 0
 
-  const blocks = response.content.filter((msg) =>
-    msg.type === "text" || (!prep && msg.type === "server_tool_use")
-  )
+  const blocks = response.content
+    .filter((msg) => msg.type === "text" || (!prep && msg.type === "server_tool_use"))
     .map(renderClaudeContentBlock)
     .filter((x): x is string => !!x)
 

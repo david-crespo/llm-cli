@@ -16,11 +16,10 @@ export function validateRequestSize(
   const bytes = encoder.encode(JSON.stringify(body)).byteLength
   const limit = requestLimitsMB[provider]
   if (bytes > limit * MB) {
+    const size = (bytes / MB).toFixed(2)
     throw new ValidationError(
-      `${provider} request is larger than the ${limit} MB limit ` +
-        `(${
-          (bytes / MB).toFixed(2)
-        } MB). Remove images or shorten the chat before sending.`,
+      `${provider} request is larger than the ${limit} MB limit (${size} MB). ` +
+        "Remove images or shorten the chat before sending.",
     )
   }
 }

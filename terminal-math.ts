@@ -23,12 +23,15 @@ export function kittyImage(image: MathImage, id: number): string[] {
   const transmit = kittyTransmit(image.png, `a=t,f=100,t=d,i=${id},q=2`)
   // Place one slice per text row. This keeps tall equations intact when output
   // starts near the bottom of the screen and scrolls during printing.
-  return Array.from({ length: image.rows }, (_, row) =>
-    (row === 0 ? transmit : "") +
-    `\x1b_Ga=p,i=${id},q=2,C=1,y=${
-      row * image.rowPixels
-    },h=${image.rowPixels},c=${image.columns},r=1\x1b\\` +
-    " ".repeat(image.columns))
+  return Array.from(
+    { length: image.rows },
+    (_, row) =>
+      (row === 0 ? transmit : "") +
+      `\x1b_Ga=p,i=${id},q=2,C=1,y=${
+        row * image.rowPixels
+      },h=${image.rowPixels},c=${image.columns},r=1\x1b\\` +
+      " ".repeat(image.columns),
+  )
 }
 
 export function restoreMath(output: string, env: MathEnv): string {
@@ -43,15 +46,18 @@ export default function mathPlugin(md: MarkdownExit): void {
   // and indented code blocks, link destinations, and escaped dollar signs.
   md.inline.ruler.before("escape", "math", (state, silent) => {
     const src = state.src.slice(state.pos)
-    const match = src.match(/^\$\$([\s\S]+?)\$\$|^\\\[([\s\S]+?)\\\]|^\\\(([^\n]+?)\\\)/) ??
+    const match =
+      src.match(/^\$\$([\s\S]+?)\$\$|^\\\[([\s\S]+?)\\\]|^\\\(([^\n]+?)\\\)/) ??
       src.match(/^\$(?![ $])((?:\\\$|[^$\n])+?)(?<![ \\])\$/)
     if (!match) return false
     const raw = match[0]
     const content = match[1] ?? match[2] ?? match[3]
     if (
-      raw.startsWith("$") && !raw.startsWith("$$") &&
+      raw.startsWith("$") &&
+      !raw.startsWith("$$") &&
       !dollarMath(content, src.slice(raw.length))
-    ) return false
+    )
+      return false
     if (!silent) {
       const token = state.push("math_inline", "", 0)
       token.content = content.trim()
@@ -61,39 +67,45 @@ export default function mathPlugin(md: MarkdownExit): void {
     return true
   })
 
-  md.block.ruler.before("fence", "math", (state, start, end, silent) => {
-    if (state.sCount[start] - state.blkIndent >= 4) return false
-    const first = state.src.slice(
-      state.bMarks[start] + state.tShift[start],
-      state.eMarks[start],
-    )
-    const open = first.startsWith("$$") ? "$$" : first.startsWith("\\[") ? "\\[" : ""
-    if (!open) return false
-    const close = open === "$$" ? "$$" : "\\]"
-    const lines = [first.slice(2)]
-    let last = start
-    while (!lines.at(-1)!.includes(close) && last + 1 < end) {
-      last++
-      if (
-        state.sCount[last] < state.blkIndent &&
-        state.src.slice(state.bMarks[last], state.eMarks[last]).trim()
-      ) return false
-      lines.push(
-        state.src.slice(state.bMarks[last] + state.tShift[last], state.eMarks[last]),
+  md.block.ruler.before(
+    "fence",
+    "math",
+    (state, start, end, silent) => {
+      if (state.sCount[start] - state.blkIndent >= 4) return false
+      const first = state.src.slice(
+        state.bMarks[start] + state.tShift[start],
+        state.eMarks[start],
       )
-    }
-    const content = lines.join("\n")
-    const index = content.indexOf(close)
-    if (index < 0 || content.slice(index + 2).trim()) return false
-    if (silent) return true
-    const token = state.push("math_block", "", 0)
-    token.block = true
-    token.content = content.slice(0, index).trim()
-    token.markup = open + content
-    token.map = [start, last + 1]
-    state.line = last + 1
-    return true
-  }, { alt: ["paragraph", "reference", "blockquote", "list"] })
+      const open = first.startsWith("$$") ? "$$" : first.startsWith("\\[") ? "\\[" : ""
+      if (!open) return false
+      const close = open === "$$" ? "$$" : "\\]"
+      const lines = [first.slice(2)]
+      let last = start
+      while (!lines.at(-1)!.includes(close) && last + 1 < end) {
+        last++
+        if (
+          state.sCount[last] < state.blkIndent &&
+          state.src.slice(state.bMarks[last], state.eMarks[last]).trim()
+        )
+          return false
+        lines.push(
+          state.src.slice(state.bMarks[last] + state.tShift[last], state.eMarks[last]),
+        )
+      }
+      const content = lines.join("\n")
+      const index = content.indexOf(close)
+      if (index < 0 || content.slice(index + 2).trim()) return false
+      if (silent) return true
+      const token = state.push("math_block", "", 0)
+      token.block = true
+      token.content = content.slice(0, index).trim()
+      token.markup = open + content
+      token.map = [start, last + 1]
+      state.line = last + 1
+      return true
+    },
+    { alt: ["paragraph", "reference", "blockquote", "list"] },
+  )
 
   const render: RenderRule = async (tokens, idx, _options, environment) => {
     const env = environment as MathEnv

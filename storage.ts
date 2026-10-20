@@ -1,4 +1,4 @@
-import { dirname, join } from "@std/path"
+import { dirname, join } from "node:path"
 import { type Chat } from "./types.ts"
 
 const HISTORY_KEY = "llm-cli"

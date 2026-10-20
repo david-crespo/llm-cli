@@ -1,4 +1,4 @@
-import { encodeBase64 } from "@std/encoding/base64"
+import { Buffer } from "node:buffer"
 
 export function supportsKittyGraphics(
   isTerminal = Deno.stdout.isTerminal(),
@@ -16,7 +16,7 @@ export function supportsKittyGraphics(
  * also works over SSH.
  */
 export function kittyTransmit(png: Uint8Array, control: string): string {
-  const payload = encodeBase64(png)
+  const payload = Buffer.from(png).toString("base64")
   let out = ""
   for (let offset = 0; offset < payload.length; offset += 4096) {
     const more = offset + 4096 < payload.length ? 1 : 0

@@ -1,6 +1,6 @@
 import { assertEquals, assertRejects, assertThrows } from "@std/assert"
 import { ValidationError } from "./errors.ts"
-import { dirname, join } from "@std/path"
+import { dirname, join } from "node:path"
 import { parseDataUrl, parseMessageSpec, resolveImage } from "./utils.ts"
 
 Deno.test("parseMessageSpec - single number", () => {

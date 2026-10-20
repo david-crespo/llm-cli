@@ -1,7 +1,7 @@
 import { ValidationError } from "./errors.ts"
-import { encodeBase64 } from "@std/encoding/base64"
-import { join } from "@std/path"
-import $ from "@david/dax"
+import { Buffer } from "node:buffer"
+import { join } from "node:path"
+import $ from "dax"
 import * as R from "remeda"
 
 const parsePart = (part: string, msgCount: number): number[] => {
@@ -206,14 +206,14 @@ async function convertHeicImage(value: string): Promise<Uint8Array> {
 export async function resolveImage(value: string): Promise<string> {
   if (value === "clipboard") {
     const bytes = await readClipboardImage()
-    return `data:image/png;base64,${encodeBase64(bytes)}`
+    return `data:image/png;base64,${Buffer.from(bytes).toString("base64")}`
   }
   if (/^https?:\/\//i.test(value)) return value
 
   const ext = value.split(".").pop()?.toLowerCase() ?? ""
   if (ext === "heic" || ext === "heif") {
     const bytes = await convertHeicImage(value)
-    return `data:image/jpeg;base64,${encodeBase64(bytes)}`
+    return `data:image/jpeg;base64,${Buffer.from(bytes).toString("base64")}`
   }
 
   let bytes: Uint8Array
@@ -231,5 +231,5 @@ export async function resolveImage(value: string): Promise<string> {
       }`,
     )
   }
-  return `data:${mediaType};base64,${encodeBase64(bytes)}`
+  return `data:${mediaType};base64,${Buffer.from(bytes).toString("base64")}`
 }

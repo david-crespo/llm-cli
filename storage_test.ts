@@ -1,5 +1,5 @@
 import { assertEquals, assertThrows } from "@std/assert"
-import { join } from "@std/path"
+import { join } from "node:path"
 import { History, imageFilename, saveImage } from "./storage.ts"
 import type { Chat } from "./types.ts"
 

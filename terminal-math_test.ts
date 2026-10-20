@@ -1,6 +1,6 @@
 // deno-lint-ignore-file no-control-regex
 import { assert, assertEquals, assertRejects } from "@std/assert"
-import { decodeBase64, encodeBase64 } from "@std/encoding/base64"
+import { Buffer } from "node:buffer"
 import { Resvg } from "@resvg/resvg-wasm"
 import { renderMarkdown } from "./md-render.ts"
 import { kittyImage } from "./terminal-math.ts"
@@ -25,7 +25,7 @@ Deno.test("inline glyphs share a baseline regardless of their height", async () 
     const height = header.getUint32(20)
     const decoder = new Resvg(
       `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><image width="${width}" height="${height}" href="data:image/png;base64,${
-        encodeBase64(image.png)
+        Buffer.from(image.png).toString("base64")
       }"/></svg>`,
     )
     try {
@@ -139,7 +139,7 @@ Deno.test("PNG chunks roundtrip and row placements reserve the correct cells", (
   assert(chunks.every((c) => c[2].length <= 4096 && c[2].length % 4 === 0))
   assert(chunks.slice(0, -1).every((c) => c[1].endsWith("m=1")))
   assert(chunks.at(-1)![1].endsWith("m=0"))
-  assertEquals(decodeBase64(chunks.map((c) => c[2]).join("")), png)
+  assertEquals(new Uint8Array(Buffer.from(chunks.map((c) => c[2]).join(""), "base64")), png)
   for (let row = 0; row < 3; row++) {
     assert(rows[row].includes(`C=1,y=${row * 60},h=60,c=12,r=1`))
     assert(rows[row].endsWith(" ".repeat(12)))

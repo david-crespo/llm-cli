@@ -1,5 +1,5 @@
 import { markdownTable } from "markdown-table"
-import { writeAll } from "@std/io"
+import process from "node:process"
 
 import { Chat, type ChatMessage } from "./types.ts"
 import { models, systemBase } from "./models.ts"
@@ -266,10 +266,8 @@ export async function renderResponse(msg: ChatMessage, opts: DisplayOpts) {
     if (msg.role === "assistant" && msg.images && supportsKittyGraphics()) {
       for (const path of msg.images) {
         const png = await Deno.readFile(path)
-        await writeAll(
-          Deno.stdout,
-          new TextEncoder().encode(kittyPng(png, imageColumns(png, Deno.consoleSize()))),
-        )
+        const data = kittyPng(png, imageColumns(png, Deno.consoleSize()))
+        await new Promise((resolve) => process.stdout.write(data, resolve))
       }
     }
   }

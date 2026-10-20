@@ -1,4 +1,4 @@
-import $ from "@david/dax"
+import $ from "dax"
 
 import { createMessage } from "./adapters/mod.ts"
 import { type Chat } from "./types.ts"

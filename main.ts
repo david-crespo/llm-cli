@@ -1,8 +1,9 @@
 #! /usr/bin/env -S deno run --allow-env --allow-read --allow-write --allow-net --allow-run=gh,osascript,sips
 
-import { readAll } from "@std/io"
+import process from "node:process"
+import { text } from "node:stream/consumers"
 import { Command, InvalidArgumentError, Option } from "@commander-js/extra-typings"
-import $ from "@david/dax"
+import $ from "dax"
 import { blueBright, bold, magentaBright, red } from "ansis"
 
 import * as R from "remeda"
@@ -431,7 +432,7 @@ Examples:
     const piped = !Deno.stdin.isTerminal()
     const stdin = piped
       // read stdin to end
-      ? new TextDecoder().decode(await readAll(Deno.stdin)).trim()
+      ? (await text(process.stdin)).trim()
       : null
 
     // Input was piped but arrived empty — the upstream command likely failed or

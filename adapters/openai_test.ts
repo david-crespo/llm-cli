@@ -1,5 +1,5 @@
 import { assertAlmostEquals, assertEquals, assertThrows } from "@std/assert"
-import { encodeBase64 } from "@std/encoding/base64"
+import { Buffer } from "node:buffer"
 
 import { resolveModel } from "../models.ts"
 import { gptImageParams, openAIEffort, processGptImageResponse } from "./openai.ts"
@@ -18,7 +18,7 @@ Deno.test("image response saves each image and prices usage", () => {
     {
       created: 0,
       quality: "low",
-      data: [{ b64_json: encodeBase64(new Uint8Array([1, 2, 3])) }],
+      data: [{ b64_json: Buffer.from([1, 2, 3]).toString("base64") }],
       usage: {
         input_tokens: 20,
         input_tokens_details: { text_tokens: 20, image_tokens: 0 },

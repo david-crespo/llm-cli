@@ -2,7 +2,7 @@ import OpenAI from "openai"
 import type { ResponseCreateParamsNonStreaming } from "openai/resources/responses/responses"
 import type { ImageGenerateParamsNonStreaming } from "openai/resources/images"
 import { decodeBase64 } from "@std/encoding/base64"
-import { ValidationError } from "@cliffy/command"
+import { ValidationError } from "../errors.ts"
 import { match, P } from "ts-pattern"
 
 import { postprocessSchemaContent, prepareSchema } from "../schema.ts"

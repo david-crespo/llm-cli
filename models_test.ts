@@ -1,5 +1,5 @@
 import { assertAlmostEquals, assertEquals, assertThrows } from "@std/assert"
-import { ValidationError } from "@cliffy/command"
+import { ValidationError } from "./errors.ts"
 import { getCost, type Model, models, resolveModel } from "./models.ts"
 
 const testModels: Model[] = [

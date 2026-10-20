@@ -1,4 +1,4 @@
-import { ValidationError } from "@cliffy/command"
+import { ValidationError } from "../errors.ts"
 
 const MB = 1_000_000
 const encoder = new TextEncoder()

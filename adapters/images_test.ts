@@ -1,5 +1,5 @@
 import { assertEquals, assertRejects } from "@std/assert"
-import { ValidationError } from "@cliffy/command"
+import { ValidationError } from "../errors.ts"
 import { type } from "arktype"
 
 import { resolveModel } from "../models.ts"

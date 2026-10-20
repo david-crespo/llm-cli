@@ -1,5 +1,5 @@
 import { assertEquals, assertRejects, assertThrows } from "@std/assert"
-import { ValidationError } from "@cliffy/command"
+import { ValidationError } from "./errors.ts"
 import { dirname, join } from "@std/path"
 import { parseDataUrl, parseMessageSpec, resolveImage } from "./utils.ts"
 

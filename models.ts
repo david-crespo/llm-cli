@@ -1,4 +1,4 @@
-import { ValidationError } from "@cliffy/command"
+import { ValidationError } from "./errors.ts"
 import { type TokenCounts } from "./types.ts"
 import $ from "@david/dax"
 

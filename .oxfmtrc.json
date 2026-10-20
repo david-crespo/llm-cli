@@ -1,0 +1,7 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 92,
+  "semi": false,
+  "proseWrap": "always",
+  "ignorePatterns": ["fixtures/terminal-math.md", "package-lock.json", ".claude"]
+}

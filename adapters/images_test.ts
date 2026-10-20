@@ -1,4 +1,5 @@
 import { assertEquals, assertRejects } from "@std/assert"
+import process from "node:process"
 import { ValidationError } from "../errors.ts"
 import { type } from "arktype"
 
@@ -107,10 +108,10 @@ for (const testCase of cases) {
         { role: "user", content: "", createdAt: new Date(0), image_urls: [imageUrl] },
       ],
     }
-    const oldKey = Deno.env.get(testCase.env)
+    const oldKey = process.env[testCase.env]
     const originalFetch = globalThis.fetch
     let requestBody: Record<string, unknown> | undefined
-    Deno.env.set(testCase.env, "test-key")
+    process.env[testCase.env] = "test-key"
     globalThis.fetch = async (input, init) => {
       const request = new Request(input, init)
       if (request.url === imageUrl) {
@@ -133,8 +134,8 @@ for (const testCase of cases) {
       )
     } finally {
       globalThis.fetch = originalFetch
-      if (oldKey === undefined) Deno.env.delete(testCase.env)
-      else Deno.env.set(testCase.env, oldKey)
+      if (oldKey === undefined) delete process.env[testCase.env]
+      else process.env[testCase.env] = oldKey
     }
   })
 }
@@ -145,9 +146,9 @@ Deno.test("Claude's per-image base64 limit accepts the boundary", () => {
 
 Deno.test("Gemini size validation matches the SDK's wire body including schema and tools", async () => {
   const originalFetch = globalThis.fetch
-  const oldKey = Deno.env.get("GEMINI_API_KEY")
+  const oldKey = process.env["GEMINI_API_KEY"]
   const wireSizes: number[] = []
-  Deno.env.set("GEMINI_API_KEY", "test-key")
+  process.env["GEMINI_API_KEY"] = "test-key"
   globalThis.fetch = async (input, init) => {
     const request = new Request(input, init)
     wireSizes.push((await request.arrayBuffer()).byteLength)
@@ -184,16 +185,16 @@ Deno.test("Gemini size validation matches the SDK's wire body including schema a
     assertEquals(wireSizes.length, 2)
   } finally {
     globalThis.fetch = originalFetch
-    if (oldKey === undefined) Deno.env.delete("GEMINI_API_KEY")
-    else Deno.env.set("GEMINI_API_KEY", oldKey)
+    if (oldKey === undefined) delete process.env["GEMINI_API_KEY"]
+    else process.env["GEMINI_API_KEY"] = oldKey
   }
 })
 
 Deno.test("OpenAI background requests use high image detail and send only the chained turn", async () => {
   const originalFetch = globalThis.fetch
-  const oldKey = Deno.env.get("OPENAI_API_KEY")
+  const oldKey = process.env["OPENAI_API_KEY"]
   let requestBody: Record<string, unknown> | undefined
-  Deno.env.set("OPENAI_API_KEY", "test-key")
+  process.env["OPENAI_API_KEY"] = "test-key"
   globalThis.fetch = async (input, init) => {
     requestBody = await new Request(input, init).json()
     return Response.json({ id: "new-response", output: [], status: "queued" })
@@ -245,8 +246,8 @@ Deno.test("OpenAI background requests use high image detail and send only the ch
     assertEquals(requestBody?.store, true)
   } finally {
     globalThis.fetch = originalFetch
-    if (oldKey === undefined) Deno.env.delete("OPENAI_API_KEY")
-    else Deno.env.set("OPENAI_API_KEY", oldKey)
+    if (oldKey === undefined) delete process.env["OPENAI_API_KEY"]
+    else process.env["OPENAI_API_KEY"] = oldKey
   }
 })
 
@@ -288,9 +289,9 @@ for (
 ) {
   Deno.test(`${testCase.model} rejects oversized encoded images and requests before sending: ${testCase.error}`, async () => {
     const originalFetch = globalThis.fetch
-    const oldKey = Deno.env.get(testCase.env)
+    const oldKey = process.env[testCase.env]
     let apiCalls = 0
-    Deno.env.set(testCase.env, "test-key")
+    process.env[testCase.env] = "test-key"
     globalThis.fetch = (input, init) => {
       const request = new Request(input, init)
       if (request.url === imageUrl) {
@@ -331,8 +332,8 @@ for (
       assertEquals(apiCalls, 0)
     } finally {
       globalThis.fetch = originalFetch
-      if (oldKey === undefined) Deno.env.delete(testCase.env)
-      else Deno.env.set(testCase.env, oldKey)
+      if (oldKey === undefined) delete process.env[testCase.env]
+      else process.env[testCase.env] = oldKey
     }
   })
 }

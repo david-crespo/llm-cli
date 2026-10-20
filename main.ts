@@ -66,7 +66,7 @@ function messagePickerOptions(messages: Chat["messages"]) {
   }))
 }
 
-const bell = () => Deno.stdout.write(new TextEncoder().encode("\x07"))
+const bell = () => new Promise((resolve) => process.stdout.write("\x07", resolve))
 
 const makeAssMsg = (modelId: string, startTime: number, response: ModelResponse) => ({
   role: "assistant" as const,
@@ -85,7 +85,7 @@ const createChat = (systemPrompt: string): Chat => ({
 
 // deno-lint-ignore no-explicit-any
 function renderError(e: any, opts: DisplayOpts = {}) {
-  Deno.exitCode = 1
+  process.exitCode = 1
   // keep stdout clean for scripts: JSON mode reports errors on stderr only
   if (opts.json) {
     const detail = e.response?.data ?? e.response?.error
@@ -107,7 +107,7 @@ async function pollBackgroundResponse(
   if (!chat.background) throw new Error("No background response to poll")
 
   const { id, startedAt, modelId, effort } = chat.background
-  const showProgress = Deno.stdout.isTerminal() && !displayOpts.raw && !displayOpts.json
+  const showProgress = process.stdout.isTTY && !displayOpts.raw && !displayOpts.json
   const pb = showProgress ? $.progress("Waiting...") : null
 
   try {
@@ -138,7 +138,7 @@ async function pollBackgroundResponse(
     } else {
       const { status } = chat.background
       delete chat.background
-      Deno.exitCode = 1
+      process.exitCode = 1
       console.log(`Background response ${status}`)
     }
   } finally {
@@ -155,7 +155,7 @@ async function genResponse(
   displayOpts: DisplayOpts = {},
 ) {
   // don't want progress spinner when piping output
-  const showProgress = Deno.stdout.isTerminal() && !displayOpts.raw && !displayOpts.json
+  const showProgress = process.stdout.isTTY && !displayOpts.raw && !displayOpts.json
   const label = chatInput.model.kind === "image" ? "Generating image..." : "Thinking..."
   const pb = showProgress ? $.progress(label) : null
 
@@ -164,8 +164,8 @@ async function genResponse(
   const abortController = new AbortController()
   const sigintHandler = () => abortController.abort()
   const sigtermHandler = () => abortController.abort()
-  Deno.addSignalListener("SIGINT", sigintHandler)
-  Deno.addSignalListener("SIGTERM", sigtermHandler)
+  process.on("SIGINT", sigintHandler)
+  process.on("SIGTERM", sigtermHandler)
 
   try {
     const startTime = Date.now()
@@ -180,8 +180,8 @@ async function genResponse(
   } catch (e: unknown) {
     renderError(e, displayOpts)
   } finally {
-    Deno.removeSignalListener("SIGINT", sigintHandler)
-    Deno.removeSignalListener("SIGTERM", sigtermHandler)
+    process.off("SIGINT", sigintHandler)
+    process.off("SIGTERM", sigtermHandler)
     if (pb) pb.finish() // otherwise it hangs around
     // terminal bell to indicate it's done
     if (showProgress) await bell()
@@ -345,7 +345,7 @@ function modelInfoMd(modelArg: string) {
 
 function exit(msg: string): never {
   console.log(msg)
-  Deno.exit()
+  process.exit()
 }
 
 /** Commander option parser for integer values */
@@ -422,14 +422,14 @@ Examples:
         outputSchema = parseType(opts.outputSchema)
       } catch (e) {
         console.error(e instanceof Error ? e.message : String(e))
-        Deno.exit(1)
+        process.exit(1)
       }
     }
 
     const imageInputs = opts.image ?? []
     const hasImages = imageInputs.length > 0
     const msg = message.join(" ")
-    const piped = !Deno.stdin.isTerminal()
+    const piped = !process.stdin.isTTY
     const stdin = piped
       // read stdin to end
       ? (await text(process.stdin)).trim()
@@ -493,7 +493,7 @@ Examples:
     if (problems.length > 0) throw new ValidationError(problems.join("\n"))
 
     const image_urls = hasImages
-      ? await Promise.all(imageInputs.map(resolveImage))
+      ? await Promise.all(imageInputs.map((value) => resolveImage(value)))
       : undefined
 
     chat.messages.push({
@@ -678,7 +678,7 @@ bgCmd
   })
 
 try {
-  await program.parseAsync(Deno.args, { from: "user" })
+  await program.parseAsync()
 } catch (e) {
   if (e instanceof ValidationError) program.error(`error: ${e.message}`)
   throw e

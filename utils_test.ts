@@ -1,7 +1,9 @@
 import { assertEquals, assertRejects, assertThrows } from "@std/assert"
 import { ValidationError } from "./errors.ts"
+import { existsSync } from "node:fs"
+import { mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
-import { parseDataUrl, parseMessageSpec, resolveImage } from "./utils.ts"
+import { parseDataUrl, parseMessageSpec, resolveImage, type SipsRunner } from "./utils.ts"
 
 Deno.test("parseMessageSpec - single number", () => {
   assertEquals(parseMessageSpec("3", 5), [2])
@@ -147,50 +149,34 @@ Deno.test("resolveImage - https URL passes through", async () => {
 })
 
 async function withFakeSips(
-  convert: (args: string[]) => Promise<Deno.CommandOutput>,
-  test: (input: string, calls: string[][]) => Promise<void>,
+  convert: SipsRunner,
+  test: (input: string, calls: string[][], sips: SipsRunner) => Promise<void>,
   extension = "HEIC",
 ) {
-  const dir = await Deno.makeTempDir({ dir: "/tmp" })
+  const dir = await mkdtemp("/tmp/llm-sips-test-")
   const input = join(dir, `phone photo.${extension}`)
-  const originalCommand = Deno.Command
   const calls: string[][] = []
-  await Deno.writeFile(input, new Uint8Array([1, 2, 3]))
-  Deno.Command = class extends originalCommand {
-    #args: string[]
-    constructor(command: string | URL, options: Deno.CommandOptions = {}) {
-      super(command, options)
-      assertEquals(command, "sips")
-      this.#args = options.args ?? []
-      calls.push(this.#args)
-    }
-    override output() {
-      return convert(this.#args)
-    }
+  await writeFile(input, new Uint8Array([1, 2, 3]))
+  const sips: SipsRunner = (args) => {
+    calls.push(args)
+    return convert(args)
   }
   try {
-    await test(input, calls)
+    await test(input, calls, sips)
   } finally {
-    Deno.Command = originalCommand
-    await Deno.remove(dir, { recursive: true })
+    await rm(dir, { recursive: true })
   }
 }
 
-const commandOutput = (code = 0, stderr = ""): Deno.CommandOutput => ({
-  success: code === 0,
-  code,
-  signal: null,
-  stdout: new Uint8Array(),
-  stderr: new TextEncoder().encode(stderr),
-})
+const commandOutput = (code = 0, stderr = "") => ({ code, stderr })
 
 for (const extension of ["HEIC", "heif"]) {
   Deno.test(`resolveImage converts ${extension} to JPEG and cleans up without changing the original`, async () => {
     await withFakeSips(async (args) => {
-      await Deno.writeFile(args.at(-1)!, new Uint8Array([0xff, 0xd8, 0xff, 0xd9]))
+      await writeFile(args.at(-1)!, new Uint8Array([0xff, 0xd8, 0xff, 0xd9]))
       return commandOutput()
-    }, async (input, calls) => {
-      assertEquals(await resolveImage(input), "data:image/jpeg;base64,/9j/2Q==")
+    }, async (input, calls, sips) => {
+      assertEquals(await resolveImage(input, sips), "data:image/jpeg;base64,/9j/2Q==")
       assertEquals(calls.length, 1)
       assertEquals(calls[0].slice(0, -2), [
         "--setProperty",
@@ -199,26 +185,26 @@ for (const extension of ["HEIC", "heif"]) {
         "--setProperty",
         "formatOptions",
         "90",
-        await Deno.realPath(input),
+        await realpath(input),
       ])
       assertEquals(calls[0].at(-2), "--out")
-      assertEquals([...await Deno.readFile(input)], [1, 2, 3])
-      await assertRejects(() => Deno.stat(dirname(calls[0].at(-1)!)), Deno.errors.NotFound)
+      assertEquals([...await readFile(input)], [1, 2, 3])
+      assertEquals(existsSync(dirname(calls[0].at(-1)!)), false)
     }, extension)
   })
 }
 
 Deno.test("resolveImage explains missing sips and cleans up", async () => {
   await withFakeSips(
-    () => Promise.reject(new Deno.errors.NotFound("sips")),
-    async (input, calls) => {
+    () => Promise.reject(Object.assign(new Error("spawn sips ENOENT"), { code: "ENOENT" })),
+    async (input, calls, sips) => {
       await assertRejects(
-        () => resolveImage(input),
+        () => resolveImage(input, sips),
         ValidationError,
         "HEIC conversion requires macOS's 'sips'. Convert the image to JPEG or PNG first.",
       )
       assertEquals(calls.length, 1)
-      await assertRejects(() => Deno.stat(dirname(calls[0].at(-1)!)), Deno.errors.NotFound)
+      assertEquals(existsSync(dirname(calls[0].at(-1)!)), false)
     },
   )
 })
@@ -226,42 +212,42 @@ Deno.test("resolveImage explains missing sips and cleans up", async () => {
 Deno.test("resolveImage reports conversion failure and cleans up", async () => {
   await withFakeSips(
     () => Promise.resolve(commandOutput(13, "Invalid HEIC")),
-    async (input, calls) => {
-      await assertRejects(() => resolveImage(input), ValidationError, "Invalid HEIC")
+    async (input, calls, sips) => {
+      await assertRejects(() => resolveImage(input, sips), ValidationError, "Invalid HEIC")
       assertEquals(calls.length, 1)
-      await assertRejects(() => Deno.stat(dirname(calls[0].at(-1)!)), Deno.errors.NotFound)
+      assertEquals(existsSync(dirname(calls[0].at(-1)!)), false)
     },
   )
 })
 
 Deno.test("resolveImage rejects incomplete sips output even when the process succeeds", async () => {
   await withFakeSips(async (args) => {
-    await Deno.writeFile(args.at(-1)!, new Uint8Array([0xff, 0xd8, 0xff, 0xe0]))
+    await writeFile(args.at(-1)!, new Uint8Array([0xff, 0xd8, 0xff, 0xe0]))
     return commandOutput()
-  }, async (input, calls) => {
-    await assertRejects(() => resolveImage(input), ValidationError, "incomplete JPEG")
+  }, async (input, calls, sips) => {
+    await assertRejects(() => resolveImage(input, sips), ValidationError, "incomplete JPEG")
     assertEquals(calls.length, 1)
-    await assertRejects(() => Deno.stat(dirname(calls[0].at(-1)!)), Deno.errors.NotFound)
+    assertEquals(existsSync(dirname(calls[0].at(-1)!)), false)
   })
 })
 
 Deno.test("resolveImage reports missing converter output and cleans up", async () => {
-  await withFakeSips(() => Promise.resolve(commandOutput()), async (input, calls) => {
+  await withFakeSips(() => Promise.resolve(commandOutput()), async (input, calls, sips) => {
     await assertRejects(
-      () => resolveImage(input),
+      () => resolveImage(input, sips),
       ValidationError,
       "did not produce a JPEG",
     )
     assertEquals(calls.length, 1)
-    await assertRejects(() => Deno.stat(dirname(calls[0].at(-1)!)), Deno.errors.NotFound)
+    assertEquals(existsSync(dirname(calls[0].at(-1)!)), false)
   })
 })
 
 Deno.test("resolveImage leaves ordinary local images unchanged without invoking sips", async () => {
   await withFakeSips(
     () => Promise.reject(new Error("Should not run sips")),
-    async (input, calls) => {
-      assertEquals(await resolveImage(input), "data:image/png;base64,AQID")
+    async (input, calls, sips) => {
+      assertEquals(await resolveImage(input, sips), "data:image/png;base64,AQID")
       assertEquals(calls.length, 0)
     },
     "png",

@@ -1,5 +1,6 @@
 // deno-lint-ignore-file no-control-regex
 import { assert, assertEquals } from "@std/assert"
+import process from "node:process"
 
 import { renderMarkdown } from "./md-render.ts"
 
@@ -121,12 +122,12 @@ Deno.test("renderMarkdown keeps codespans on a single line when wrapped", async 
     "The type parameter `K extends PropertyKey` constrains keys to `string | number | symbol` — the only types JavaScript allows as object keys. This lets the return type be a precise `Record<K, T[]>` rather than a loose `Record<string, T[]>`.\n\n" +
     "Inside the loop, `result[key] ??= []` uses the operator: if `result[key]` is `undefined`, more text. The classic `if (!result[key]) result[key] = []; result[key].push(item);` form."
 
-  const origIsTerminal = Deno.stdout.isTerminal.bind(Deno.stdout)
-  const origConsoleSize = Deno.consoleSize
-  Deno.stdout.isTerminal = () => true
+  const { stdout } = process
+  const original = Object.getOwnPropertyDescriptors(stdout)
+  stdout.isTTY = true
   try {
     for (const columns of [50, 62, 70, 80, 85, 88, 90, 92, 95, 100, 120]) {
-      Deno.consoleSize = () => ({ columns, rows: 40 })
+      stdout.columns = columns
       const out = await renderMarkdown(text)
       for (const [i, line] of out.split("\n").entries()) {
         const opens = (line.match(/\x1b\[38;5;203m\x1b\[48;5;236m/g) ?? []).length
@@ -153,8 +154,10 @@ Deno.test("renderMarkdown keeps codespans on a single line when wrapped", async 
       }
     }
   } finally {
-    Deno.stdout.isTerminal = origIsTerminal
-    Deno.consoleSize = origConsoleSize
+    for (const key of ["isTTY", "columns"] as const) {
+      if (original[key]) Object.defineProperty(stdout, key, original[key])
+      else delete stdout[key]
+    }
   }
 })
 

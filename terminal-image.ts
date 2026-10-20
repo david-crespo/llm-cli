@@ -1,8 +1,9 @@
 import { Buffer } from "node:buffer"
+import process from "node:process"
 
 export function supportsKittyGraphics(
-  isTerminal = Deno.stdout.isTerminal(),
-  env: (key: string) => string | undefined = (key) => Deno.env.get(key),
+  isTerminal = process.stdout.isTTY ?? false,
+  env: (key: string) => string | undefined = (key) => process.env[key],
 ): boolean {
   if (!isTerminal || env("TMUX") || env("STY") || env("TERM") === "dumb") return false
   return env("TERM_PROGRAM") === "ghostty" ||

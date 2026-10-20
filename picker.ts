@@ -1,3 +1,4 @@
+import process from "node:process"
 import stringWidth from "string-width"
 import {
   createPrompt,
@@ -23,13 +24,8 @@ export interface PickerRow {
 }
 
 function terminalColumns(): number {
-  try {
-    return Deno.consoleSize().columns
-  } catch {
-    // The selector will report the non-TTY error; this only keeps formatting
-    // from replacing it with a console-size error first.
-    return 120
-  }
+  // Undefined when stdout isn't a TTY. The selector reports that error itself.
+  return process.stdout.columns ?? 120
 }
 
 export function singleLine(text: string): string {
@@ -170,11 +166,7 @@ const actionSelect = createPrompt<
 })
 
 function terminalRows(): number {
-  try {
-    return Deno.consoleSize().rows
-  } catch {
-    return 24
-  }
+  return process.stdout.rows ?? 24
 }
 
 /**

@@ -8,6 +8,7 @@ import "@mathjax/src/js/input/tex/base/BaseConfiguration.js"
 import "@mathjax/src/js/input/tex/ams/AmsConfiguration.js"
 import "@mathjax/src/js/input/tex/newcommand/NewcommandConfiguration.js"
 import { initWasm, Resvg } from "@resvg/resvg-wasm"
+import { readFile } from "node:fs/promises"
 
 const adaptor = liteAdaptor()
 RegisterHTMLHandler(adaptor)
@@ -28,7 +29,7 @@ export async function renderMathImage(
   color: string,
 ): Promise<MathImage> {
   await (wasm ??= initWasm(
-    Deno.readFile(new URL(import.meta.resolve("@resvg/resvg-wasm/index_bg.wasm"))),
+    readFile(new URL(import.meta.resolve("@resvg/resvg-wasm/index_bg.wasm"))),
   ))
   // A document per expression prevents user-defined macros leaking between messages.
   const doc = mathjax.document("", {

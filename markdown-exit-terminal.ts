@@ -6,6 +6,7 @@
 // automatically by wrapping renderAsync.
 
 import type { MarkdownExit, RenderRule } from "markdown-exit"
+import process from "node:process"
 import ansis, { blue, bold, cyan, dim, gray, italic, strikethrough, white } from "ansis"
 import stringWidth from "string-width"
 import supportsHyperlinks from "supports-hyperlinks"
@@ -185,7 +186,7 @@ function reflowParagraphs(text: string, width: number): string {
 export type TerminalEnv = MathEnv & { codeTheme?: string }
 
 function getColumns(): number {
-  return Deno.stdout.isTerminal() ? Deno.consoleSize().columns : 80
+  return process.stdout.columns ?? 80
 }
 
 function getWidth(): number {

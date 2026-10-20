@@ -1,5 +1,14 @@
 import { assertEquals, assertThrows } from "@std/assert"
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs"
 import { join } from "node:path"
+import process from "node:process"
 import { History, imageFilename, saveImage } from "./storage.ts"
 import type { Chat } from "./types.ts"
 
@@ -13,18 +22,18 @@ function chat(id: string, createdAt: string): Chat {
 }
 
 function withTempState(fn: (stateHome: string) => void) {
-  const oldStateHome = Deno.env.get("XDG_STATE_HOME")
-  const stateHome = Deno.makeTempDirSync({ dir: "/tmp" })
-  Deno.env.set("XDG_STATE_HOME", stateHome)
+  const oldStateHome = process.env.XDG_STATE_HOME
+  const stateHome = mkdtempSync("/tmp/llm-storage-test-")
+  process.env.XDG_STATE_HOME = stateHome
   try {
     fn(stateHome)
   } finally {
     if (oldStateHome === undefined) {
-      Deno.env.delete("XDG_STATE_HOME")
+      delete process.env.XDG_STATE_HOME
     } else {
-      Deno.env.set("XDG_STATE_HOME", oldStateHome)
+      process.env.XDG_STATE_HOME = oldStateHome
     }
-    Deno.removeSync(stateHome, { recursive: true })
+    rmSync(stateHome, { recursive: true })
   }
 }
 
@@ -52,10 +61,10 @@ Deno.test("History preserves multiple images and loads legacy single-image messa
     assertEquals(History.current()?.messages[0], saved.messages[0])
 
     const path = join(stateHome, "llm-cli", "chats", "images.json")
-    const legacy = JSON.parse(Deno.readTextFileSync(path))
+    const legacy = JSON.parse(readFileSync(path, "utf8"))
     delete legacy.messages[0].image_urls
     legacy.messages[0].image_url = images[0]
-    Deno.writeTextFileSync(path, JSON.stringify(legacy))
+    writeFileSync(path, JSON.stringify(legacy))
 
     const loaded = History.current()!
     assertEquals(loaded.messages[0], {
@@ -64,9 +73,9 @@ Deno.test("History preserves multiple images and loads legacy single-image messa
       createdAt: saved.createdAt,
       image_urls: [images[0]],
     })
-    assertEquals(JSON.parse(Deno.readTextFileSync(path)).messages[0].image_url, images[0])
+    assertEquals(JSON.parse(readFileSync(path, "utf8")).messages[0].image_url, images[0])
     History.save(loaded)
-    const persisted = JSON.parse(Deno.readTextFileSync(path)).messages[0]
+    const persisted = JSON.parse(readFileSync(path, "utf8")).messages[0]
     assertEquals(persisted.image_urls, [images[0]])
     assertEquals("image_url" in persisted, false)
   })
@@ -104,8 +113,8 @@ Deno.test("History.write preserves legacy history recency order", () => {
 
     assertEquals(History.read().map((c) => c.id), ["one", "two"])
     assertEquals(History.current()?.id, "two")
-    assertEquals(Deno.statSync(join(root, "chats", "one.json")).isFile, true)
-    assertEquals(Deno.statSync(join(root, "chats", "two.json")).isFile, true)
+    assertEquals(statSync(join(root, "chats", "one.json")).isFile(), true)
+    assertEquals(statSync(join(root, "chats", "two.json")).isFile(), true)
   })
 })
 
@@ -178,23 +187,15 @@ Deno.test("imageFilename uses local timestamp and prompt slug", () => {
   )
 })
 
-Deno.test("saveImage preserves a file created concurrently at the same path", () => {
-  withTempState(() => {
-    const write = Deno.writeFileSync
-    let existing: string | URL | undefined
-    Deno.writeFileSync = (path, bytes, options) => {
-      if (!existing) {
-        existing = path
-        write(path, new Uint8Array([1]))
-      }
-      write(path, bytes, options)
-    }
-    try {
-      const saved = saveImage(new Uint8Array([2]), "same prompt", "png")
-      assertEquals([...Deno.readFileSync(existing!)], [1])
-      assertEquals([...Deno.readFileSync(saved)], [2])
-    } finally {
-      Deno.writeFileSync = write
-    }
+Deno.test("saveImage keeps an existing file with the same name", () => {
+  withTempState((stateHome) => {
+    const date = new Date(2026, 8, 23, 14, 5, 9)
+    const dir = join(stateHome, "llm-cli", "images")
+    const existing = join(dir, imageFilename("same prompt", date, "png"))
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(existing, new Uint8Array([1]))
+    const saved = saveImage(new Uint8Array([2]), "same prompt", "png", 0, date)
+    assertEquals([...readFileSync(existing)], [1])
+    assertEquals([...readFileSync(saved)], [2])
   })
 })

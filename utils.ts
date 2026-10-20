@@ -1,6 +1,10 @@
-import { ValidationError } from "./errors.ts"
+import { isErrno, ValidationError } from "./errors.ts"
 import { Buffer } from "node:buffer"
+import { execFile } from "node:child_process"
+import { mkdtemp, readFile, realpath, rm } from "node:fs/promises"
+import { tmpdir } from "node:os"
 import { join } from "node:path"
+import process from "node:process"
 import $ from "dax"
 import * as R from "remeda"
 
@@ -93,7 +97,7 @@ export function parseDataUrl(
  * "copy image" out of the box.
  */
 async function readClipboardImage(): Promise<Uint8Array> {
-  if (Deno.build.os !== "darwin") {
+  if (process.platform !== "darwin") {
     throw new ValidationError(
       "Clipboard image paste is only supported on macOS",
     )
@@ -101,7 +105,7 @@ async function readClipboardImage(): Promise<Uint8Array> {
   // Pinned to /tmp so the shebang can scope --allow-write narrowly. Deno's
   // default temp dir on macOS is $TMPDIR (/var/folders/...), which can't be
   // expressed statically in a shebang.
-  const tmpPath = await Deno.makeTempFile({ dir: "/tmp", suffix: ".png" })
+  const tmpPath = `/tmp/llm-clipboard-${crypto.randomUUID()}.png`
   try {
     const result = await $`osascript \
       -e ${`set png_data to (the clipboard as «class PNGf»)`} \
@@ -121,61 +125,68 @@ async function readClipboardImage(): Promise<Uint8Array> {
           : `osascript failed: ${result.stderr.trim()}`,
       )
     }
-    return await Deno.readFile(tmpPath)
+    return await readFile(tmpPath)
   } finally {
-    await Deno.remove(tmpPath).catch(() => {})
+    await rm(tmpPath, { force: true })
   }
 }
 
+/** Runs `sips` with the given args. Rejects only if it can't be started. */
+export type SipsRunner = (args: string[]) => Promise<{ code: number; stderr: string }>
+
+const execSips: SipsRunner = (args) =>
+  new Promise((resolve, reject) => {
+    execFile("sips", args, (error, _stdout, stderr) => {
+      // A string code like ENOENT means the process never ran.
+      if (typeof error?.code === "string") reject(error)
+      else resolve({ code: error ? error.code ?? 1 : 0, stderr })
+    })
+  })
+
 /** Convert a local HEIC/HEIF through macOS's optional image converter. */
-async function convertHeicImage(value: string): Promise<Uint8Array> {
+async function convertHeicImage(value: string, runSips: SipsRunner): Promise<Uint8Array> {
   let sourcePath: string
   try {
-    sourcePath = await Deno.realPath(value)
+    sourcePath = await realpath(value)
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     throw new ValidationError(`Could not read image at '${value}': ${msg}`)
   }
-  const tmpDir = await Deno.makeTempDir({
-    dir: Deno.build.os === "darwin" ? "/tmp" : undefined,
-    prefix: "llm-heic-",
-  })
+  const tmpDir = await mkdtemp(
+    join(process.platform === "darwin" ? "/tmp" : tmpdir(), "llm-heic-"),
+  )
   try {
     const outputPath = join(tmpDir, "converted.jpg")
-    let result: Deno.CommandOutput
+    let result: Awaited<ReturnType<SipsRunner>>
     try {
-      result = await new Deno.Command("sips", {
-        args: [
-          "--setProperty",
-          "format",
-          "jpeg",
-          "--setProperty",
-          "formatOptions",
-          "90",
-          sourcePath,
-          "--out",
-          outputPath,
-        ],
-        stdout: "null",
-        stderr: "piped",
-      }).output()
+      result = await runSips([
+        "--setProperty",
+        "format",
+        "jpeg",
+        "--setProperty",
+        "formatOptions",
+        "90",
+        sourcePath,
+        "--out",
+        outputPath,
+      ])
     } catch (e) {
-      if (e instanceof Deno.errors.NotFound) {
+      if (isErrno(e, "ENOENT")) {
         throw new ValidationError(
           "HEIC conversion requires macOS's 'sips'. Convert the image to JPEG or PNG first.",
         )
       }
       throw e
     }
-    if (!result.success) {
-      const error = new TextDecoder().decode(result.stderr).trim() || `exit ${result.code}`
+    if (result.code !== 0) {
+      const error = result.stderr.trim() || `exit ${result.code}`
       throw new ValidationError(`Could not convert HEIC image at '${value}': ${error}`)
     }
     let bytes: Uint8Array
     try {
-      bytes = await Deno.readFile(outputPath)
+      bytes = await readFile(outputPath)
     } catch (e) {
-      if (e instanceof Deno.errors.NotFound) {
+      if (isErrno(e, "ENOENT")) {
         throw new ValidationError(
           `Could not convert HEIC image at '${value}': sips did not produce a JPEG`,
         )
@@ -193,7 +204,7 @@ async function convertHeicImage(value: string): Promise<Uint8Array> {
     }
     return bytes
   } finally {
-    await Deno.remove(tmpDir, { recursive: true })
+    await rm(tmpDir, { recursive: true })
   }
 }
 
@@ -203,7 +214,10 @@ async function convertHeicImage(value: string): Promise<Uint8Array> {
  * is treated as a local file path, read, base64-encoded, and returned as a
  * `data:` URL. Local HEIC/HEIF files are converted to JPEG through `sips`.
  */
-export async function resolveImage(value: string): Promise<string> {
+export async function resolveImage(
+  value: string,
+  runSips: SipsRunner = execSips,
+): Promise<string> {
   if (value === "clipboard") {
     const bytes = await readClipboardImage()
     return `data:image/png;base64,${Buffer.from(bytes).toString("base64")}`
@@ -212,13 +226,13 @@ export async function resolveImage(value: string): Promise<string> {
 
   const ext = value.split(".").pop()?.toLowerCase() ?? ""
   if (ext === "heic" || ext === "heif") {
-    const bytes = await convertHeicImage(value)
+    const bytes = await convertHeicImage(value, runSips)
     return `data:image/jpeg;base64,${Buffer.from(bytes).toString("base64")}`
   }
 
   let bytes: Uint8Array
   try {
-    bytes = await Deno.readFile(value)
+    bytes = await readFile(value)
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     throw new ValidationError(`Could not read image at '${value}': ${msg}`)

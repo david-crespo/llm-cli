@@ -1,6 +1,7 @@
 // deno-lint-ignore-file no-control-regex
 import { assert, assertEquals, assertRejects } from "@std/assert"
 import { Buffer } from "node:buffer"
+import { readFile } from "node:fs/promises"
 import { Resvg } from "@resvg/resvg-wasm"
 import { renderMarkdown } from "./md-render.ts"
 import { kittyImage } from "./terminal-math.ts"
@@ -175,8 +176,9 @@ Deno.test("SVG serialization escapes inequalities in MathJax attributes", async 
 })
 
 Deno.test("the complete demo renders every valid equation", async () => {
-  const text = await Deno.readTextFile(
+  const text = await readFile(
     new URL("./fixtures/terminal-math.md", import.meta.url),
+    "utf8",
   )
   const output = await renderMarkdown(text, { math: true })
   assertEquals(imageCount(output), 31)

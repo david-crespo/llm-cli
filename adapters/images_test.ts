@@ -1,4 +1,5 @@
 import assert from "node:assert/strict"
+import { test } from "node:test"
 import { errorIncluding } from "../testing.ts"
 import process from "node:process"
 import { ValidationError } from "../errors.ts"
@@ -84,7 +85,7 @@ const cases = [
 ]
 
 for (const testCase of cases) {
-  Deno.test(`${testCase.env} sends all images in order, including history and image-only turns`, async () => {
+  test(`${testCase.env} sends all images in order, including history and image-only turns`, async () => {
     const chat: Chat = {
       id: "test",
       createdAt: new Date(0),
@@ -141,11 +142,11 @@ for (const testCase of cases) {
   })
 }
 
-Deno.test("Claude's per-image base64 limit accepts the boundary", () => {
+test("Claude's per-image base64 limit accepts the boundary", () => {
   validateClaudeImageSize("A".repeat(10_000_000))
 })
 
-Deno.test("Gemini size validation matches the SDK's wire body including schema and tools", async () => {
+test("Gemini size validation matches the SDK's wire body including schema and tools", async () => {
   const originalFetch = globalThis.fetch
   const oldKey = process.env["GEMINI_API_KEY"]
   const wireSizes: number[] = []
@@ -190,7 +191,7 @@ Deno.test("Gemini size validation matches the SDK's wire body including schema a
   }
 })
 
-Deno.test("OpenAI background requests use high image detail and send only the chained turn", async () => {
+test("OpenAI background requests use high image detail and send only the chained turn", async () => {
   const originalFetch = globalThis.fetch
   const oldKey = process.env["OPENAI_API_KEY"]
   let requestBody: Record<string, unknown> | undefined
@@ -287,7 +288,7 @@ for (
     },
   ]
 ) {
-  Deno.test(`${testCase.model} rejects oversized encoded images and requests before sending: ${testCase.error}`, async () => {
+  test(`${testCase.model} rejects oversized encoded images and requests before sending: ${testCase.error}`, async () => {
     const originalFetch = globalThis.fetch
     const oldKey = process.env[testCase.env]
     let apiCalls = 0

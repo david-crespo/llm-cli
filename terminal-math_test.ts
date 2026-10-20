@@ -1,5 +1,6 @@
 // deno-lint-ignore-file no-control-regex
 import assert from "node:assert/strict"
+import { test } from "node:test"
 import { Buffer } from "node:buffer"
 import { readFile } from "node:fs/promises"
 import { Resvg } from "@resvg/resvg-wasm"
@@ -10,14 +11,14 @@ import { renderMathImage } from "./math-image.ts"
 const strip = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, "").replaceAll(" ", " ")
 const imageCount = (s: string) => [...s.matchAll(/\x1b_Ga=t,/g)].length
 
-Deno.test("short inline symbols occupy one terminal cell", async () => {
+test("short inline symbols occupy one terminal cell", async () => {
   for (const tex of [String.raw`\nu`, "f", "x"]) {
     const image = await renderMathImage(tex, false, 80, "#c8c8c8")
     assert.deepEqual(image.columns, 1, tex)
   }
 })
 
-Deno.test("inline glyphs share a baseline regardless of their height", async () => {
+test("inline glyphs share a baseline regardless of their height", async () => {
   const bottoms: number[] = []
   for (const tex of [String.raw`\nu`, "H", "x^2"]) {
     const image = await renderMathImage(tex, false, 80, "#c8c8c8")
@@ -49,7 +50,7 @@ Deno.test("inline glyphs share a baseline regardless of their height", async () 
   assert(Math.max(...bottoms) - Math.min(...bottoms) <= 1, `Ink bottoms: ${bottoms}`)
 })
 
-Deno.test("math delimiters render inside prose without consuming punctuation", async () => {
+test("math delimiters render inside prose without consuming punctuation", async () => {
   for (
     const math of [
       String.raw`$\nu>0$`,
@@ -68,7 +69,7 @@ Deno.test("math delimiters render inside prose without consuming punctuation", a
   }
 })
 
-Deno.test("math leaves currency, escaped dollars, and code alone", async () => {
+test("math leaves currency, escaped dollars, and code alone", async () => {
   for (
     const text of [
       "between $50 to $100",
@@ -89,7 +90,7 @@ Deno.test("math leaves currency, escaped dollars, and code alone", async () => {
   }
 })
 
-Deno.test("disabled and invalid math preserve the raw TeX", async () => {
+test("disabled and invalid math preserve the raw TeX", async () => {
   for (
     const text of [
       String.raw`With $x_i^2$ and \(\nu>0\).`,
@@ -103,14 +104,14 @@ Deno.test("disabled and invalid math preserve the raw TeX", async () => {
   assert.deepEqual(strip(await renderMarkdown(invalid, { math: true })), invalid)
 })
 
-Deno.test("display math interrupts paragraphs and retains following text", async () => {
+test("display math interrupts paragraphs and retains following text", async () => {
   const out = await renderMarkdown("Before\n$$\nx^2\n$$\nAfter", { math: true })
   assert.deepEqual(imageCount(out), 1)
   assert(out.startsWith("Before\n\n"))
   assert(out.endsWith("\n\nAfter"))
 })
 
-Deno.test("math graphics survive wrapping, blockquotes, lists, and tables", async () => {
+test("math graphics survive wrapping, blockquotes, lists, and tables", async () => {
   for (
     const text of [
       "word ".repeat(20) + "$x^2$ after",
@@ -132,7 +133,7 @@ Deno.test("math graphics survive wrapping, blockquotes, lists, and tables", asyn
   }
 })
 
-Deno.test("PNG chunks roundtrip and row placements reserve the correct cells", () => {
+test("PNG chunks roundtrip and row placements reserve the correct cells", () => {
   const png = new Uint8Array(12000).map((_, i) => i % 256)
   const rows = kittyImage({ png, columns: 12, rows: 3, rowPixels: 60 }, 42)
   const chunks = [...rows[0].matchAll(/\x1b_G([^;]+);([^\x1b]*)\x1b\\/g)]
@@ -150,7 +151,7 @@ Deno.test("PNG chunks roundtrip and row placements reserve the correct cells", (
   }
 })
 
-Deno.test("MathJax rasterizes the example and constrains narrow/tall equations", async () => {
+test("MathJax rasterizes the example and constrains narrow/tall equations", async () => {
   const tex = String
     .raw`\partial_t u + (u\cdot\nabla)u = -\nabla p + \nu\Delta u + f, \qquad \nabla\cdot u = 0`
   for (const width of [20, 80]) {
@@ -171,14 +172,14 @@ Deno.test("MathJax rasterizes the example and constrains narrow/tall equations",
   await assert.rejects(() => renderMathImage(String.raw`\invalid{`, false, 80, "#c8c8c8"))
 })
 
-Deno.test("SVG serialization escapes inequalities in MathJax attributes", async () => {
+test("SVG serialization escapes inequalities in MathJax attributes", async () => {
   const tex = String.raw`|x|=\begin{cases}-x & x<0\\x & x\geq0\end{cases}`
   const image = await renderMathImage(tex, true, 80, "#c8c8c8")
   assert(image.rows > 1)
   assert.deepEqual(imageCount(await renderMarkdown(`$$\n${tex}\n$$`, { math: true })), 1)
 })
 
-Deno.test("the complete demo renders every valid equation", async () => {
+test("the complete demo renders every valid equation", async () => {
   const text = await readFile(
     new URL("./fixtures/terminal-math.md", import.meta.url),
     "utf8",

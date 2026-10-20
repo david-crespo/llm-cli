@@ -1,6 +1,8 @@
 import assert from "node:assert/strict"
+import { test } from "node:test"
 import { errorIncluding } from "./testing.ts"
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
 import { join } from "node:path"
 import process from "node:process"
 import { History, imageFilename, saveImage } from "./storage.ts"
@@ -17,7 +19,7 @@ function chat(id: string, createdAt: string): Chat {
 
 function withTempState(fn: (stateHome: string) => void) {
   const oldStateHome = process.env.XDG_STATE_HOME
-  const stateHome = mkdtempSync("/tmp/llm-storage-test-")
+  const stateHome = mkdtempSync(join(tmpdir(), "llm-storage-test-"))
   process.env.XDG_STATE_HOME = stateHome
   try {
     fn(stateHome)
@@ -31,7 +33,7 @@ function withTempState(fn: (stateHome: string) => void) {
   }
 }
 
-Deno.test("History.save stores chats independently and tracks current", () => {
+test("History.save stores chats independently and tracks current", () => {
   withTempState(() => {
     History.save(chat("one", "2026-01-01T00:00:00Z"), { current: true })
     History.save(chat("two", "2026-01-02T00:00:00Z"), { current: true })
@@ -41,7 +43,7 @@ Deno.test("History.save stores chats independently and tracks current", () => {
   })
 })
 
-Deno.test("History preserves multiple images and loads legacy single-image messages", () => {
+test("History preserves multiple images and loads legacy single-image messages", () => {
   withTempState((stateHome) => {
     const images = ["data:image/png;base64,AQID", "https://example.com/second.jpg"]
     const saved = chat("images", "2026-01-01T00:00:00Z")
@@ -78,7 +80,7 @@ Deno.test("History preserves multiple images and loads legacy single-image messa
   })
 })
 
-Deno.test("History.delete removes selected chat without rewriting others", () => {
+test("History.delete removes selected chat without rewriting others", () => {
   withTempState(() => {
     History.save(chat("one", "2026-01-01T00:00:00Z"), { current: true })
     History.save(chat("two", "2026-01-02T00:00:00Z"), { current: true })
@@ -90,7 +92,7 @@ Deno.test("History.delete removes selected chat without rewriting others", () =>
   })
 })
 
-Deno.test("History.clear removes every chat", () => {
+test("History.clear removes every chat", () => {
   withTempState(() => {
     History.save(chat("one", "2026-01-01T00:00:00Z"), { current: true })
 
@@ -100,7 +102,7 @@ Deno.test("History.clear removes every chat", () => {
   })
 })
 
-Deno.test("History.save rejects stale same-chat writes", () => {
+test("History.save rejects stale same-chat writes", () => {
   withTempState(() => {
     History.save(chat("one", "2026-01-01T00:00:00Z"), { current: true })
     const first = History.current()!
@@ -115,7 +117,7 @@ Deno.test("History.save rejects stale same-chat writes", () => {
   })
 })
 
-Deno.test("imageFilename uses local timestamp and prompt slug", () => {
+test("imageFilename uses local timestamp and prompt slug", () => {
   const date = new Date(2026, 8, 23, 14, 5, 9)
   assert.deepEqual(
     imageFilename("A cat, in a hat!", date, "png"),
@@ -128,7 +130,7 @@ Deno.test("imageFilename uses local timestamp and prompt slug", () => {
   )
 })
 
-Deno.test("saveImage keeps an existing file with the same name", () => {
+test("saveImage keeps an existing file with the same name", () => {
   withTempState((stateHome) => {
     const date = new Date(2026, 8, 23, 14, 5, 9)
     const dir = join(stateHome, "llm-cli", "images")

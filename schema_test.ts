@@ -1,4 +1,5 @@
 import assert from "node:assert/strict"
+import { test } from "node:test"
 import { errorIncluding } from "./testing.ts"
 import { parseType, postprocessSchemaContent, prepareSchema } from "./schema.ts"
 
@@ -10,7 +11,7 @@ function schema(input: string): Record<string, unknown> {
   return rest
 }
 
-Deno.test("parseType - string DSL schemas", () => {
+test("parseType - string DSL schemas", () => {
   const cases: Array<[string, Record<string, unknown>]> = [
     ["boolean", { type: "boolean" }],
     ["string", { type: "string" }],
@@ -24,7 +25,7 @@ Deno.test("parseType - string DSL schemas", () => {
   }
 })
 
-Deno.test("parseType - object with optional field", () => {
+test("parseType - object with optional field", () => {
   assert.deepEqual(schema("{ urgent: 'boolean', 'reason?': 'string' }"), {
     type: "object",
     properties: {
@@ -35,7 +36,7 @@ Deno.test("parseType - object with optional field", () => {
   })
 })
 
-Deno.test("parseType - union inside object (nested-quote form)", () => {
+test("parseType - union inside object (nested-quote form)", () => {
   assert.deepEqual(schema(`{ answer: "'yes'|'no'" }`), {
     type: "object",
     properties: {
@@ -45,7 +46,7 @@ Deno.test("parseType - union inside object (nested-quote form)", () => {
   })
 })
 
-Deno.test("parseType - nested object", () => {
+test("parseType - nested object", () => {
   assert.deepEqual(schema("{ user: { name: 'string', age: 'number' } }"), {
     type: "object",
     properties: {
@@ -62,18 +63,18 @@ Deno.test("parseType - nested object", () => {
   })
 })
 
-Deno.test("parseType - leading/trailing whitespace is fine", () => {
+test("parseType - leading/trailing whitespace is fine", () => {
   assert.deepEqual(schema("  boolean  "), { type: "boolean" })
   assert.deepEqual((schema("  { x: 'number' }") as { type: string }).type, "object")
 })
 
-Deno.test("parseType - refinement (number > 0)", () => {
+test("parseType - refinement (number > 0)", () => {
   const s = schema("number > 0") as { type: string; exclusiveMinimum: number }
   assert.deepEqual(s.type, "number")
   assert.deepEqual(s.exclusiveMinimum, 0)
 })
 
-Deno.test("parseType - parse errors", () => {
+test("parseType - parse errors", () => {
   const cases = [
     ["blargh", "'blargh' is unresolvable"],
     ["'yes' |", "Token '|' requires a right operand"],
@@ -91,7 +92,7 @@ Deno.test("parseType - parse errors", () => {
 // Red-team: things `new Function` / eval would have accepted must now be
 // rejected by JSON5. All of these should fail before arktype ever sees them.
 
-Deno.test("red-team - object literal expressions are rejected", () => {
+test("red-team - object literal expressions are rejected", () => {
   const cases = [
     "{ x: Date.now() }",
     "{ x: Deno }",
@@ -112,7 +113,7 @@ Deno.test("red-team - object literal expressions are rejected", () => {
   }
 })
 
-Deno.test("prepareSchema - closes nested objects", () => {
+test("prepareSchema - closes nested objects", () => {
   const { schema, wrapped } = prepareSchema(
     parseType("{ user: { name: 'string', age: 'number' }, tags: 'string[]' }"),
   )
@@ -139,7 +140,7 @@ Deno.test("prepareSchema - closes nested objects", () => {
   })
 })
 
-Deno.test("prepareSchema - wraps primitive roots", () => {
+test("prepareSchema - wraps primitive roots", () => {
   const { schema, wrapped } = prepareSchema(parseType("'yes' | 'no'"), {
     wrapPrimitives: true,
     allRequired: true,
@@ -155,7 +156,7 @@ Deno.test("prepareSchema - wraps primitive roots", () => {
   })
 })
 
-Deno.test("prepareSchema - can force all properties required", () => {
+test("prepareSchema - can force all properties required", () => {
   const { schema } = prepareSchema(
     parseType("{ urgent: 'boolean', 'reason?': 'string' }"),
     { allRequired: true },
@@ -163,7 +164,7 @@ Deno.test("prepareSchema - can force all properties required", () => {
   assert.deepEqual(schema.required, ["urgent", "reason"])
 })
 
-Deno.test("prepareSchema - normalizes objects inside arrays", () => {
+test("prepareSchema - normalizes objects inside arrays", () => {
   const { schema } = prepareSchema(
     parseType("{ users: [{ name: 'string', 'age?': 'number' }, '[]'] }"),
     { allRequired: true },
@@ -189,28 +190,28 @@ Deno.test("prepareSchema - normalizes objects inside arrays", () => {
   })
 })
 
-Deno.test("postprocessSchemaContent - unwraps primitive wrapper", () => {
+test("postprocessSchemaContent - unwraps primitive wrapper", () => {
   assert.deepEqual(postprocessSchemaContent(`{"value":"hello"}`, true), "hello")
   assert.deepEqual(postprocessSchemaContent(`{"value":3}`, true), "3")
   assert.deepEqual(postprocessSchemaContent(`{"value":["a","b"]}`, true), `["a","b"]`)
 })
 
-Deno.test("postprocessSchemaContent - removes bare string quotes", () => {
+test("postprocessSchemaContent - removes bare string quotes", () => {
   assert.deepEqual(postprocessSchemaContent(`"hello"`, false), "hello")
 })
 
-Deno.test("postprocessSchemaContent - preserves non-wrapped JSON formatting", () => {
+test("postprocessSchemaContent - preserves non-wrapped JSON formatting", () => {
   const content = `{
   "answer": "yes"
 }`
   assert.deepEqual(postprocessSchemaContent(content, false), content)
 })
 
-Deno.test("postprocessSchemaContent - preserves non-wrapped value property", () => {
+test("postprocessSchemaContent - preserves non-wrapped value property", () => {
   const content = `{"value":"hello"}`
   assert.deepEqual(postprocessSchemaContent(content, false), content)
 })
 
-Deno.test("postprocessSchemaContent - preserves malformed JSON", () => {
+test("postprocessSchemaContent - preserves malformed JSON", () => {
   assert.deepEqual(postprocessSchemaContent("not json", true), "not json")
 })

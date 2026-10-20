@@ -1,4 +1,5 @@
 import assert from "node:assert/strict"
+import { test } from "node:test"
 import { assertAlmostEqual, errorIncluding } from "../testing.ts"
 import { Buffer } from "node:buffer"
 
@@ -6,13 +7,13 @@ import { resolveModel } from "../models.ts"
 import { gptImageParams, openAIEffort, processGptImageResponse } from "./openai.ts"
 import type { ChatInput } from "./types.ts"
 
-Deno.test("OpenAI reasoning intent resolves to native effort", () => {
+test("OpenAI reasoning intent resolves to native effort", () => {
   assert.deepEqual(openAIEffort(undefined), "medium")
   assert.deepEqual(openAIEffort("high"), "high")
   assert.deepEqual(openAIEffort("off"), "none")
 })
 
-Deno.test("image response saves each image and prices usage", () => {
+test("image response saves each image and prices usage", () => {
   const model = resolveModel("flare")
   const saved: [number, number][] = []
   const response = processGptImageResponse(
@@ -41,7 +42,7 @@ Deno.test("image response saves each image and prices usage", () => {
   assertAlmostEqual(response.cost, 0.0061)
 })
 
-Deno.test("image generation rejects history and input images before requesting", () => {
+test("image generation rejects history and input images before requesting", () => {
   const user = { role: "user" as const, content: "a cat", createdAt: new Date() }
   const input: ChatInput = {
     chat: { id: "test", createdAt: new Date(), systemPrompt: "", messages: [user] },

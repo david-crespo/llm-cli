@@ -1,4 +1,5 @@
 import assert from "node:assert/strict"
+import { test } from "node:test"
 import { chatToMd, formatElapsed, metaLineMd } from "./display.ts"
 import { systemBase } from "./models.ts"
 import type { Chat, ChatMessage } from "./types.ts"
@@ -15,7 +16,7 @@ const assistantMessage = (effort?: string): ChatMessage => ({
   effort,
 })
 
-Deno.test("chatToMd includes every attached image in order", () => {
+test("chatToMd includes every attached image in order", () => {
   const chat: Chat = {
     id: "images",
     createdAt: new Date(0),
@@ -34,35 +35,35 @@ Deno.test("chatToMd includes every attached image in order", () => {
   )
 })
 
-Deno.test("formatElapsed - seconds only", () => {
+test("formatElapsed - seconds only", () => {
   assert.deepEqual(formatElapsed(5000), "5s")
   assert.deepEqual(formatElapsed(30000), "30s")
 })
 
-Deno.test("formatElapsed - minutes and seconds", () => {
+test("formatElapsed - minutes and seconds", () => {
   assert.deepEqual(formatElapsed(65000), "1m5s")
   assert.deepEqual(formatElapsed(125000), "2m5s")
 })
 
-Deno.test("formatElapsed - fractional seconds", () => {
+test("formatElapsed - fractional seconds", () => {
   assert.deepEqual(formatElapsed(1500), "1.5s")
   assert.deepEqual(formatElapsed(2750), "2.75s")
 })
 
-Deno.test("formatElapsed - fractional seconds truncated in minutes", () => {
+test("formatElapsed - fractional seconds truncated in minutes", () => {
   // 90.5 seconds = 1m30s (seconds truncated to integer when minutes > 0)
   assert.deepEqual(formatElapsed(90500), "1m30s")
 })
 
-Deno.test("formatElapsed - zero", () => {
+test("formatElapsed - zero", () => {
   assert.deepEqual(formatElapsed(0), "0s")
 })
 
-Deno.test("formatElapsed - large values", () => {
+test("formatElapsed - large values", () => {
   assert.deepEqual(formatElapsed(3600000), "60m0s") // 1 hour
 })
 
-Deno.test("metaLineMd abbreviates known reasoning efforts", () => {
+test("metaLineMd abbreviates known reasoning efforts", () => {
   assert.deepEqual(
     metaLineMd(assistantMessage("minimal")).startsWith("`gpt-5.6-sol` (min) |"),
     true,
@@ -73,7 +74,7 @@ Deno.test("metaLineMd abbreviates known reasoning efforts", () => {
   )
 })
 
-Deno.test("metaLineMd passes through unknown efforts and preserves legacy output", () => {
+test("metaLineMd passes through unknown efforts and preserves legacy output", () => {
   assert.deepEqual(
     metaLineMd(assistantMessage("future")),
     "`gpt-5.6-sol` (future) | 1s | $0 | 1 -> 2",
@@ -81,7 +82,7 @@ Deno.test("metaLineMd passes through unknown efforts and preserves legacy output
   assert.deepEqual(metaLineMd(assistantMessage()), "`gpt-5.6-sol` | 1s | $0 | 1 -> 2")
 })
 
-Deno.test("chatToMd ignores date differences in the default system prompt", () => {
+test("chatToMd ignores date differences in the default system prompt", () => {
   // Simulate a chat created on a previous day: same default prompt but with a
   // stale date baked in. It should still be treated as the default prompt.
   const stalePrompt = systemBase.replace(

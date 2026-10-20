@@ -1,8 +1,9 @@
 import assert from "node:assert/strict"
+import { test } from "node:test"
 import stringWidth from "string-width"
 import { alignColumns, formatPickerOptions, keyAction } from "./picker.ts"
 
-Deno.test("picker options stay single-line and preserve their row mapping", () => {
+test("picker options stay single-line and preserve their row mapping", () => {
   const options = formatPickerOptions([
     {
       summary: "A summary with an embedded newline\nand a long second thought",
@@ -24,7 +25,7 @@ Deno.test("picker options stay single-line and preserve their row mapping", () =
   assert(options[1].endsWith("8/27 09:24 (4)"))
 })
 
-Deno.test("picker options retain full summaries when they fit", () => {
+test("picker options retain full summaries when they fit", () => {
   const [option] = formatPickerOptions([{
     summary: "  Emoji 🦀 summary  ",
     model: "opus-5",
@@ -35,7 +36,7 @@ Deno.test("picker options retain full summaries when they fit", () => {
   assert(!option.includes("…"))
 })
 
-Deno.test("picker keys map to actions and leave navigation alone", () => {
+test("picker keys map to actions and leave navigation alone", () => {
   assert.deepEqual(keyAction({ name: "r" }), "resume")
   assert.deepEqual(keyAction({ name: "s" }), "show")
   assert.deepEqual(keyAction({ name: "s", shift: true }), "showAll")
@@ -49,7 +50,7 @@ Deno.test("picker keys map to actions and leave navigation alone", () => {
   assert.deepEqual(keyAction({ name: "c", ctrl: true }), undefined)
 })
 
-Deno.test("alignColumns pads every column but the last to its widest cell", () => {
+test("alignColumns pads every column but the last to its widest cell", () => {
   assert.deepEqual(
     alignColumns([
       ["1", "user", "hello"],

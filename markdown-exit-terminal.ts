@@ -19,7 +19,7 @@ const { fg } = ansis
 
 const h1 = white.bg(63).bold
 const h2 = blue.bold
-const codespan = fg(203).bg(236)
+export const codespan = fg(203).bg(236)
 const tableBorder = gray
 const tableHeader = cyan.bold
 

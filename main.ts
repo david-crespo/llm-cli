@@ -37,7 +37,15 @@ import { History } from "./storage.ts"
 import { genMissingSummaries } from "./summarize.ts"
 import { parseType } from "./schema.ts"
 import { requestProblems, usesBackground } from "./validate.ts"
-import { alignColumns, formatPickerOptions, pickWithAction, singleLine } from "./picker.ts"
+import {
+  alignColumns,
+  confirmed,
+  formatPickerOptions,
+  pickWithAction,
+  selectIndex,
+  selectIndexes,
+  singleLine,
+} from "./picker.ts"
 
 const getLastModelId = (chat: Chat) =>
   chat.messages.findLast((m) => m.role === "assistant")?.model
@@ -216,11 +224,10 @@ function promptTarget(
 /** Pick a model for forking from a user message, starting on `defaultId` if given */
 async function pickModel(defaultId: string | undefined) {
   const textModels = models.filter((m) => m.kind !== "image")
-  const { index } = await $.select({
+  const index = await selectIndex({
     message: "Pick a model to answer",
     options: textModels.map((m) => m.id),
     initialIndex: Math.max(0, textModels.findIndex((m) => m.id === defaultId)),
-    noClear: true,
   })
   return textModels[index]
 }
@@ -229,12 +236,11 @@ async function pickModel(defaultId: string | undefined) {
 async function forkChat(chat: Chat) {
   if (chat.messages.length === 0) throw new ValidationError("Chat has no messages")
 
-  const { index: selectedIdx } = await $.select({
+  const selectedIdx = await selectIndex({
     message: "Pick a message to fork from",
     options: messagePickerOptions(chat.messages),
     // start on the latest answer so Enter continues it without asking for a model
     initialIndex: chat.messages.length - 1,
-    noClear: true,
   })
 
   const selectedMessage = chat.messages[selectedIdx]
@@ -299,7 +305,7 @@ async function historyPicker() {
         return
       case "delete": {
         const label = truncate(singleLine(chat.summary || "chat"), 60)
-        if (await $.maybeConfirm(`Delete "${label}"?`)) {
+        if (await confirmed(`Delete "${label}"?`, { clear: true })) {
           History.delete([chat.id])
           console.log(`Deleted "${label}"`)
         }
@@ -563,16 +569,14 @@ historyCmd
     if (history.length === 0) throw new ValidationError("No chat history")
 
     const reversed = R.reverse(history)
-    const selected = await $.multiSelect({
+    const selected = await selectIndexes({
       message: "Pick chats to delete",
       options: chatPickerOptions(reversed),
-      noClear: true,
     })
     if (selected.length === 0) return
     const label = `${selected.length} chat${selected.length === 1 ? "" : "s"}`
-    const yes = await $.maybeConfirm(`Delete ${label}?`, { noClear: true })
-    if (!yes) return
-    History.delete(selected.map((s) => reversed[s.index].id))
+    if (!await confirmed(`Delete ${label}?`)) return
+    History.delete(selected.map((i) => reversed[i].id))
     console.log(`Deleted ${label}`)
   })
 
@@ -582,8 +586,7 @@ historyCmd
   .action(async () => {
     const history = History.list()
     const n = history.length
-    const yes = await $.maybeConfirm(`Delete ${n} chats?`, { noClear: true })
-    if (!yes) return
+    if (!await confirmed(`Delete ${n} chats?`)) return
     History.clear()
     console.log("Deleted chat history")
   })

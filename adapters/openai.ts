@@ -227,8 +227,8 @@ export async function gptImageCreateMessage(chatInput: ChatInput): Promise<Model
 }
 
 const makeOpenAIFunc =
-  (baseURL: string, opts: { think?: boolean } = {}) =>
-  async ({ chat, model, apiKey, signal, outputSchema, config }: ChatInput) => {
+  (baseURL: string) =>
+  async ({ chat, model, apiKey, signal, outputSchema }: ChatInput) => {
     const client = new OpenAI({ baseURL, apiKey })
     const systemMsg = chat.systemPrompt
       ? [{ role: "system" as const, content: chat.systemPrompt }]
@@ -253,15 +253,6 @@ const makeOpenAIFunc =
             json_schema: { name: "output", schema: prep.schema, strict: true },
           }
         : undefined,
-    }
-    if (opts.think) {
-      // Baseten/vLLM extension for hybrid thinking models like Kimi K2.6.
-      // OpenAI's `reasoning_effort` is silently ignored here. The model is
-      // binary on/off; default to on (matching other providers' defaults),
-      // --quick turns it off.
-      ;(params as unknown as Record<string, unknown>).chat_template_kwargs = {
-        enable_thinking: config.think !== "off",
-      }
     }
     const response = await client.chat.completions.create(params, { signal })
     const message = response.choices[0].message

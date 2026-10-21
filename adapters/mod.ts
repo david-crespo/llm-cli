@@ -5,7 +5,7 @@ export { imageQualities } from "./types.ts"
 export type { ThinkLevel } from "../types.ts"
 
 export const searchProviders = new Set(["anthropic", "openai", "google"])
-export const thinkProviders = new Set(["anthropic", "openai", "google", "baseten"])
+export const thinkProviders = new Set(["anthropic", "openai", "google"])
 export const imageInputProviders = new Set(["anthropic", "openai", "google"])
 
 // The provider SDKs are a few hundred modules together, so load each adapter

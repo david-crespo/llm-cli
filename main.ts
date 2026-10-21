@@ -347,8 +347,6 @@ function modelInfoMd(modelArg: string) {
     } else if (provider === "google") {
       const level = key.includes("flash-lite") ? "minimal" : "low"
       lines.push(`think: dynamic by default, --quick for ${level}`)
-    } else if (provider === "baseten") {
-      lines.push("think: on by default, --quick to disable")
     }
   }
 

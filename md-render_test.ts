@@ -32,6 +32,53 @@ test("renderMarkdown preserves list item paragraph breaks", async () => {
   assert.deepEqual(stripAnsi(output), "* first paragraph\n  second paragraph")
 })
 
+async function withColumns<T>(columns: number, fn: () => Promise<T>): Promise<T> {
+  const { stdout } = process
+  const original = Object.getOwnPropertyDescriptor(stdout, "columns")
+  stdout.columns = columns
+  try {
+    return await fn()
+  } finally {
+    if (original) Object.defineProperty(stdout, "columns", original)
+    else delete (stdout as { columns?: number }).columns
+  }
+}
+
+test("renderMarkdown wraps list items with a hanging indent", async () => {
+  const src = [
+    "- alpha beta gamma delta epsilon zeta",
+    "  - eta theta iota kappa lambda mu",
+    "",
+    "9. one two three four five six seven",
+    "10. one two three four five six seven",
+  ].join("\n")
+  const output = stripAnsi(await withColumns(20, () => renderMarkdown(src)))
+
+  assert.deepEqual(
+    output,
+    [
+      "* alpha beta gamma",
+      "  delta epsilon zeta",
+      "  * eta theta iota",
+      "    kappa lambda mu",
+      "",
+      "9. one two three",
+      "   four five six",
+      "   seven",
+      "10. one two three",
+      "    four five six",
+      "    seven",
+    ].join("\n"),
+  )
+})
+
+test("renderMarkdown wraps later list item paragraphs with the same indent", async () => {
+  const src = "- first paragraph here\n\n  second paragraph is longer"
+  const output = stripAnsi(await withColumns(20, () => renderMarkdown(src)))
+
+  assert.deepEqual(output, "* first paragraph\n  here\n  second paragraph\n  is longer")
+})
+
 test("renderMarkdown sizes tables from visible link text", async () => {
   const output = stripAnsi(
     await renderMarkdown("| h |\n| - |\n| [x](https://example.com) |"),

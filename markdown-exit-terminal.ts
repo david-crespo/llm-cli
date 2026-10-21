@@ -1,7 +1,7 @@
 //
 // markdown-exit plugin that renders to ANSI-styled terminal output.
 // Install with md.use(terminalPlugin), then call md.renderAsync(src, env).
-// Post-processing (links, tables, blockquotes, reflow) is handled
+// Post-processing (links, tables, list items, blockquotes, reflow) is handled
 // automatically by wrapping renderAsync.
 
 import type { MarkdownExit, RenderRule } from "markdown-exit"
@@ -34,8 +34,8 @@ const stripAnsi = (s: string) => s.replace(ANSI_RE, "")
 
 // --- Reflow ------------------------------------------------------------
 
-const reflowText = (text: string, maxWidth: number): string =>
-  maxWidth <= 0 ? text : wrapAnsi(text, maxWidth, { trim: false })
+const reflowText = (text: string, maxWidth: number, trim = false): string =>
+  maxWidth <= 0 ? text : wrapAnsi(text, maxWidth, { trim })
 
 // --- Table renderer ----------------------------------------------------
 
@@ -167,6 +167,19 @@ function postProcessTables(text: string): string {
   })
 }
 
+// List item paragraphs carry their wrap width and hanging indent in the
+// marker, since both depend on nesting known only at render time.
+function postProcessListItems(text: string): string {
+  return text.replace(
+    /\x00LI:(\d+):(\d+)\x00([\s\S]*?)\x00\/LI\x00/g,
+    (_, width: string, indent: string, content: string) =>
+      reflowText(content, Number(width), true).replaceAll(
+        "\n",
+        "\n" + " ".repeat(Number(indent)),
+      ),
+  )
+}
+
 function reflowParagraphs(text: string, width: number): string {
   return text.replace(/^([^\n]+)\n\n/gm, (match, para) => {
     if (/^(\s*(#|[*-]|\d+\.)|│|╭|├|╰| {4})/.test(stripAnsi(para))) {
@@ -229,16 +242,18 @@ export default function terminalPlugin(md: MarkdownExit): void {
     },
     paragraph_open: (_tokens, _idx, _options, env) => {
       const s = getState(env)
-      return s.listDepth > 0 && (s.listItemParagraphs.at(-1) ?? 0) > 0
-        ? `\n${s.listItemPrefixes.at(-1) ?? ""}`
-        : ""
+      if (s.listDepth === 0) return ""
+      const prefix = s.listItemPrefixes.at(-1) ?? ""
+      const width = getWidth() - 3 * s.blockquoteDepth - prefix.length
+      const marker = `\x00LI:${width}:${prefix.length}\x00`
+      return (s.listItemParagraphs.at(-1) ?? 0) > 0 ? `\n${prefix}${marker}` : marker
     },
     paragraph_close: (_tokens, _idx, _options, env) => {
       const s = getState(env)
       if (s.listDepth > 0) {
         const i = s.listItemParagraphs.length - 1
         if (i >= 0) s.listItemParagraphs[i]++
-        return ""
+        return "\x00/LI\x00"
       }
       if (s.blockquoteDepth > 0) return "\x00BQ_PARA\x00"
       return "\n\n"
@@ -350,6 +365,7 @@ export default function terminalPlugin(md: MarkdownExit): void {
     let output = await origRenderAsync(src, renderEnv)
     output = postProcessLinks(output)
     output = postProcessTables(output)
+    output = postProcessListItems(output)
     output = postProcessBlockquotes(output, getWidth())
     output = reflowParagraphs(output, getWidth())
     return restoreMath(output.trimEnd(), renderEnv)

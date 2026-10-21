@@ -74,7 +74,8 @@ No streaming responses (yet).
 Keys go in `~/.config/llm-cli/config.toml` (or `$XDG_CONFIG_HOME/llm-cli/config.toml`),
 grouped into profiles so you can keep separate keys, like personal and work. Run
 `ai profiles` to create the file from a template (readable only by you) and to see where
-each key will come from.
+each key will come from. Profiles are optional: if you already set keys with env vars,
+that still works.
 
 ```toml
 default_profile = "personal"

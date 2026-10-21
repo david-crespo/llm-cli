@@ -79,6 +79,29 @@ test("renderMarkdown wraps later list item paragraphs with the same indent", asy
   assert.deepEqual(output, "* first paragraph\n  here\n  second paragraph\n  is longer")
 })
 
+test("renderMarkdown trims whitespace at paragraph wrap points", async () => {
+  // A word longer than the width overflows, and the following space must not
+  // start the next line
+  const src = "see `a-very-long-identifier-name` for more"
+  const output = stripAnsi(await withColumns(20, () => renderMarkdown(src)))
+
+  assert.deepEqual(output, "see\n a-very-long-identifier-name \nfor more")
+})
+
+test("renderMarkdown wraps paragraphs that start like list markers", async () => {
+  const src = "--force skips the check and you should not pass it"
+  const output = stripAnsi(await withColumns(20, () => renderMarkdown(src)))
+
+  assert.deepEqual(output, "--force skips the\ncheck and you should\nnot pass it")
+})
+
+test("renderMarkdown wraps nested blockquotes once", async () => {
+  const src = "> > " + "word ".repeat(8).trim()
+  const output = stripAnsi(await withColumns(20, () => renderMarkdown(src)))
+
+  assert.deepEqual(output, " │  │ word word word\n │  │ word word word\n │  │ word word")
+})
+
 test("renderMarkdown sizes tables from visible link text", async () => {
   const output = stripAnsi(
     await renderMarkdown("| h |\n| - |\n| [x](https://example.com) |"),

@@ -2,13 +2,13 @@ import assert from "node:assert/strict"
 import { test } from "node:test"
 import process from "node:process"
 
-import { codespan } from "./markdown-exit-terminal.ts"
+import ansis from "ansis"
+
+import { codespan, h1, h2 } from "./markdown-exit-terminal.ts"
 import { renderMarkdown } from "./md-render.ts"
 
 const ANSI_RE = new RegExp("\\x1b\\[[0-9;]*m|\\x1b\\]8;;[^\\x07]*\\x07", "g")
-// Codespans use NBSP for padding/internal spaces so wrap-ansi treats them as
-// unbreakable; normalize to regular spaces for visual-equality assertions.
-const stripAnsi = (s: string) => s.replace(ANSI_RE, "").replaceAll(" ", " ")
+const stripAnsi = (s: string) => s.replace(ANSI_RE, "")
 
 test("renderMarkdown reflows long blockquote text", async () => {
   const long = "word ".repeat(30).trim() // 149 chars, well over 77-char blockquote width
@@ -62,13 +62,23 @@ test("renderMarkdown wraps list items with a hanging indent", async () => {
       "  * eta theta iota",
       "    kappa lambda mu",
       "",
-      "9. one two three",
-      "   four five six",
-      "   seven",
+      " 9. one two three",
+      "    four five six",
+      "    seven",
       "10. one two three",
       "    four five six",
       "    seven",
     ].join("\n"),
+  )
+})
+
+test("renderMarkdown right-aligns ordered list numbers", async () => {
+  const src = "9. nine is longer\n10. ten\n    - nested under ten"
+  const output = stripAnsi(await withColumns(16, () => renderMarkdown(src)))
+
+  assert.deepEqual(
+    output,
+    " 9. nine is\n    longer\n10. ten\n    * nested\n      under ten",
   )
 })
 
@@ -79,13 +89,120 @@ test("renderMarkdown wraps later list item paragraphs with the same indent", asy
   assert.deepEqual(output, "* first paragraph\n  here\n  second paragraph\n  is longer")
 })
 
+test("renderMarkdown indents code blocks inside list items", async () => {
+  const src = "- install it:\n\n  ```\n  npm install\n  ```\n\n  then run it\n- next"
+  const output = stripAnsi(await renderMarkdown(src))
+
+  assert.deepEqual(output, "* install it:\n    npm install\n  then run it\n* next")
+})
+
+test("renderMarkdown strips control characters from the source", async () => {
+  const output = await renderMarkdown(
+    "a\x1b[2Jb `c\x1b]0;title\x07d`\n\n```\ne\x9bf\tg\n```",
+  )
+
+  assert.deepEqual(stripAnsi(output), "a[2Jb  c]0;titled \n\n  ef\tg")
+})
+
+test("renderMarkdown leaves no NBSPs in codespans, so copied code pastes intact", async () => {
+  // Wrapped so the codespan ends a line: without colors, a codespan starting a
+  // line loses its leading pad to wrap-ansi's trim, which is invisible
+  const output = await withColumns(20, () => renderMarkdown("Run `npm run build` first."))
+
+  assert(!output.includes("\u00a0"), JSON.stringify(output))
+  assert.deepEqual(stripAnsi(output), "Run  npm run build \nfirst.")
+})
+
+test("renderMarkdown prints autolinked URLs once without OSC 8", async () => {
+  const output = stripAnsi(
+    await renderMarkdown(
+      "See https://example.com/x, <https://a.dev>, b@c.co, and example.com.",
+    ),
+  )
+
+  assert.deepEqual(
+    output,
+    "See https://example.com/x, https://a.dev, b@c.co, and example.com.",
+  )
+})
+
+test("renderMarkdown renders task list checkboxes in place of the bullet", async () => {
+  const src =
+    "- [ ] write the tests first\n- [x] fix the bug\n  - [X] nested\n- [link](u) stays"
+  const output = await withColumns(20, () => renderMarkdown(src))
+
+  assert.deepEqual(
+    stripAnsi(output),
+    "[ ] write the tests\n    first\n[x] fix the bug\n    [x] nested\n* link (u) stays",
+  )
+})
+
+test("renderMarkdown indents blockquotes, tables and headings inside list items", async () => {
+  const src = [
+    "- quote:",
+    "",
+    "  > quoted text in an item that wraps",
+    "- table:",
+    "",
+    "  | a | b |",
+    "  | - | - |",
+    "  | 1 | 2 |",
+    "- ## heading",
+    "- last",
+  ].join("\n")
+  const output = stripAnsi(await withColumns(24, () => renderMarkdown(src)))
+
+  assert.deepEqual(
+    output,
+    [
+      "* quote:",
+      "   │ quoted text in an",
+      "   │ item that wraps",
+      "* table:",
+      "  ╭─────┬─────╮",
+      "  │ a   │ b   │",
+      "  ├─────┼─────┤",
+      "  │ 1   │ 2   │",
+      "  ╰─────┴─────╯",
+      "* ## heading",
+      "* last",
+    ].join("\n"),
+  )
+})
+
+test("renderMarkdown indents lists inside blockquotes inside lists", async () => {
+  const src = "- outer\n\n  > - inner item text\n  >\n  >   more"
+  const output = stripAnsi(await withColumns(20, () => renderMarkdown(src)))
+
+  assert.deepEqual(output, "* outer\n   │ * inner item\n   │   text\n   │   more")
+})
+
+test("renderMarkdown puts no blank line after a nested list in the same item", async () => {
+  const output = stripAnsi(await renderMarkdown("- a\n  - b\n\n  para in a\n- c"))
+
+  assert.deepEqual(output, "* a\n  * b\n  para in a\n* c")
+})
+
+test("renderMarkdown fits rules inside blockquotes and lists", async () => {
+  const output = stripAnsi(
+    await withColumns(20, () => renderMarkdown("> a\n>\n> ---\n\n- b\n\n  ***\n- c")),
+  )
+
+  assert.deepEqual(
+    output,
+    [" │ a", " │", " │ " + "─".repeat(17), "", "* b", "  " + "─".repeat(18), "* c"].join(
+      "\n",
+    ),
+  )
+})
+
 test("renderMarkdown trims whitespace at paragraph wrap points", async () => {
   // A word longer than the width overflows, and the following space must not
   // start the next line
-  const src = "see `a-very-long-identifier-name` for more"
+  const src = "see a-very-long-identifier-name for more"
   const output = stripAnsi(await withColumns(20, () => renderMarkdown(src)))
 
-  assert.deepEqual(output, "see\n a-very-long-identifier-name \nfor more")
+  assert.deepEqual(output, "see\na-very-long-identifier-name\nfor more")
 })
 
 test("renderMarkdown wraps paragraphs that start like list markers", async () => {
@@ -224,6 +341,97 @@ test(
         else delete stdout[key]
       }
     }
+  },
+)
+
+test("renderMarkdown respects table column alignment", async () => {
+  const output = stripAnsi(
+    await renderMarkdown(
+      "| left | right | mid |\n| :- | -: | :-: |\n| a | 1 | x |\n| bb | 22 | yyy |",
+    ),
+  )
+
+  assert.deepEqual(
+    output,
+    [
+      "╭──────┬───────┬─────╮",
+      "│ left │ right │ mid │",
+      "├──────┼───────┼─────┤",
+      "│ a    │     1 │  x  │",
+      "│ bb   │    22 │ yyy │",
+      "╰──────┴───────┴─────╯",
+    ].join("\n"),
+  )
+})
+
+test("renderMarkdown wraps table cells to fit the terminal", async () => {
+  const src = "| a | b |\n| - | - |\n| short | one two three four five six |"
+  const output = stripAnsi(await withColumns(24, () => renderMarkdown(src)))
+
+  assert.deepEqual(
+    output,
+    [
+      "╭───────┬──────────────╮",
+      "│ a     │ b            │",
+      "├───────┼──────────────┤",
+      "│ short │ one two      │",
+      "│       │ three four   │",
+      "│       │ five six     │",
+      "╰───────┴──────────────╯",
+    ].join("\n"),
+  )
+})
+
+test("renderMarkdown keeps wide tables within the width, in blockquotes too", async () => {
+  const cell = "word ".repeat(20).trim()
+  const table = `| x | y | z |\n| - | - | - |\n| ${cell} | ${cell} | \`a-long-unbreakable-identifier\` |`
+  for (const src of [table, table.replace(/^/gm, "> ")]) {
+    const lines = stripAnsi(await withColumns(40, () => renderMarkdown(src))).split("\n")
+    for (const line of lines) assert(line.length <= 40, `too wide: ${JSON.stringify(line)}`)
+  }
+})
+
+// Without colors there are no styles to cut short
+const skipNoColor = { skip: !codespan.open && "colors are disabled" }
+
+test(
+  "renderMarkdown keeps the heading style after inline styles",
+  skipNoColor,
+  async () => {
+    // ansis reopens the outer style after each nested close
+    assert.deepEqual(
+      await renderMarkdown("## The `parse` function"),
+      h2(`## The ${codespan(" parse ")} function`),
+    )
+    assert.deepEqual(
+      await renderMarkdown("# Use `foo` here"),
+      h1(`# Use ${codespan(" foo ")} here`),
+    )
+  },
+)
+
+test("renderMarkdown keeps a done task dimmed after bold", skipNoColor, async () => {
+  const { dim, bold, green } = ansis
+  assert.deepEqual(
+    await renderMarkdown("- [x] fixed **the** bug"),
+    `${green("[x]")} ${dim(`fixed ${bold("the")} bug`)}`,
+  )
+})
+
+test(
+  "renderMarkdown italicizes blockquote paragraphs but not code",
+  skipNoColor,
+  async () => {
+    const lines = (await renderMarkdown("> quote text\n>\n> ```\n> code\n> ```")).split(
+      "\n",
+    )
+    const italic = ansis.italic.open
+
+    assert(
+      lines.find((l) => l.includes("quote text"))?.includes(italic),
+      "quote text is italic",
+    )
+    assert(!lines.find((l) => l.includes("code"))?.includes(italic), "code is not italic")
   },
 )
 

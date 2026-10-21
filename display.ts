@@ -220,6 +220,7 @@ export function chatToMd({ chat, lastN = 0, indices, mode = "cli" }: ChatToMd): 
   }
 
   let output = `**Chat started:** ${longDateFmt.format(chat.createdAt)}\n\n`
+  if (chat.profile && mode !== "gist") output += `**Profile:** ${chat.profile}\n\n`
 
   if (mode === "gist") {
     // always print system prompt in gist mode, but collapse it

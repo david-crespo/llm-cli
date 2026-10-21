@@ -46,6 +46,17 @@ test("History.save stores chats independently and tracks current", () => {
   })
 })
 
+test("History keeps a chat's profile, and chats without one load", () => {
+  withTempState(() => {
+    History.save({ ...chat("work", "2026-01-01T00:00:00Z"), profile: "oxide" })
+    History.save(chat("old", "2026-01-02T00:00:00Z"), { current: true })
+    assert.deepEqual(
+      History.list().map((c) => c.profile),
+      ["oxide", undefined],
+    )
+  })
+})
+
 test("History preserves multiple images and loads legacy single-image messages", () => {
   withTempState((stateHome) => {
     const images = ["data:image/png;base64,AQID", "https://example.com/second.jpg"]

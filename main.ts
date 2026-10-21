@@ -34,7 +34,7 @@ import {
   thinkProviders,
 } from "./adapters/mod.ts"
 import { History } from "./storage.ts"
-import { getApiKey } from "./config.ts"
+import { ensureConfigFile, getApiKey, profilesReport, resolveProfile } from "./config.ts"
 import { genMissingSummaries } from "./summarize.ts"
 import { requestProblems, usesBackground } from "./validate.ts"
 import {
@@ -119,7 +119,7 @@ async function pollBackgroundResponse(
   if (!chat.background) throw new Error("No background response to poll")
 
   const { id, startedAt, modelId, effort } = chat.background
-  const apiKey = getApiKey(model.provider)
+  const apiKey = await getApiKey(model.provider, chat.profile)
   const showProgress = process.stdout.isTTY && !displayOpts.raw && !displayOpts.json
   const pb = showProgress ? $.progress("Waiting...") : null
 
@@ -253,6 +253,7 @@ async function forkChat(chat: Chat) {
     ...createChat(chat.systemPrompt),
     messages: chat.messages.slice(0, selectedIdx + 1),
     summary: chat.summary,
+    profile: chat.profile,
   }
 
   if (selectedMessage.role === "user") {
@@ -261,10 +262,11 @@ async function forkChat(chat: Chat) {
       .slice(selectedIdx)
       .find((m) => m.role === "assistant")?.model
     const model = await pickModel(nextModel)
+    newChat.profile = await resolveProfile(profileFlag(), chat.profile)
     const chatInput: ChatInput = {
       chat: newChat,
       model,
-      apiKey: getApiKey(model.provider),
+      apiKey: await getApiKey(model.provider, newChat.profile),
       config: { search: false, think: undefined },
     }
     await genResponse(chatInput, {})
@@ -284,7 +286,7 @@ async function historyPicker() {
       if (initialIndex !== undefined) return
       throw new ValidationError("No chat history")
     }
-    await genMissingSummaries(history)
+    await genMissingSummaries(history, profileFlag())
 
     const chats = history.toReversed()
     const picked = await pickWithAction({
@@ -368,6 +370,9 @@ function parseInteger(value: string) {
 /** Commander option parser for repeatable options */
 const collect = (value: string, previous: string[] = []) => [...previous, value]
 
+/** --profile, which subcommands only see through the root command */
+const profileFlag = (): string | undefined => program.opts().profile
+
 const program = new Command()
   .name("ai")
   .description(`Input from [message], stdin, or --image is required unless using a
@@ -413,6 +418,7 @@ to MESSAGE.`)
     ),
   )
   .option("-o, --output-schema <schema>", "ArkType schema for structured output")
+  .option("--profile <name>", "API key profile (see `ai profiles`)")
   .addHelpText(
     "after",
     `
@@ -484,10 +490,13 @@ Examples:
     // search busts the cache (see Chat.search in types.ts).
     chat.search = opts.search ?? chat.search ?? false
     chat.think = resolveThink(thinkOverride, chat.think)
+    // An explicit --profile or LLM_CLI_PROFILE wins over the chat's, and sticks
+    // for later replies
+    chat.profile = await resolveProfile(opts.profile, chat.profile)
     const chatInput: ChatInput = {
       chat,
       model,
-      apiKey: getApiKey(model.provider),
+      apiKey: await getApiKey(model.provider, chat.profile),
       config: { search: chat.search, think: chat.think },
       outputSchema,
       imageOptions: { quality: opts.quality, size: opts.size },
@@ -572,7 +581,7 @@ historyCmd
   .description("Pick recent chats to delete")
   .action(async () => {
     const history = History.list()
-    await genMissingSummaries(history)
+    await genMissingSummaries(history, profileFlag())
     if (history.length === 0) throw new ValidationError("No chat history")
 
     const reversed = history.toReversed()
@@ -609,7 +618,7 @@ program
   .action(async (opts) => {
     const lastChat = History.current()
     if (!lastChat) throw new ValidationError("No chat in progress")
-    await genMissingSummaries([lastChat])
+    await genMissingSummaries([lastChat], profileFlag())
 
     if (!$.commandExistsSync("gh")) {
       throw new Error("Creating a gist requires the `gh` CLI (https://cli.github.com/)")
@@ -646,6 +655,14 @@ program
     }
   })
 
+program
+  .command("profiles")
+  .description("Show API key profiles, creating the config file if needed")
+  .action(async () => {
+    if (ensureConfigFile()) console.log("Created config file")
+    console.log(await profilesReport(profileFlag()))
+  })
+
 const bgCmd = program.command("bg").description("Manage background responses")
 
 bgCmd
@@ -655,9 +672,10 @@ bgCmd
     const chat = History.findLatestBackground()
     if (!chat?.background) exit("No background task found")
 
+    const profile = await resolveProfile(profileFlag(), chat.profile)
     const status = await gptBg.status(
       chat.background.id,
-      getApiKey(chat.background.provider),
+      await getApiKey(chat.background.provider, profile),
     )
     const elapsed = Date.now() - chat.background.startedAt.getTime()
     console.log(`${formatElapsed(elapsed)} (${status})`)
@@ -671,6 +689,7 @@ bgCmd
     if (!chat?.background) exit("No background task found")
 
     const model = { id: chat.background.modelId, provider: chat.background.provider }
+    chat.profile = await resolveProfile(profileFlag(), chat.profile)
     await pollBackgroundResponse(chat, model, {})
     History.save(chat)
   })
@@ -682,7 +701,11 @@ bgCmd
     const chat = History.findLatestBackground()
     if (!chat?.background) exit("No background task found")
 
-    await gptBg.cancel(chat.background.id, getApiKey(chat.background.provider))
+    const profile = await resolveProfile(profileFlag(), chat.profile)
+    await gptBg.cancel(
+      chat.background.id,
+      await getApiKey(chat.background.provider, profile),
+    )
     delete chat.background
     History.save(chat)
     console.log("Background response cancelled")

@@ -71,17 +71,31 @@ No streaming responses (yet).
 
 ### API keys
 
-Set any or all of these, depending on which models you want to use. It is often convenient
-to put them in a `.env` file like below and call `source .env`.
+Keys go in `~/.config/llm-cli/config.toml` (or `$XDG_CONFIG_HOME/llm-cli/config.toml`),
+grouped into profiles so you can keep separate keys, like personal and work. Run
+`ai profiles` to create the file from a template (readable only by you) and to see where
+each key will come from.
 
-```sh
-export OPENAI_API_KEY=abc-123
-export ANTHROPIC_API_KEY=def-456
-export GEMINI_API_KEY=ghi-789
+```toml
+default_profile = "personal"
+
+[profiles.personal]
+anthropic = "sk-ant-..."
+openai = "sk-..."
+google = "..."
+
+[profiles.work]
+anthropic = "sk-ant-..."
 ```
 
-The script does not automatically pick up a `.env` file; the variables need to be set in the
-environment.
+Pick a profile with `--profile work` or `LLM_CLI_PROFILE=work`. Otherwise, a new chat uses
+`default_profile`, else the profile named `default`, else the only profile if there's just
+one. With several profiles and none of those, you have to pick one. `ai -r` uses the profile
+the chat was started with, so a reply bills the same account.
+
+A provider missing from the profile falls back to its env var: `ANTHROPIC_API_KEY`,
+`OPENAI_API_KEY`, `GEMINI_API_KEY`, or `OPENROUTER_API_KEY`. With no config file, the env
+vars are all you need.
 
 ### Dependencies
 
@@ -93,18 +107,10 @@ environment.
 
 ### Installation
 
-Clone the repo and run `npm install` in it. Then you just need a way to run `main.ts`. I use
-this function in my `.zprofile`:
-
-```bash
-function ai() {
-  source ~/path/to/.env
-  ~/repos/llm-cli/main.ts "$@"
-}
-```
-
-The `"$@"` passes all command-line arguments to `main.ts`, which runs with `node` through
-its shebang line. You could also run it with `node path/to/main.ts`.
+I plan to publish this to npm so it can be installed with `npm install -g`. Until then,
+clone the repo, then run `npm install` and `npm link` in it. That puts `ai` on your PATH,
+running `main.ts` from the repo with `node` through its shebang line, so changes to the code
+take effect right away. You could also run it with `node path/to/main.ts`.
 
 ## Contributions
 

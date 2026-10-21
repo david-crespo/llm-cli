@@ -86,6 +86,10 @@ export type Chat = {
   search?: boolean
   /** Last provider-neutral reasoning intent. Inherited by replies. */
   think?: ThinkLevel
+  /** API key profile the chat was started or last explicitly continued with.
+   * Replies use it so they bill the same account, and OpenAI background
+   * responses can only be retrieved with the key that created them. */
+  profile?: string
   background?: {
     id: string // OpenAI response.id for polling
     status: BackgroundStatus

@@ -4,7 +4,7 @@ import { createMessage } from "./adapters/mod.ts"
 import { type Chat } from "./types.ts"
 import { History } from "./storage.ts"
 import { resolveModel } from "./models.ts"
-import { getApiKey } from "./config.ts"
+import { getApiKey, resolveProfile } from "./config.ts"
 
 // resolved at module scope so a stale alias fails at import time (caught by
 // tests and at CLI startup) rather than mid-summarize
@@ -22,7 +22,10 @@ function abridge(content: string): string {
  * Use a fast model to summarize a chat for display purposes. Returns the
  * summary without modifying the chat.
  */
-export async function summarize(chat: Chat): Promise<string> {
+export async function summarize(
+  chat: Chat,
+  profileFlag: string | undefined,
+): Promise<string> {
   const abridged1 = abridge(chat.messages[0].content)
   const msg2 = chat.messages.at(1)?.content
   const abridged2 = msg2 ? abridge(msg2) : ""
@@ -41,7 +44,7 @@ export async function summarize(chat: Chat): Promise<string> {
       createdAt: new Date(),
     },
     model: luna,
-    apiKey: getApiKey(luna.provider),
+    apiKey: await getApiKey(luna.provider, await resolveProfile(profileFlag, chat.profile)),
     config: { search: false, think: "off" },
   })
 
@@ -49,13 +52,16 @@ export async function summarize(chat: Chat): Promise<string> {
 }
 
 /** Create and save summaries for any chat without one */
-export async function genMissingSummaries(history: Chat[]) {
+export async function genMissingSummaries(
+  history: Chat[],
+  profileFlag: string | undefined,
+) {
   const pb = $.progress("Summarizing...")
   await Promise.all(
     history
       .filter((chat) => !chat.summary)
       .map(async (chat) => {
-        chat.summary = await summarize(chat)
+        chat.summary = await summarize(chat, profileFlag)
         History.save(chat)
       }),
   )

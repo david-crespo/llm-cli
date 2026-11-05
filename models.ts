@@ -106,8 +106,8 @@ export const models: Model[] = [
   },
   {
     provider: "openai",
-    key: "gpt-image-2.5-flare",
-    id: "gpt-image-2.5-flare",
+    key: "gpt-image-2.6-flare",
+    id: "gpt-image-2.6-flare",
     kind: "image",
     input: 5,
     input_cached: 1.25,
@@ -115,8 +115,8 @@ export const models: Model[] = [
   },
   {
     provider: "openai",
-    key: "gpt-image-2.5-sunburst",
-    id: "gpt-image-2.5-sunburst",
+    key: "gpt-image-2.6-sunburst",
+    id: "gpt-image-2.6-sunburst",
     kind: "image",
     input: 5,
     input_cached: 1.25,

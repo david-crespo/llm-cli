@@ -179,7 +179,7 @@ test("modules with hard-coded model aliases import cleanly", async () => {
 })
 
 test("image models resolve by nickname without shadowing text models", () => {
-  assert.deepEqual(resolveModel("flare").key, "gpt-image-2.5-flare")
-  assert.deepEqual(resolveModel("sunburst").key, "gpt-image-2.5-sunburst")
+  assert.deepEqual(resolveModel("flare").key, "gpt-image-2.6-flare")
+  assert.deepEqual(resolveModel("sunburst").key, "gpt-image-2.6-sunburst")
   assert.deepEqual(resolveModel("gpt").kind, undefined)
 })

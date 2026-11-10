@@ -124,8 +124,8 @@ export const models: Model[] = [
   },
   {
     provider: "google",
-    key: "gemini-4-argon",
-    id: "gemini-4-argon",
+    key: "gemini-4-carbon",
+    id: "gemini-4-carbon",
     input: 2,
     input_cached: 0.1,
     output: 10,
@@ -136,6 +136,16 @@ export const models: Model[] = [
     // treat as free.
     search_cost: 0,
     default: true,
+  },
+  {
+    provider: "google",
+    key: "gemini-4-argon",
+    id: "gemini-4-argon",
+    input: 2,
+    input_cached: 0.1,
+    output: 10,
+    // Same introductory pricing and search terms as Carbon.
+    search_cost: 0,
   },
   {
     provider: "google",

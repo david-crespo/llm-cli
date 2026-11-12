@@ -17,7 +17,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "0.123.0",
     "@commander-js/extra-typings": "^15.0.0",
-    "@google/genai": "2.21.0",
+    "@google/genai": "3.2.0",
     "@inquirer/core": "^12",
     "@inquirer/prompts": "^8.7.4",
     "@mathjax/src": "4.1.3",

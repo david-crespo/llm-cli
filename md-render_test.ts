@@ -1,10 +1,11 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
 import process from "node:process"
+import { spawnSync } from "node:child_process"
 
 import ansis from "ansis"
 
-import { codespan, h1, h2 } from "./markdown-exit-terminal.ts"
+import { citation, codespan, h1, h2 } from "./markdown-exit-terminal.ts"
 import { renderMarkdown } from "./md-render.ts"
 
 const ANSI_RE = new RegExp("\\x1b\\[[0-9;]*m|\\x1b\\]8;;[^\\x07]*\\x07", "g")
@@ -447,5 +448,41 @@ test("renderMarkdown handles simple tables", async () => {
       "│ 1   │ 2   │",
       "╰─────┴─────╯",
     ].join("\n"),
+  )
+})
+
+test("renderMarkdown styles citation markers that follow a word", skipNoColor, async () => {
+  const { bold } = ansis
+  assert.deepEqual(
+    await renderMarkdown(
+      "Huang resigned[1]. **Kress**[2, 13] took over. A list [1, 2] stays.",
+    ),
+    `Huang resigned${citation(["1"])}. ${bold("Kress")}${citation(["2", "13"])} took over. A list [1, 2] stays.`,
+  )
+})
+
+test("citation numbers link to their Sources entries with OSC 8", () => {
+  // Hyperlink support is detected at import, so render in a child process
+  const markdown = [
+    "Fact[1, 2]. A list [1] stays.",
+    "### Sources",
+    "1. [a.com](https://a.com/x)",
+    "2. [b.com](https://b.com/y)",
+  ].join("\n\n")
+  const script = `
+    import { renderMarkdown } from ${JSON.stringify(new URL("./md-render.ts", import.meta.url).href)}
+    process.stdout.write(await renderMarkdown(${JSON.stringify(markdown)}))`
+  const { stdout } = spawnSync(
+    process.execPath,
+    ["--input-type=module", "--eval", script],
+    {
+      env: { ...process.env, FORCE_HYPERLINK: "1" },
+      encoding: "utf8",
+    },
+  )
+  const link = (url: string, text: string) => `\x1b]8;;${url}\x07${text}\x1b]8;;\x07`
+  assert.deepEqual(
+    stdout.replace(/\x1b\[[0-9;]*m/g, "").split("\n")[0],
+    `Fact[${link("https://a.com/x", "1")},${link("https://b.com/y", "2")}]. A list [1] stays.`,
   )
 })

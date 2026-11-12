@@ -31,6 +31,41 @@ export const h2 = blue.bold
 export const codespan = fg(203).bg(236)
 const tableBorder = gray
 const tableHeader = cyan.bold
+const citationBracket = fg(244)
+
+/**
+ * A citation marker: dim brackets and commas, blue numbers. In terminals with
+ * OSC 8, each number links to its source.
+ */
+export const citation = (nums: string[], sources?: Map<string, string>) =>
+  citationBracket("[") +
+  nums
+    .map((n) => {
+      const url = sources?.get(n)
+      return url && hyperlinks ? osc8(url, blue(n)) : blue(n)
+    })
+    .join(citationBracket(",")) +
+  citationBracket("]")
+
+// Citation markers like [1, 2], as the Gemini adapter writes them, follow a
+// word directly. With a space before the bracket, it's ordinary text.
+const CITATION_RE = /(^|\S)\[(\d+(?:, \d+)*)\]/g
+
+/** `attached` says whether the token follows markup, like a closing `**` */
+const styleCitations = (text: string, attached: boolean, sources?: Map<string, string>) =>
+  text.replace(CITATION_RE, (marker, before: string, nums: string, offset: number) =>
+    offset === 0 && !before && !attached
+      ? marker
+      : before + citation(nums.split(", "), sources),
+  )
+
+/** URLs by number from a message's closing "### Sources" list of links */
+function citedSources(src: string): Map<string, string> {
+  const at = src.lastIndexOf("\n### Sources\n")
+  if (at < 0) return new Map()
+  const entries = src.slice(at).matchAll(/^(\d+)\. \[.*\]\((\S+)\)$/gm)
+  return new Map([...entries].map(([, n, url]) => [n, url]))
+}
 
 const SGR_RE = /\x1b\[[0-9;]*m/g
 // Drops the scheme linkify adds, so example.com and b@c.co match their hrefs
@@ -50,8 +85,10 @@ function hyperlink(url: string, text: string): string {
     if (bareUrl(url) === bareUrl(text.replace(SGR_RE, ""))) return blue(text)
     return `${blue(text)} (${dim(url)})`
   }
-  return `\x1b]8;;${url}\x07${blue(text)}\x1b]8;;\x07`
+  return osc8(url, blue(text))
 }
+
+const osc8 = (url: string, text: string) => `\x1b]8;;${url}\x07${text}\x1b]8;;\x07`
 
 // --- Reflow ------------------------------------------------------------
 
@@ -389,7 +426,7 @@ function postProcessParagraphs(text: string): string {
 // lines, setting the title). NUL is also our marker delimiter.
 const CONTROL_RE = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]/g
 
-export type TerminalEnv = MathEnv & { codeTheme?: string }
+export type TerminalEnv = MathEnv & { codeTheme?: string; _sources?: Map<string, string> }
 
 function getColumns(): number {
   return process.stdout.columns ?? 80
@@ -403,7 +440,11 @@ export default function terminalPlugin(md: MarkdownExit): void {
   md.use(mathPlugin)
   const rules: Record<string, RenderRule> = {
     // Inline
-    text: (tokens, idx) => tokens[idx].content,
+    text: (tokens, idx, _options, env) => {
+      const prev = tokens[idx - 1]
+      const attached = !!prev && !prev.type.endsWith("break")
+      return styleCitations(tokens[idx].content, attached, (env as TerminalEnv)._sources)
+    },
     // Pad and replace internal spaces with NBSP so wrap-ansi treats the
     // codespan as a single unbreakable word. Splitting inside a styled span
     // either leaks bg color to the end of the line (BCE) or leaves a lone
@@ -576,7 +617,7 @@ export default function terminalPlugin(md: MarkdownExit): void {
   const origRenderAsync = md.renderAsync.bind(md)
   md.renderAsync = async (rawSrc: string, env?: TerminalEnv) => {
     const src = rawSrc.replace(CONTROL_RE, "")
-    const renderEnv = { ...env, _mathSource: src }
+    const renderEnv = { ...env, _mathSource: src, _sources: citedSources(src) }
     let output = await origRenderAsync(src, renderEnv)
     output = postProcessLinks(output)
     output = postProcessHeadings(output)

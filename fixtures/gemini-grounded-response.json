@@ -1,0 +1,126 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {
+            "text": "(thought summary)",
+            "thought": true
+          },
+          {
+            "text": "(thought summary)",
+            "thought": true
+          },
+          {
+            "text": "Yes. **Jensen Huang resigned today, November 12, 2026**, stepping down immediately as Nvidia's President, Chief Executive Officer, and a member of its Board of Directors. \n\nKey details surrounding his departure include:\n\n* **Reason for Resignation:** Huang's exit follows a rapidly escalating scandal over reports of two extramarital affairs. U.S. intelligence agencies and the FBI have been investigating his relationship with Alice Huang—a former executive at Singapore-based cloud provider Megaspeed International—who is suspected of being a Chinese government agent, raising significant national security concerns. On Wednesday evening, *The New York Times* also reported allegations that Huang had a romantic relationship with a subordinate Nvidia executive.\n* **Interim Leadership:** Nvidia's Executive Vice President and CFO, **Colette Kress**, has been appointed Interim CEO while continuing in her CFO role as the board searches for a permanent successor. \n* **Board Changes:** Alongside Huang's resignation, Nvidia appointed board member **Harvey C. Jones** as its first-ever Chair of the Board. \n* **Market Reaction:** Nvidia's stock fell sharply following the announcement—dropping as much as 10% to 13% in early trading and pushing the company's market valuation below $4 trillion."
+          }
+        ]
+      },
+      "groundingMetadata": {
+        "groundingChunks": [
+          {
+            "web": {
+              "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFRGAqjFWzSPle04f2qxlIuefo0OTzsgC-c4I3iJfgcBGQO57Wi5AtNhlmPRzf3w2WrKq8N_Ex4bvfBqzII1WOV9EUK-b14nDZCUUKkGAj3uMzjn61XoIBc7htzR0-cEiTohU1SBXNA8rwoIbM7vFKmXC9q_oj4_mLxQ3yrlQxQAuElcQrPfSjr4XFqEEz15WSpQg==",
+              "title": "nvidia.com"
+            }
+          },
+          {
+            "web": {
+              "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHGDRwTCHDspcZyelnJ6tTdIjx1-ollXcFH7VWZrS4cZZR3ZiyXiI_RHB9r40lSw53AE2Tf_pfidHMOsHGmrvjfGFZKTozCnKx_qhEik1kpjfT7LqTB__lGWIUkFlI1d6NAI7tQUzzljhOU7LXt8w==",
+              "title": "axios.com"
+            }
+          },
+          {
+            "web": {
+              "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFD_ZTmb3UjzyVAjRy-tPskPaweBIOSDp718nlYjvVwLli5WuMaLvXqZ15VEfqEOnvKHwzVHs3Mn3nN4xywaz4iuplL4k360TccME8OUs0JrpiZjhPYM7Ety56jf4lGYMMvmzVdujFFQkNPQvM4tP__ZVqzRyin1pMavE8XLTZlYFtIx_-QZt28LHhYiWFPWXLMwQ-QjOHgOXPOg17Dw41ecJOZbpeDjlaNuBuLlptzQpWGkaA7TQNbgg0=",
+              "title": "washingtonpost.com"
+            }
+          },
+          {
+            "web": {
+              "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHvpLb_wUMTcp6sGow3rUP9wsxioTcy2ZGjMa-uyi7UyBwdexKpyBenSkB_ZwHhq0YRWWDooZfdFgXqvQFyxp3Noc2FLnaUPhPHH1PcaY33h72UQSt20h5VDK_oBCfI0-ue17ZxX4Pp3YFScj-5o5SHekKwkTUy_pV5KFgHLWEzOd6xFNvRyvE=",
+              "title": "aljazeera.com"
+            }
+          },
+          {
+            "web": {
+              "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQG1NU2Ts7GF3bfRz1c99PED2sy4ao5j7GrlOSZGJGt_NCWwQJKS3rPbAIYuSsM0Zi3MqRulHnwfxr_82cw4CbdGLbrlQ2RtBkpnLVpkNqK1OuSkzevSavU-NeS2D_ON6Ur2913AM5GDuy00GMTAv1G88ZSf",
+              "title": "cbsnews.com"
+            }
+          },
+          {
+            "web": {
+              "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEL__2P9WWyq4SUU-G80ndPshbKozdik7TbiuTegWriuWlBN96v1j2ATxhwHfscUra3BMAmF2XfbhSCAfuhKiQ7LjGpHu_9z5DforztHx5_yhuBPNl3DA3ukhqSkwESF1cRnYDylJFHcBUt1MF2c2BaWR39128_omwimNO86YApDDRLSyvmSFzg31i4",
+              "title": "businessinsider.com"
+            }
+          },
+          {
+            "web": {
+              "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQErmoaEcFpSSAjsq-Bk2rEy6rAneYyDF6CzUsypIEaLZacLcYdtFpVX4amW7ZXdsLV9KoZkD10qPSb211iyTG0exM8UgIDgdaGfkrfEgpK5uFBl96I3vlGjzmdPpAALn1Glb_vJOEBri54hQ7zYLhdAGYGD3_3wtoK_ni_2eZQ0yfy-WbYuGw-1",
+              "title": "theguardian.com"
+            }
+          }
+        ],
+        "groundingSupports": [
+          {
+            "segment": {
+              "startIndex": 5,
+              "endIndex": 169,
+              "text": "**Jensen Huang resigned today, November 12, 2026**, stepping down immediately as Nvidia's President, Chief Executive Officer, and a member of its Board of Directors"
+            },
+            "groundingChunkIndices": [0]
+          },
+          {
+            "segment": {
+              "startIndex": 223,
+              "endIndex": 341,
+              "text": "**Reason for Resignation:** Huang's exit follows a rapidly escalating scandal over reports of two extramarital affairs"
+            },
+            "groundingChunkIndices": [1, 2]
+          },
+          {
+            "segment": {
+              "startIndex": 343,
+              "endIndex": 621,
+              "text": "U.S. intelligence agencies and the FBI have been investigating his relationship with Alice Huang—a former executive at Singapore-based cloud provider Megaspeed International—who is suspected of being a Chinese government agent, raising significant national security concerns"
+            },
+            "groundingChunkIndices": [3, 4]
+          },
+          {
+            "segment": {
+              "startIndex": 623,
+              "endIndex": 766,
+              "text": "On Wednesday evening, *The New York Times* also reported allegations that Huang had a romantic relationship with a subordinate Nvidia executive"
+            },
+            "groundingChunkIndices": [4]
+          },
+          {
+            "segment": {
+              "startIndex": 770,
+              "endIndex": 967,
+              "text": "**Interim Leadership:** Nvidia's Executive Vice President and CFO, **Colette Kress**, has been appointed Interim CEO while continuing in her CFO role as the board searches for a permanent successor"
+            },
+            "groundingChunkIndices": [0]
+          },
+          {
+            "segment": {
+              "startIndex": 972,
+              "endIndex": 1108,
+              "text": "**Board Changes:** Alongside Huang's resignation, Nvidia appointed board member **Harvey C. Jones** as its first-ever Chair of the Board"
+            },
+            "groundingChunkIndices": [0, 5]
+          },
+          {
+            "segment": {
+              "startIndex": 1113,
+              "endIndex": 1299,
+              "text": "**Market Reaction:** Nvidia's stock fell sharply following the announcement—dropping as much as 10% to 13% in early trading and pushing the company's market valuation below $4 trillion"
+            },
+            "groundingChunkIndices": [6, 3]
+          }
+        ]
+      }
+    }
+  ]
+}

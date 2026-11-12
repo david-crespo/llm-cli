@@ -1,4 +1,9 @@
-import { GoogleGenAI, type Part, ThinkingLevel } from "@google/genai"
+import {
+  GoogleGenAI,
+  type GroundingMetadata,
+  type Part,
+  ThinkingLevel,
+} from "@google/genai"
 import { Buffer } from "node:buffer"
 
 import { postprocessSchemaContent, prepareSchema } from "../schema.ts"
@@ -37,6 +42,56 @@ export function geminiThinkParams(key: string, think: ThinkLevel | undefined) {
   return isFlashLite
     ? { thinkingLevel: ThinkingLevel.MINIMAL, effort: "minimal" }
     : { thinkingLevel: ThinkingLevel.LOW, effort: "low" }
+}
+
+/**
+ * Joins the answer's text parts and cites their web sources. Each grounding
+ * support ties a span of the answer to the chunks behind it, and the span gets
+ * a [n] marker. Sources numbers cited chunks in order of first citation, then
+ * lists the uncited ones the search also found.
+ */
+export function withCitations(parts: Part[], grounding: GroundingMetadata | undefined) {
+  const chunks = grounding?.groundingChunks ?? []
+  // Chunks can repeat a URL, so number sources by URL
+  const numbers = new Map<string, number>()
+  const sources: string[] = []
+  const cite = (chunkIndex: number) => {
+    const web = chunks[chunkIndex]?.web
+    if (!web?.uri) return []
+    if (!numbers.has(web.uri)) {
+      numbers.set(web.uri, numbers.size + 1)
+      sources.push(`${numbers.size}. [${web.title || web.uri}](${web.uri})`)
+    }
+    return [numbers.get(web.uri)!]
+  }
+
+  // Segment offsets are UTF-8 bytes into the answer's text parts joined, like
+  // the SDK's response.text. Responses leave out partIndex even when thought
+  // parts come first, so ignore it.
+  const bytes = Buffer.from(
+    parts
+      .filter((p) => p.text && !p.thought)
+      .map((p) => p.text!)
+      .join(""),
+  )
+  const spans = (grounding?.groundingSupports ?? [])
+    .filter((s) => s.segment?.endIndex)
+    .sort((a, b) => a.segment!.endIndex! - b.segment!.endIndex!)
+  let content = ""
+  let start = 0
+  for (const span of spans) {
+    const end = Math.min(span.segment!.endIndex!, bytes.length)
+    const cited = [...new Set((span.groundingChunkIndices ?? []).flatMap(cite))].sort(
+      (a, b) => a - b,
+    )
+    if (cited.length === 0) continue
+    content += bytes.subarray(start, end).toString() + `[${cited.join(", ")}]`
+    start = end
+  }
+  content += bytes.subarray(start).toString()
+
+  chunks.forEach((_, i) => cite(i))
+  return sources.length > 0 ? `${content}\n\n### Sources\n\n${sources.join("\n")}` : content
 }
 
 export async function geminiCreateMessage({
@@ -96,24 +151,17 @@ export async function geminiCreateMessage({
     .filter((p) => p.text && p.thought)
     .map((p) => p.text!)
     .join("\n\n")
-  let content = parts
-    .filter((p) => p.text && !p.thought)
-    .map((p) => p.text!)
-    .join("\n\n")
-
-  const searchResults = result.candidates?.[0].groundingMetadata?.groundingChunks
-  const searches = searchResults && searchResults.length > 0 ? 1 : 0
-  const searchResultsMd = searchResults
-    ? "\n\n### Sources\n\n" +
-      searchResults
-        .filter((chunk) => chunk.web)
-        .map((chunk) => `- [${chunk.web!.title}](${chunk.web!.uri})`)
-        .join("\n")
-    : ""
-
-  if (!prep) content += searchResultsMd
-
-  if (prep) content = postprocessSchemaContent(content, prep.wrapped)
+  const grounding = result.candidates?.[0].groundingMetadata
+  const searches = grounding?.groundingChunks?.length ? 1 : 0
+  const content = prep
+    ? postprocessSchemaContent(
+        parts
+          .filter((p) => p.text && !p.thought)
+          .map((p) => p.text!)
+          .join("\n\n"),
+        prep.wrapped,
+      )
+    : withCitations(parts, grounding)
 
   const tokens = {
     input: result.usageMetadata?.promptTokenCount || 0,

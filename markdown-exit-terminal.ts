@@ -36,8 +36,16 @@ const SGR_RE = /\x1b\[[0-9;]*m/g
 // Drops the scheme linkify adds, so example.com and b@c.co match their hrefs
 const bareUrl = (s: string) => s.replace(/^(https?:\/\/|mailto:)/, "")
 
+// supports-hyperlinks doesn't recognize Rex, which renders OSC 8 links.
+// FORCE_HYPERLINK still wins when set.
+const hyperlinks =
+  supportsHyperlinks.stdout ||
+  (!process.env.FORCE_HYPERLINK &&
+    process.stdout.isTTY &&
+    process.env.TERM_PROGRAM === "rex")
+
 function hyperlink(url: string, text: string): string {
-  if (!supportsHyperlinks.stdout) {
+  if (!hyperlinks) {
     // Autolinks already show the URL as their text
     if (bareUrl(url) === bareUrl(text.replace(SGR_RE, ""))) return blue(text)
     return `${blue(text)} (${dim(url)})`

@@ -63,7 +63,7 @@ const cases = [
     ],
   },
   {
-    model: "gemini-3.8-flash",
+    model: "gemini-4-hydrogen",
     response: { candidates: [{ content: { parts: [{ text: "ok" }] } }] },
     messages: [
       {
@@ -154,7 +154,7 @@ test("Gemini size validation matches the SDK's wire body including schema and to
     createdAt: new Date(0),
   }
   const input = {
-    model: resolveModel("gemini-3.8-flash"),
+    model: resolveModel("gemini-4-hydrogen"),
     apiKey: "test-key",
     config: { search: true, think: "high" as const },
     outputSchema: type({ answer: "string" }),
@@ -258,14 +258,14 @@ for (const testCase of [
     error: "Claude request is larger than the 32 MB limit",
   },
   {
-    model: "gemini-3.8-flash",
+    model: "gemini-4-hydrogen",
     images: ["data:image/png;base64," + "A".repeat(19_999_000)],
     // UTF-8 text and JSON overhead push an otherwise in-limit image over the limit.
     prompt: "猫".repeat(400),
     error: "Gemini request is larger than the 20 MB limit",
   },
   {
-    model: "gemini-3.8-flash",
+    model: "gemini-4-hydrogen",
     images: [imageUrl],
     prompt: "Describe this",
     error: "Gemini request is larger than the 20 MB limit",

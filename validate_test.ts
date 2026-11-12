@@ -15,7 +15,7 @@ const flags = (overrides: Partial<RequestFlags> = {}): RequestFlags => ({
 })
 
 test("plain prompt is fine for every model", () => {
-  for (const m of ["opus", "gpt-6.1-sol", "gemini-3.8-flash", "flare"]) {
+  for (const m of ["opus", "gpt-6.1-sol", "gemini-4-hydrogen", "flare"]) {
     assert.deepEqual(requestProblems(resolveModel(m), flags()), [])
   }
 })

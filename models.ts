@@ -149,12 +149,12 @@ export const models: Model[] = [
   },
   {
     provider: "google",
-    key: "gemini-3.8-flash",
-    id: "gemini-3.8-flash",
-    input: 0.75,
+    key: "gemini-4-hydrogen",
+    id: "gemini-4-hydrogen",
+    input: 1.5,
     input_cached: 0.075,
-    output: 3.75,
-    // 5,000 search queries/month free (shared across 3.x models), then $14 / 1,000.
+    output: 7.5,
+    // 5,000 search queries/month free (shared across Gemini 3 and newer), then $14 / 1,000.
     // We never get anywhere near the limit, so treat as free.
     search_cost: 0,
   },

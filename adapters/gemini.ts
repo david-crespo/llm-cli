@@ -22,7 +22,7 @@ async function imageToInlinePart(image_url: string): Promise<Part> {
 }
 
 export function geminiThinkParams(key: string, think: ThinkLevel | undefined) {
-  // full flash models reject MINIMAL: "Thinking level MINIMAL is not supported"
+  // Gemini 4 and full flash models reject MINIMAL: "Thinking level MINIMAL is not supported"
   const isFlashLite = key.includes("flash-lite")
   // Always send an explicit level rather than relying on per-model server
   // defaults. Default to "on" like the other providers; flash-lite defaults

@@ -2,14 +2,13 @@ import OpenAI from "openai"
 import type { ResponseCreateParamsNonStreaming } from "openai/resources/responses/responses"
 import type { ImageGenerateParamsNonStreaming } from "openai/resources/images"
 import { Buffer } from "node:buffer"
-import { ValidationError } from "../errors.ts"
 import { match, P } from "ts-pattern"
 
 import { postprocessSchemaContent, prepareSchema } from "../schema.ts"
 import type { BackgroundStatus, ThinkLevel } from "../types.ts"
 import { getCost, type Model } from "../models.ts"
 import { saveImage } from "../storage.ts"
-import type { ChatInput, ModelResponse } from "./types.ts"
+import { type ChatInput, imagePrompt, type ModelResponse } from "./types.ts"
 import { validateRequestSize } from "./request_size.ts"
 
 function processGptResponse(
@@ -165,23 +164,14 @@ export const gptBg = {
   },
 }
 
-/** Image generation currently accepts only a fresh text prompt. */
 export function gptImageParams({
   chat,
   model,
   imageOptions,
 }: ChatInput): ImageGenerateParamsNonStreaming {
-  const [message] = chat.messages
-  if (
-    chat.messages.length !== 1 ||
-    message?.role !== "user" ||
-    message.image_urls?.length
-  ) {
-    throw new ValidationError("Image generation requires a fresh text-only prompt")
-  }
   return {
     model: model.key,
-    prompt: message.content,
+    prompt: imagePrompt(chat),
     n: 1,
     // Kitty graphics can only display PNG directly
     output_format: "png",

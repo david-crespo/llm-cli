@@ -330,10 +330,17 @@ function modelInfoMd(modelArg: string) {
   const lines = [`**${id}** (${provider})`, `key: \`${key}\``]
 
   if (model.kind === "image") {
-    lines.push(
-      `image generation: --quality ${imageQualities.join("|")}, --size WxH|auto`,
-      "output: PNG saved under ~/.local/state/llm-cli/images",
-    )
+    if (provider === "openai") {
+      lines.push(`image generation: --quality ${imageQualities.join("|")}, --size WxH|auto`)
+    } else {
+      lines.push(
+        "image generation: --size 1K|2K|4K (default 2K), --aspect W:H",
+        "aspect ratios include 1:1, 3:2, 2:3, 4:3, 3:4, 5:4, 16:9, 9:16, 21:9, 4:1, 1:4, 8:1, 1:8",
+        "without --aspect, the model chooses the ratio",
+        "think: medium by default, --quick for minimal, --think-hard for high",
+      )
+    }
+    lines.push("output: PNG saved under ~/.local/state/llm-cli/images")
     return lines.join("\n")
   }
 
@@ -406,7 +413,11 @@ to MESSAGE.`)
       imageQualities,
     ),
   )
-  .option("--size <size>", "Image size, e.g. 1024x1536 or auto (image models only)")
+  .option(
+    "--size <size>",
+    "Image size: 1024x1536 or auto for OpenAI, 1K/2K/4K for Gemini (image models only)",
+  )
+  .option("--aspect <ratio>", "Aspect ratio, e.g. 16:9 (Gemini image models only)")
   .option("--system <system>", "Override entire system prompt")
   .option("-e, --ephemeral", "Don't save to history")
   .option("-b, --background", "Use background mode (OpenAI only)")
@@ -431,6 +442,7 @@ Examples:
   ai -o '{ urgent: "boolean", reason: "string" }' 'is this urgent? server is down'
   ai gist -t 'Generic types'
   ai -m flare --quality low 'a lighthouse at dusk'
+  ai -m banana --size 2K --aspect 16:9 'a lighthouse at dusk'
   ai -i first.png -i second.jpg 'Compare these images'`,
   )
   .action(async (message, opts) => {
@@ -499,7 +511,7 @@ Examples:
       apiKey: await getApiKey(model.provider, chat.profile),
       config: { search: chat.search, think: chat.think },
       outputSchema,
-      imageOptions: { quality: opts.quality, size: opts.size },
+      imageOptions: { quality: opts.quality, size: opts.size, aspect: opts.aspect },
     }
 
     const problems = requestProblems(model, {
@@ -511,6 +523,7 @@ Examples:
       background: !!opts.background,
       quality: opts.quality,
       size: opts.size,
+      aspect: opts.aspect,
     })
     if (problems.length > 0) throw new ValidationError(problems.join("\n"))
 

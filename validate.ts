@@ -16,6 +16,7 @@ export type RequestFlags = {
   background: boolean
   quality?: string
   size?: string
+  aspect?: string
 }
 
 /** No need to pass --background for gpt-5.4-pro: it always needs it */
@@ -41,18 +42,32 @@ export function requestProblems(model: Model, req: RequestFlags): string[] {
       req.system && "--system",
       req.images && "--image",
       req.config.search && "--search",
-      req.config.think !== undefined && "thinking flags",
+      // Gemini image models take a thinking level
+      provider !== "google" && req.config.think !== undefined && "thinking flags",
       req.outputSchema && "--output-schema",
       req.background && "--background",
     ].filter(Boolean)
     if (unsupported.length > 0) {
       problems.push(`Not supported for image models: ${unsupported.join(", ")}`)
     }
-    if (req.size && !/^(auto|\d+x\d+)$/.test(req.size)) {
-      problems.push(`Invalid size '${req.size}'. Use WIDTHxHEIGHT or auto`)
+    if (provider === "google") {
+      if (req.quality) problems.push("--quality only applies to OpenAI image models")
+      // Google rejects a lowercase k
+      if (req.size && !/^[124]K$/.test(req.size)) {
+        problems.push(`Invalid size '${req.size}'. Use 1K, 2K, or 4K`)
+      }
+      // The API checks which ratios the model supports
+      if (req.aspect && !/^\d+:\d+$/.test(req.aspect)) {
+        problems.push(`Invalid aspect ratio '${req.aspect}'. Use W:H, e.g. 16:9`)
+      }
+    } else {
+      if (req.aspect) problems.push("--aspect only applies to Gemini image models")
+      if (req.size && !/^(auto|\d+x\d+)$/.test(req.size)) {
+        problems.push(`Invalid size '${req.size}'. Use WIDTHxHEIGHT or auto`)
+      }
     }
-  } else if (req.quality || req.size) {
-    problems.push("--quality and --size only apply to image models")
+  } else if (req.quality || req.size || req.aspect) {
+    problems.push("--quality, --size, and --aspect only apply to image models")
   }
 
   if (req.images && !imageInputProviders.has(provider)) {

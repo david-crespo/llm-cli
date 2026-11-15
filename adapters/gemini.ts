@@ -1,16 +1,23 @@
 import {
+  type GenerateContentResponse,
   GoogleGenAI,
   type GroundingMetadata,
+  MediaModality,
   type Part,
   ThinkingLevel,
 } from "@google/genai"
+import $ from "dax"
 import { Buffer } from "node:buffer"
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 
 import { postprocessSchemaContent, prepareSchema } from "../schema.ts"
-import { getCost } from "../models.ts"
+import { getCost, type Model } from "../models.ts"
 import { parseDataUrl } from "../image-input.ts"
 import type { ThinkLevel } from "../types.ts"
-import type { ChatInput } from "./types.ts"
+import { type ChatInput, imagePrompt, type ModelResponse } from "./types.ts"
+import { saveImage } from "../storage.ts"
 import { validateRequestSize } from "./request_size.ts"
 
 /** Gemini doesn't accept image URLs directly; inline as bytes either way. */
@@ -29,6 +36,8 @@ async function imageToInlinePart(image_url: string): Promise<Part> {
 export function geminiThinkParams(key: string, think: ThinkLevel | undefined) {
   // Gemini 4 and full flash models reject MINIMAL: "Thinking level MINIMAL is not supported"
   const isFlashLite = key.includes("flash-lite")
+  // Nano Banana takes MINIMAL, MEDIUM, and HIGH, and can't turn thinking off
+  const offIsMinimal = isFlashLite || key.includes("nano-banana")
   // Always send an explicit level rather than relying on per-model server
   // defaults. Default to "on" like the other providers; flash-lite defaults
   // to "off" (MINIMAL, also Google's default), like Haiku on Claude.
@@ -39,7 +48,7 @@ export function geminiThinkParams(key: string, think: ThinkLevel | undefined) {
   if (level === "on") {
     return { thinkingLevel: ThinkingLevel.MEDIUM, effort: "medium" }
   }
-  return isFlashLite
+  return offIsMinimal
     ? { thinkingLevel: ThinkingLevel.MINIMAL, effort: "minimal" }
     : { thinkingLevel: ThinkingLevel.LOW, effort: "low" }
 }
@@ -179,5 +188,89 @@ export async function geminiCreateMessage({
     stop_reason: result.candidates?.[0].finishReason || "",
     searches: searches || undefined,
     effort,
+  }
+}
+
+/** Nano Banana returns JPEG, but Kitty graphics only display PNG */
+async function toPng(bytes: Uint8Array, mimeType: string): Promise<Uint8Array> {
+  if (mimeType === "image/png") return bytes
+  const dir = await mkdtemp(join(tmpdir(), "llm-cli-"))
+  try {
+    const [input, output] = [join(dir, "input"), join(dir, "output.png")]
+    await writeFile(input, bytes)
+    await $`sips -s format png ${input} --out ${output}`.quiet()
+    return await readFile(output)
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
+}
+
+export async function geminiImageCreateMessage({
+  chat,
+  model,
+  apiKey,
+  config,
+  signal,
+  imageOptions,
+}: ChatInput): Promise<ModelResponse> {
+  const prompt = imagePrompt(chat)
+  const { thinkingLevel, effort } = geminiThinkParams(model.key, config.think)
+  const result = await new GoogleGenAI({ apiKey }).models.generateContent({
+    model: model.key,
+    contents: prompt,
+    config: {
+      thinkingConfig: { thinkingLevel },
+      // Google's default is 1K
+      imageConfig: {
+        imageSize: imageOptions?.size ?? "2K",
+        aspectRatio: imageOptions?.aspect,
+      },
+      abortSignal: signal,
+    },
+  })
+  const response = await processGeminiImageResponse(
+    result,
+    model,
+    async (bytes, mimeType, i) => saveImage(await toPng(bytes, mimeType), prompt, "png", i),
+  )
+  return { ...response, effort }
+}
+
+export async function processGeminiImageResponse(
+  result: GenerateContentResponse,
+  model: Model,
+  save: (bytes: Uint8Array, mimeType: string, index: number) => Promise<string>,
+): Promise<ModelResponse> {
+  const parts = result.candidates?.[0].content?.parts ?? []
+  // Thought parts can include draft images; keep only the final ones
+  const answer = parts.filter((p) => !p.thought)
+  const images = await Promise.all(
+    answer
+      .filter((p) => p.inlineData?.data)
+      .map(({ inlineData }, i) =>
+        save(Buffer.from(inlineData!.data!, "base64"), inlineData!.mimeType ?? "", i),
+      ),
+  )
+  // A refusal or safety block comes back as text with no image
+  const text = answer.flatMap((p) => (p.text ? [p.text] : [])).join("\n\n")
+  if (images.length === 0) {
+    const reason = result.candidates?.[0].finishReason ?? result.promptFeedback?.blockReason
+    throw new Error(`No image in response (${reason})${text ? `: ${text}` : ""}`)
+  }
+
+  const usage = result.usageMetadata
+  const tokens = {
+    input: usage?.promptTokenCount ?? 0,
+    output: (usage?.candidatesTokenCount ?? 0) + (usage?.thoughtsTokenCount ?? 0),
+    output_image: (usage?.candidatesTokensDetails ?? [])
+      .filter((d) => d.modality === MediaModality.IMAGE)
+      .reduce((sum, d) => sum + (d.tokenCount ?? 0), 0),
+  }
+  return {
+    content: [text, ...images].filter(Boolean).join("\n"),
+    images,
+    tokens,
+    cost: getCost(model, tokens),
+    stop_reason: result.candidates?.[0].finishReason ?? "",
   }
 }

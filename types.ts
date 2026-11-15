@@ -6,6 +6,8 @@ export type TokenCounts = {
   /** Tokens written to the prompt cache this turn (Anthropic only). Subset of `input`. */
   input_cache_write?: number
   output: number
+  /** Image tokens in the output (image models only). Subset of `output`. */
+  output_image?: number
 }
 
 /** Provider-neutral reasoning intent. Adapters resolve this to their native setting. */

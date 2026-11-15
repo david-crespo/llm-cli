@@ -14,7 +14,11 @@ const openai = () => import("./openai.ts")
 
 export async function createMessage(input: ChatInput): Promise<ModelResponse> {
   const { provider } = input.model
-  if (input.model.kind === "image") return (await openai()).gptImageCreateMessage(input)
+  if (input.model.kind === "image") {
+    return provider === "google"
+      ? (await import("./gemini.ts")).geminiImageCreateMessage(input)
+      : (await openai()).gptImageCreateMessage(input)
+  }
   if (provider === "anthropic") {
     return (await import("./claude.ts")).claudeCreateMessage(input)
   }

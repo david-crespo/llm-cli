@@ -21,7 +21,12 @@ export type Model = {
   input_cache_write?: number
   /** Cost per web search in dollars */
   search_cost?: number
-  /** Image generation model. `output` is the price per image output token. */
+  /**
+   * Price per image output token, when it differs from text output. Without
+   * it, all output is priced at `output`.
+   */
+  output_image?: number
+  /** Image generation model */
   kind?: "image"
 }
 
@@ -160,6 +165,16 @@ export const models: Model[] = [
   },
   {
     provider: "google",
+    key: "gemini-nano-banana-2.1",
+    id: "nano-banana-2.1",
+    kind: "image",
+    input: 1.5,
+    // Text and thinking output. A 1K image is 1,120 image tokens.
+    output: 7.5,
+    output_image: 30,
+  },
+  {
+    provider: "google",
     key: "gemini-3.5-flash-lite",
     id: "gemini-3.5-flash-lite",
     input: 0.3,
@@ -202,17 +217,21 @@ export function resolveModel(
 const M = 1_000_000
 
 export function getCost(model: Model, tokens: TokenCounts, searches = 0) {
-  const { input, output, input_cached, input_cache_write, search_cost } = model
+  const { input, output, output_image, input_cached, input_cache_write, search_cost } =
+    model
 
   // Cache hits and writes are subsets of tokens.input. Price them separately
   // when the model has the corresponding price, otherwise at the input rate.
   const hits = input_cached ? (tokens.input_cache_hit ?? 0) : 0
   const writes = input_cache_write ? (tokens.input_cache_write ?? 0) : 0
+  // Likewise image tokens are a subset of tokens.output
+  const images = output_image ? (tokens.output_image ?? 0) : 0
   const tokenCost =
     (input_cached ?? 0) * hits +
     (input_cache_write ?? 0) * writes +
     input * (tokens.input - hits - writes) +
-    output * tokens.output
+    (output_image ?? 0) * images +
+    output * (tokens.output - images)
 
   // Haiku 5.5 charges 5x for every token type when the prompt (including
   // cached tokens) exceeds 100k. Hack until another model needs tiers.

@@ -182,4 +182,6 @@ test("image models resolve by nickname without shadowing text models", () => {
   assert.deepEqual(resolveModel("flare").key, "gpt-image-2.6-flare")
   assert.deepEqual(resolveModel("sunburst").key, "gpt-image-2.6-sunburst")
   assert.deepEqual(resolveModel("gpt").kind, undefined)
+  assert.deepEqual(resolveModel("banana").key, "gemini-nano-banana-2.1")
+  assert.deepEqual(resolveModel("gemini").kind, undefined)
 })

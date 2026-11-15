@@ -1,5 +1,7 @@
 import type { Type } from "arktype"
 
+import { ValidationError } from "../errors.ts"
+
 import type { Chat, ProviderData, ThinkLevel, TokenCounts } from "../types.ts"
 import type { Model } from "../models.ts"
 
@@ -34,6 +36,21 @@ export const imageQualities = ["low", "medium", "high", "xhigh", "max", "auto"] 
 
 export type ImageOptions = {
   quality?: (typeof imageQualities)[number]
-  /** `WIDTHxHEIGHT` or `auto` */
+  /** OpenAI: `WIDTHxHEIGHT` or `auto`. Gemini: `1K`, `2K`, or `4K`. */
   size?: string
+  /** `W:H`, Gemini only */
+  aspect?: string
+}
+
+/** Image generation currently accepts only a fresh text prompt. */
+export function imagePrompt(chat: Chat): string {
+  const [message] = chat.messages
+  if (
+    chat.messages.length !== 1 ||
+    message?.role !== "user" ||
+    message.image_urls?.length
+  ) {
+    throw new ValidationError("Image generation requires a fresh text-only prompt")
+  }
+  return message.content
 }

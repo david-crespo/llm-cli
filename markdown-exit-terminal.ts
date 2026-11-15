@@ -20,7 +20,9 @@ import ansis, {
 import stringWidth from "string-width"
 import supportsHyperlinks from "supports-hyperlinks"
 import wrapAnsi from "wrap-ansi"
-import mathPlugin, { type MathEnv, restoreMath } from "./terminal-math.ts"
+import { readFileSync } from "node:fs"
+import mathPlugin, { type MathEnv, reserveSlot, restoreMath } from "./terminal-math.ts"
+import { imageColumns, kittyPng } from "./terminal-image.ts"
 
 const { fg } = ansis
 
@@ -463,9 +465,20 @@ export default function terminalPlugin(md: MarkdownExit): void {
     html_block: (tokens, idx) => dim(tokens[idx].content) + "\n",
     link_open: (tokens, idx) => `\x00LINK:${tokens[idx].attrGet("href") ?? ""}\x00`,
     link_close: () => "\x00/LINK\x00",
-    image: (tokens, idx) => {
+    image: (tokens, idx, _options, env) => {
       const src = tokens[idx].attrGet("src") ?? ""
       const alt = tokens[idx].content || tokens[idx].children?.[0]?.content || "image"
+      // A local PNG is a generated image: draw it, or show its path
+      if (src.startsWith("/") && src.endsWith(".png")) {
+        if (!(env as TerminalEnv).images) return src
+        try {
+          const png = readFileSync(src)
+          const term = { columns: getColumns(), rows: process.stdout.rows ?? 24 }
+          return reserveSlot(env as TerminalEnv, 1, kittyPng(png, imageColumns(png, term)))
+        } catch {
+          return src
+        }
+      }
       return dim(`![${alt}](${src})`)
     },
 

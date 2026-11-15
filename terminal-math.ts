@@ -13,6 +13,8 @@ function dollarMath(content: string, after: string): boolean {
 
 export type MathEnv = {
   math?: boolean
+  /** Draw local PNG images with Kitty graphics */
+  images?: boolean
   mathColor?: string
   _mathSlots?: Map<string, string>
   _mathSource?: string
@@ -32,6 +34,22 @@ export function kittyImage(image: MathImage, id: number): string[] {
       },h=${image.rowPixels},c=${image.columns},r=1\x1b\\` +
       " ".repeat(image.columns),
   )
+}
+
+/**
+ * Placeholder text, `width` cells wide, that restoreMath swaps for `rendered`
+ * once reflow is done. Private-use characters that the source doesn't contain
+ * can't collide with real text.
+ */
+export function reserveSlot(env: MathEnv, width: number, rendered: string): string {
+  let codepoint = env._mathNextCodepoint ?? 0xe000
+  while (env._mathSource?.includes(String.fromCharCode(codepoint))) codepoint++
+  if (codepoint > 0xf8ff) throw new Error("Too many math expressions")
+  env._mathNextCodepoint = codepoint + 1
+  const placeholder = String.fromCharCode(codepoint).repeat(width)
+  env._mathSlots ??= new Map()
+  env._mathSlots.set(placeholder, rendered)
+  return placeholder
 }
 
 export function restoreMath(output: string, env: MathEnv): string {
@@ -124,17 +142,7 @@ export default function mathPlugin(md: MarkdownExit): void {
       )
       const id = crypto.getRandomValues(new Uint32Array(1))[0] || 1
       const rows = kittyImage(image, id)
-      env._mathSlots ??= new Map()
-      const placeholders = rows.map((row) => {
-        let codepoint = env._mathNextCodepoint ?? 0xe000
-        while (env._mathSource?.includes(String.fromCharCode(codepoint))) codepoint++
-        if (codepoint > 0xf8ff) throw new Error("Too many math expressions")
-        env._mathNextCodepoint = codepoint + 1
-        const placeholder = String.fromCharCode(codepoint).repeat(image.columns)
-        env._mathSlots!.set(placeholder, row)
-        return placeholder
-      })
-      return placeholders.join("\n") + suffix
+      return rows.map((row) => reserveSlot(env, image.columns, row)).join("\n") + suffix
     } catch {
       return token.markup + suffix
     }

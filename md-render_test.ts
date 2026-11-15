@@ -2,6 +2,9 @@ import assert from "node:assert/strict"
 import { test } from "node:test"
 import process from "node:process"
 import { spawnSync } from "node:child_process"
+import { mkdtempSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 
 import ansis from "ansis"
 
@@ -484,5 +487,24 @@ test("citation numbers link to their Sources entries with OSC 8", () => {
   assert.deepEqual(
     stdout.replace(/\x1b\[[0-9;]*m/g, "").split("\n")[0],
     `Fact[${link("https://a.com/x", "1")},${link("https://b.com/y", "2")}]. A list [1] stays.`,
+  )
+})
+
+test("renderMarkdown draws a local PNG, or shows its path", async () => {
+  const path = join(mkdtempSync(join(tmpdir(), "md-render-")), "image.png")
+  // Enough of a PNG header for sizing: IHDR width and height
+  const png = new Uint8Array(24)
+  new DataView(png.buffer).setUint32(16, 100)
+  new DataView(png.buffer).setUint32(20, 100)
+  writeFileSync(path, png)
+  const md = `![](<${path}>)`
+  assert.deepEqual(stripAnsi(await renderMarkdown(md, { images: false })), path)
+  const drawn = await renderMarkdown(md, { images: true })
+  assert(drawn.includes("\x1b_Ga=T,f=100"), "should transmit and place the PNG")
+  assert(!drawn.includes(path))
+  // A missing file falls back to the path
+  assert.deepEqual(
+    stripAnsi(await renderMarkdown(`![](/nope.png)`, { images: true })),
+    "/nope.png",
   )
 })

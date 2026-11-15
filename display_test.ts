@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { chatToMd, formatElapsed, metaLineMd } from "./display.ts"
+import { chatToMd, formatElapsed, messageContentMd, metaLineMd } from "./display.ts"
 import { systemBase } from "./models.ts"
 import type { Chat, ChatMessage } from "./types.ts"
 
@@ -102,4 +102,12 @@ test("chatToMd ignores date differences in the default system prompt", () => {
   // A genuinely customized prompt is still reported.
   const chatCustom: Chat = { ...chat, systemPrompt: stalePrompt + "\n- extra" }
   assert.deepEqual(chatToMd({ chat: chatCustom }).includes("**System prompt:**"), true)
+})
+
+test("generated image paths become Markdown images except in raw and gist", () => {
+  const path = "/images/fox.png"
+  const msg = { ...assistantMessage(), content: `Here you go\n${path}`, images: [path] }
+  assert(messageContentMd(msg, "cli").includes(`Here you go\n![](<${path}>)`))
+  assert.deepEqual(messageContentMd(msg, "raw"), `Here you go\n${path}`)
+  assert(messageContentMd(msg, "gist").includes(`Here you go\n${path}`))
 })

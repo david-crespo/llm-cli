@@ -1,11 +1,9 @@
 import { markdownTable } from "markdown-table"
-import { readFile } from "node:fs/promises"
 import process from "node:process"
 
 import type { Chat, ChatMessage } from "./types.ts"
 import { models, systemBase } from "./models.ts"
 import { renderMarkdown } from "./md-render.ts"
-import { imageColumns, kittyPng, supportsKittyGraphics } from "./terminal-image.ts"
 
 export async function renderMd(md: string, raw = false) {
   if (process.stdout.isTTY && !raw) {
@@ -168,8 +166,19 @@ export function messageContentMd(msg: ChatMessage, mode: DisplayMode) {
       tag("summary", "Long input collapsed"),
       escapeThinkTags(msg.content),
     )
+  } else if (mode === "raw") {
+    output += msg.content
   } else {
-    output += mode === "raw" ? msg.content : escapeThinkTags(msg.content)
+    output += escapeThinkTags(
+      // Image paths become Markdown images, which the terminal renderer draws
+      // inline. Gists keep the path, which is useless on GitHub either way.
+      msg.role === "assistant" && msg.images && mode !== "gist"
+        ? msg.content
+            .split("\n")
+            .map((line) => (msg.images!.includes(line) ? `![](<${line}>)` : line))
+            .join("\n")
+        : msg.content,
+    )
   }
   if (msg.role === "user" && msg.image_urls) {
     for (const [index, image_url] of msg.image_urls.entries()) {
@@ -270,13 +279,5 @@ export async function renderResponse(msg: ChatMessage, opts: DisplayOpts) {
   } else {
     console.log()
     await renderMd(messageContentMd(msg, getMode(opts)), false)
-    if (msg.role === "assistant" && msg.images && supportsKittyGraphics()) {
-      for (const path of msg.images) {
-        const png = await readFile(path)
-        const { columns, rows } = process.stdout
-        const data = kittyPng(png, imageColumns(png, { columns, rows }))
-        await new Promise((resolve) => process.stdout.write(data, resolve))
-      }
-    }
   }
 }

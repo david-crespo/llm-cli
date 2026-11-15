@@ -9,6 +9,8 @@ export type RenderOptions = {
   math?: boolean
   /** Equation foreground; defaults to light gray for the terminal's dark theme. */
   mathColor?: string
+  /** Draw local PNG images using Kitty graphics. Defaults like `math`. */
+  images?: boolean
 }
 
 const md = new MarkdownExit({ html: true, linkify: true })
@@ -20,5 +22,6 @@ export function renderMarkdown(md_text: string, opts: RenderOptions = {}): Promi
     codeTheme: opts.codeTheme ?? "ayu-mirage",
     math: opts.math ?? supportsKittyGraphics(),
     mathColor: opts.mathColor,
+    images: opts.images ?? supportsKittyGraphics(),
   })
 }

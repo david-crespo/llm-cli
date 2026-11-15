@@ -42,6 +42,7 @@ test("kittyPng places in one command with chunked payload", () => {
 test("Kitty detection requires a supported terminal outside multiplexers", () => {
   for (const env of [
     { TERM_PROGRAM: "ghostty" },
+    { TERM_PROGRAM: "rex", TERM: "xterm-256color" },
     { TERM: "xterm-ghostty" },
     {
       TERM: "xterm-kitty",

@@ -7,7 +7,7 @@ export function supportsKittyGraphics(
 ): boolean {
   if (!isTerminal || env("TMUX") || env("STY") || env("TERM") === "dumb") return false
   return (
-    env("TERM_PROGRAM") === "ghostty" ||
+    ["ghostty", "rex"].includes(env("TERM_PROGRAM") ?? "") ||
     ["xterm-ghostty", "xterm-kitty"].includes(env("TERM") ?? "")
   )
 }

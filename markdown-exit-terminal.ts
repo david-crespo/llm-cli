@@ -21,6 +21,8 @@ import stringWidth from "string-width"
 import supportsHyperlinks from "supports-hyperlinks"
 import wrapAnsi from "wrap-ansi"
 import { readFileSync } from "node:fs"
+import { dirname } from "node:path"
+import { pathToFileURL } from "node:url"
 import mathPlugin, { type MathEnv, reserveSlot, restoreMath } from "./terminal-math.ts"
 import { imageColumns, kittyPng } from "./terminal-image.ts"
 
@@ -34,6 +36,11 @@ export const codespan = fg(203).bg(236)
 const tableBorder = gray
 const tableHeader = cyan.bold
 const citationBracket = fg(244)
+/**
+ * Padded with a background so links under an image read as buttons. The
+ * padding is non-breaking spaces, which survive trimming and become spaces.
+ */
+const button = (text: string) => fg(231).bg(235)(`\u00a0${text}\u00a0`)
 
 /**
  * A citation marker: dim brackets and commas, blue numbers. In terminals with
@@ -428,7 +435,12 @@ function postProcessParagraphs(text: string): string {
 // lines, setting the title). NUL is also our marker delimiter.
 const CONTROL_RE = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]/g
 
-export type TerminalEnv = MathEnv & { codeTheme?: string; _sources?: Map<string, string> }
+export type TerminalEnv = MathEnv & {
+  codeTheme?: string
+  _sources?: Map<string, string>
+  /** The last image's links, to leave a blank line after them at the end */
+  _imageLinks?: string
+}
 
 function getColumns(): number {
   return process.stdout.columns ?? 80
@@ -468,15 +480,24 @@ export default function terminalPlugin(md: MarkdownExit): void {
     image: (tokens, idx, _options, env) => {
       const src = tokens[idx].attrGet("src") ?? ""
       const alt = tokens[idx].content || tokens[idx].children?.[0]?.content || "image"
-      // A local PNG is a generated image: draw it, or show its path
+      // A local PNG is a generated image: draw it if possible, then link to
+      // the file and its folder, or show the path if links aren't supported
       if (src.startsWith("/") && src.endsWith(".png")) {
-        if (!(env as TerminalEnv).images) return src
+        // The parser percent-encodes src
+        const path = decodeURI(src)
+        const links = hyperlinks
+          ? `${osc8(pathToFileURL(path).href, button("Open"))} ${osc8(pathToFileURL(dirname(path) + "/").href, button("Show in folder"))}`
+          : path
+        ;(env as TerminalEnv)._imageLinks = links
+        if (!(env as TerminalEnv).images) return links
         try {
-          const png = readFileSync(src)
+          const png = readFileSync(path)
           const term = { columns: getColumns(), rows: process.stdout.rows ?? 24 }
-          return reserveSlot(env as TerminalEnv, 1, kittyPng(png, imageColumns(png, term)))
+          const image = kittyPng(png, imageColumns(png, term))
+          // The image placement ends with a newline, so the links sit right under it
+          return reserveSlot(env as TerminalEnv, 1, image) + links
         } catch {
-          return src
+          return links
         }
       }
       return dim(`![${alt}](${src})`)
@@ -637,7 +658,10 @@ export default function terminalPlugin(md: MarkdownExit): void {
     output = postProcessTables(output)
     output = postProcessParagraphs(output)
     output = postProcessBlockquotes(output)
-    output = output.trimEnd().replaceAll("\u00a0", " ")
+    output = output.trimEnd()
+    // Space the links under a closing image off from what the terminal prints next
+    if (renderEnv._imageLinks && output.endsWith(renderEnv._imageLinks)) output += "\n"
+    output = output.replaceAll("\u00a0", " ")
     return restoreMath(output, renderEnv)
   }
 }

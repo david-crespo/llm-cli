@@ -498,13 +498,38 @@ test("renderMarkdown draws a local PNG, or shows its path", async () => {
   new DataView(png.buffer).setUint32(20, 100)
   writeFileSync(path, png)
   const md = `![](<${path}>)`
-  assert.deepEqual(stripAnsi(await renderMarkdown(md, { images: false })), path)
+  assert.deepEqual(stripAnsi(await renderMarkdown(md, { images: false })), `${path}\n`)
+  // Only a closing image gets the blank line
+  assert.deepEqual(
+    stripAnsi(await renderMarkdown(`${md}\n\nThe end`, { images: false })),
+    `${path}\n\nThe end`,
+  )
   const drawn = await renderMarkdown(md, { images: true })
   assert(drawn.includes("\x1b_Ga=T,f=100"), "should transmit and place the PNG")
-  assert(!drawn.includes(path))
+  assert(drawn.endsWith(`\n${path}\n`), "without OSC 8, the path follows the image")
   // A missing file falls back to the path
   assert.deepEqual(
     stripAnsi(await renderMarkdown(`![](/nope.png)`, { images: true })),
-    "/nope.png",
+    "/nope.png\n",
+  )
+})
+
+test("a local PNG links to the file and its folder with OSC 8", () => {
+  // Hyperlink support is detected at import, so render in a child process
+  const script = `
+    import { renderMarkdown } from ${JSON.stringify(new URL("./md-render.ts", import.meta.url).href)}
+    process.stdout.write(await renderMarkdown("![](</images/a fox.png>)", { images: false }))`
+  const { stdout } = spawnSync(
+    process.execPath,
+    ["--input-type=module", "--eval", script],
+    {
+      env: { ...process.env, FORCE_HYPERLINK: "1" },
+      encoding: "utf8",
+    },
+  )
+  const link = (url: string, text: string) => `\x1b]8;;${url}\x07${text}\x1b]8;;\x07`
+  assert.deepEqual(
+    stdout.replace(/\x1b\[[0-9;]*m/g, ""),
+    `${link("file:///images/a%20fox.png", " Open ")} ${link("file:///images/", " Show in folder ")}\n`,
   )
 })

@@ -10,8 +10,9 @@ test("Claude uses adaptive thinking with effort levels", () => {
   assert.deepEqual(params.effort, "xhigh")
 })
 
-test("Claude leaves effort at the API default unless asked", () => {
+test("Claude defaults to medium effort on every model", () => {
   const params = claudeThinkParams(undefined)
   assert.deepEqual(params.thinking.type, "adaptive")
-  assert.deepEqual(params.output_config, undefined)
+  assert.deepEqual(params.output_config, { effort: "medium" })
+  assert.deepEqual(params.effort, "medium")
 })

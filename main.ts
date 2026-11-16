@@ -350,7 +350,9 @@ function modelInfoMd(modelArg: string) {
 
   if (thinkProviders.has(provider)) {
     if (provider === "anthropic") {
-      lines.push("think: adaptive (high), --quick for low, --think-hard for xhigh")
+      lines.push(
+        "think: medium by default, --think for high, --think-hard for xhigh, --quick for low",
+      )
     } else if (provider === "openai") {
       lines.push("think: medium by default, --think-hard for high, --quick for none")
     } else if (provider === "google") {

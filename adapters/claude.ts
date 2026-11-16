@@ -54,7 +54,7 @@ const MAX_TOKENS = 128_000
 
 type ClaudeThinkParams = {
   thinking: Anthropic.Beta.BetaThinkingConfigParam
-  output_config: Anthropic.Beta.BetaOutputConfig | undefined
+  output_config: Anthropic.Beta.BetaOutputConfig
   effort: string
 }
 
@@ -67,12 +67,10 @@ export function claudeThinkParams(think: ThinkLevel | undefined): ClaudeThinkPar
     display: "summarized",
   }
 
-  // Leave effort at the API default, high
-  if (think === undefined) {
-    return { thinking, output_config: undefined, effort: "high" }
-  }
-
+  // Always send effort: the API default differs by model (medium on Opus and
+  // Haiku, high on Fable and Sonnet), and we want medium everywhere.
   const effort = match(think)
+    .with(undefined, () => "medium" as const)
     .with("on", () => "high" as const)
     .with("high", () => "xhigh" as const)
     .with("off", () => "low" as const)

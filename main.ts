@@ -31,7 +31,7 @@ import {
   imageQualities,
   type ModelResponse,
   searchProviders,
-  thinkProviders,
+  thinkEfforts,
 } from "./adapters/mod.ts"
 import { History } from "./storage.ts"
 import { ensureConfigFile, getApiKey, profilesReport, resolveProfile } from "./config.ts"
@@ -323,7 +323,7 @@ async function historyPicker() {
   }
 }
 
-function modelInfoMd(modelArg: string) {
+async function modelInfoMd(modelArg: string) {
   const model = resolveModel(modelArg)
   const { provider, key, id } = model
 
@@ -337,28 +337,26 @@ function modelInfoMd(modelArg: string) {
         "image generation: --size 1K|2K|4K (default 2K), --aspect W:H",
         "aspect ratios include 1:1, 3:2, 2:3, 4:3, 3:4, 5:4, 16:9, 9:16, 21:9, 4:1, 1:4, 8:1, 1:8",
         "without --aspect, the model chooses the ratio",
-        "think: medium by default, --quick for minimal, --think-hard for high",
       )
     }
-    lines.push("output: PNG saved under ~/.local/state/llm-cli/images")
-    return lines.join("\n")
-  }
-
-  if (searchProviders.has(provider)) {
+  } else if (searchProviders.has(provider)) {
     lines.push("search: yes")
   }
 
-  if (thinkProviders.has(provider)) {
-    if (provider === "anthropic") {
-      lines.push(
-        "think: medium by default, --think for high, --think-hard for xhigh, --quick for low",
-      )
-    } else if (provider === "openai") {
-      lines.push("think: medium by default, --think-hard for high, --quick for none")
-    } else if (provider === "google") {
-      const level = key.includes("flash-lite") ? "minimal" : "low"
-      lines.push(`think: dynamic by default, --quick for ${level}`)
-    }
+  const efforts = await thinkEfforts(model)
+  if (efforts) {
+    const flags = [
+      ["--think", efforts.on],
+      ["--think-hard", efforts.high],
+      ["--quick", efforts.off],
+    ]
+      .filter(([, effort]) => effort !== efforts.default)
+      .map(([flag, effort]) => `${flag} for ${effort}`)
+    lines.push([`think: ${efforts.default} by default`, ...flags].join(", "))
+  }
+
+  if (model.kind === "image") {
+    lines.push("output: PNG saved under ~/.local/state/llm-cli/images")
   }
 
   return lines.join("\n")
@@ -665,9 +663,9 @@ program
   .argument("[model]", "Model key or substring")
   .option("-v, --verbose", "Show model keys")
   // like show, -v goes to the root command
-  .action((modelArg, _, cmd) => {
+  .action(async (modelArg, _, cmd) => {
     if (modelArg) {
-      renderMd(modelInfoMd(modelArg))
+      renderMd(await modelInfoMd(modelArg))
     } else {
       renderMd(modelsMd(cmd.optsWithGlobals().verbose))
     }

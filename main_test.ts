@@ -118,6 +118,40 @@ test("subcommand flags that the root command also has still apply", (t) => {
   assert(models.includes("| Model key "), models)
 })
 
+test("ai models <id> shows the efforts the adapter sends for each thinking flag", (t) => {
+  const { ai } = setup(t)
+  const cases: Array<[model: string, think: string[]]> = [
+    [
+      "claude-sonnet-5-5",
+      [
+        "think: medium by default, --think for high, --think-hard for xhigh, --quick for low",
+      ],
+    ],
+    ["gpt-6-luna", ["think: medium by default, --think-hard for high, --quick for none"]],
+    [
+      "gemini-4-argon",
+      ["think: medium by default, --think-hard for high, --quick for low"],
+    ],
+    [
+      "gemini-3.5-flash-lite",
+      ["think: minimal by default, --think for medium, --think-hard for high"],
+    ],
+    [
+      "gemini-nano-banana-2.1",
+      ["think: medium by default, --think-hard for high, --quick for minimal"],
+    ],
+    ["gpt-image-2.6-flare", []],
+  ]
+  for (const [model, think] of cases) {
+    const lines = ai(["models", model]).stdout.split("\n")
+    assert.deepEqual(
+      lines.filter((line) => line.startsWith("think:")),
+      think,
+      model,
+    )
+  }
+})
+
 test("--json prints one JSON object, --raw prints only the text, and -e saves nothing", (t) => {
   const { ai, inState } = setup(t)
 

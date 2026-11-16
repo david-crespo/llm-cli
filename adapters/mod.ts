@@ -1,3 +1,5 @@
+import type { Model } from "../models.ts"
+import type { ThinkLevel } from "../types.ts"
 import type { ChatInput, ModelResponse } from "./types.ts"
 
 export type { ChatInput, ImageOptions, ModelResponse, ToolConfig } from "./types.ts"
@@ -25,6 +27,36 @@ export async function createMessage(input: ChatInput): Promise<ModelResponse> {
   if (provider === "google") return (await import("./gemini.ts")).geminiCreateMessage(input)
   if (provider === "openrouter") return (await openai()).openrouterCreateMessage(input)
   return (await openai()).gptCreateMessage(input)
+}
+
+/**
+ * The effort `model` uses by default and for each thinking flag, or undefined
+ * if it takes no thinking level. Loads only that provider's adapter.
+ */
+export async function thinkEfforts(model: Model) {
+  const effortFor = await (async (): Promise<
+    ((level: ThinkLevel | undefined) => string) | undefined
+  > => {
+    if (model.provider === "anthropic") {
+      const { claudeThinkParams } = await import("./claude.ts")
+      return (level) => claudeThinkParams(level).effort
+    }
+    if (model.provider === "google") {
+      const { geminiThinkParams } = await import("./gemini.ts")
+      return (level) => geminiThinkParams(model.key, level).effort
+    }
+    // OpenAI image models take no thinking level
+    if (model.provider === "openai" && model.kind !== "image") {
+      return (await openai()).openAIEffort
+    }
+  })()
+  if (!effortFor) return undefined
+  return {
+    default: effortFor(undefined),
+    on: effortFor("on"),
+    high: effortFor("high"),
+    off: effortFor("off"),
+  }
 }
 
 type GptBg = typeof import("./openai.ts").gptBg

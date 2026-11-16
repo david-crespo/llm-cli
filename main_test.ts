@@ -108,6 +108,16 @@ test("replies keep the model and search, thinking is sticky, and history is save
   )
 })
 
+test("subcommand flags that the root command also has still apply", (t) => {
+  const { ai } = setup(t)
+  ai(["-m", testModel("anthropic").id, "hi"], "q")
+  assert.deepEqual(ai(["show", "--raw"]).stdout, "ok\n")
+  const verbose = ai(["show", "-v"]).stdout
+  assert(verbose.includes("> Thinking it over.\n\nok"), verbose)
+  const models = ai(["models", "-v"]).stdout
+  assert(models.includes("| Model key "), models)
+})
+
 test("--json prints one JSON object, --raw prints only the text, and -e saves nothing", (t) => {
   const { ai, inState } = setup(t)
 

@@ -573,7 +573,9 @@ program
   .option("-p, --pick <spec>", "Pick specific messages (e.g., '1,3-4,7', 'even', 'odd')")
   .option("-v, --verbose", "Include reasoning in output")
   .option("--raw", "Print LLM output directly (no metadata or reasoning)")
-  .action(async (opts) => {
+  // The root command has -v and --raw too, and Commander gives them to it
+  .action(async (_, cmd) => {
+    const opts = cmd.optsWithGlobals()
     const chat = History.current()
     if (!chat) throw new ValidationError("No chat in progress")
     const mode = getMode(opts)
@@ -662,11 +664,12 @@ program
   .description("List models or show info for a specific model")
   .argument("[model]", "Model key or substring")
   .option("-v, --verbose", "Show model keys")
-  .action((modelArg, opts) => {
+  // like show, -v goes to the root command
+  .action((modelArg, _, cmd) => {
     if (modelArg) {
       renderMd(modelInfoMd(modelArg))
     } else {
-      renderMd(modelsMd(opts.verbose))
+      renderMd(modelsMd(cmd.optsWithGlobals().verbose))
     }
   })
 

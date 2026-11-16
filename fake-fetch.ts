@@ -14,7 +14,14 @@ const log = process.env.FAKE_FETCH_LOG
 if (!log) throw new Error("fake-fetch: FAKE_FETCH_LOG is not set")
 
 const replies: Array<[RegExp, () => Response]> = [
-  [/^https:\/\/api\.anthropic\.com\/v1\/messages\b/, () => claudeStream()],
+  [
+    /^https:\/\/api\.anthropic\.com\/v1\/messages\b/,
+    () =>
+      claudeStream([
+        { type: "thinking", thinking: "Thinking it over.", signature: "sig" },
+        { type: "text", text: "ok" },
+      ]),
+  ],
   [/^https:\/\/api\.openai\.com\/v1\/responses$/, () => openaiResponse()],
   [
     /^https:\/\/generativelanguage\.googleapis\.com\/v1\w*\/models\/[^/]+:generateContent$/,

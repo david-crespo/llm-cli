@@ -32,6 +32,10 @@ test("parseDataUrl - missing base64 marker returns null", () => {
   assert.deepEqual(parseDataUrl("data:image/png,iVBORw0KGgo="), null)
 })
 
+test("parseDataUrl - non-image media type returns null", () => {
+  assert.deepEqual(parseDataUrl("data:application/pdf;base64,JVBERi0="), null)
+})
+
 test("resolveImage - http and https URLs pass through", async () => {
   for (const url of ["http://example.com/cat.png", "https://example.com/cat.png"]) {
     assert.deepEqual(await resolveImage(url), url)
@@ -158,5 +162,22 @@ test("resolveImage leaves ordinary local images unchanged without invoking sips"
       assert.deepEqual(calls.length, 0)
     },
     "png",
+  )
+})
+
+test("resolveImage rejects a missing file and an unsupported extension", async () => {
+  await assert.rejects(
+    resolveImage("/nonexistent/cat.png"),
+    errorIncluding(ValidationError, "Could not read image at '/nonexistent/cat.png'"),
+  )
+  await withFakeSips(
+    () => Promise.reject(new Error("Should not run sips")),
+    async (input, _calls, sips) => {
+      await assert.rejects(
+        resolveImage(input, sips),
+        errorIncluding(ValidationError, "Unsupported image extension '.bmp'"),
+      )
+    },
+    "bmp",
   )
 })

@@ -36,6 +36,14 @@ test("image models list every unsupported flag in one problem", () => {
   ])
 })
 
+test("image models take only a fresh prompt", () => {
+  const req = flags({ reply: true, system: true, outputSchema: true, background: true })
+  assert.deepEqual(requestProblems(gptImage, req), [
+    "Not supported for image models: -r (use -m to pick a text model), --system, --output-schema, --background",
+    "Structured output is not supported in background mode",
+  ])
+})
+
 test("image options only apply to image models", () => {
   assert.deepEqual(requestProblems(gptImage, flags({ quality: "low" })), [])
   assert.deepEqual(requestProblems(claude, flags({ size: "auto" })), [

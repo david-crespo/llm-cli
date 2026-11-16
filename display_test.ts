@@ -10,7 +10,9 @@ import {
 import { systemBase } from "./models.ts"
 import type { Chat, ChatMessage } from "./types.ts"
 
-const assistantMessage = (effort?: string): ChatMessage => ({
+const assistantMessage = (
+  effort?: string,
+): Extract<ChatMessage, { role: "assistant" }> => ({
   role: "assistant",
   model: "gpt-5.6-sol",
   createdAt: new Date(0),
@@ -97,4 +99,56 @@ test("generated image paths become Markdown images except in raw and gist", () =
   assert(messageContentMd(msg, "cli").includes(`Here you go\n![](<${path}>)`))
   assert.deepEqual(messageContentMd(msg, "raw"), `Here you go\n${path}`)
   assert(messageContentMd(msg, "gist").includes(`Here you go\n${path}`))
+})
+
+test("chatToMd selects messages and collapses reasoning and long input in gists", () => {
+  const long = Array.from({ length: 41 }, (_, i) => `line ${i + 1}`).join("\n")
+  const pasted = `<details>\n${long}\n</details>`
+  const chat: Chat = {
+    id: "test",
+    createdAt: new Date(0),
+    systemPrompt: "Be brief.",
+    messages: [
+      { role: "user", content: long, createdAt: new Date(0) },
+      {
+        ...assistantMessage("high"),
+        content: "Answer",
+        reasoning: "First\nSecond",
+        tokens: { input: 100, input_cache_hit: 80, output: 20 },
+        searches: 3,
+        stop_reason: "max_tokens",
+      },
+      { role: "user", content: pasted, createdAt: new Date(0) },
+      { ...assistantMessage(), content: "Done", searches: 1 },
+    ],
+  }
+  const started = `**Chat started:** ${longDateFmt.format(chat.createdAt)}\n\n`
+  const meta =
+    "`gpt-5.6-sol` (high) | 1s | $0 | 100 (80) -> 20 | 🌐×3 | **Stop reason:** max_tokens"
+  const lastMeta = "`gpt-5.6-sol` | 1s | $0 | 1 -> 2 | 🌐"
+
+  assert.deepEqual(
+    chatToMd({ chat, lastN: 1 }),
+    `${started}**System prompt:** Be brief.\n\n# assistant (4/4)\n\n${lastMeta}\n\nDone\n\n`,
+  )
+  assert.deepEqual(
+    chatToMd({ chat, indices: [1], mode: "verbose" }),
+    `${started}**System prompt:** Be brief.\n\n# assistant (2/4)\n\n${meta}\n\n> First\n> Second\n\nAnswer\n\n`,
+  )
+  assert.deepEqual(chatToMd({ chat, indices: [1, 3], mode: "raw" }), "Answer\n\nDone")
+  assert.deepEqual(
+    chatToMd({ chat, mode: "gist" }),
+    [
+      started,
+      "<details>\n<summary>\nSystem prompt\n</summary>\n\n\nBe brief.\n</details>\n\n",
+      "# user (1/4)\n\n",
+      `<details>\n<summary>\nLong input collapsed\n</summary>\n\n\n${long}\n</details>\n\n\n\n`,
+      `# assistant (2/4)\n\n${meta}\n\n`,
+      "<details>\n<summary>\nReasoning\n</summary>\n\n\n> First\n> Second\n</details>\n\n",
+      "Answer\n\n",
+      // Input that already has a details block isn't wrapped in another
+      `# user (3/4)\n\n${pasted}\n\n`,
+      `# assistant (4/4)\n\n${lastMeta}\n\nDone\n\n`,
+    ].join(""),
+  )
 })

@@ -98,6 +98,53 @@ test("History.delete removes selected chat without rewriting others", () => {
   })
 })
 
+test("History.delete moves current to the most recently active chat that remains", () => {
+  withTempState(() => {
+    History.save(chat("one", "2026-01-01T00:00:00Z"))
+    History.save(chat("two", "2026-01-02T00:00:00Z"), { current: true })
+
+    History.delete(["two"])
+    assert.deepEqual(History.current()?.id, "one")
+
+    History.delete(["one"])
+    assert.deepEqual(History.current(), undefined)
+  })
+})
+
+test("History.save prunes the least recently active chats beyond 30", () => {
+  withTempState(() => {
+    const ids = Array.from({ length: 31 }, (_, i) => `c${String(i).padStart(2, "0")}`)
+    // Created a day apart, in order, so c00 is the oldest
+    const created = (i: number) => new Date(Date.UTC(2020, 0, 1 + i)).toISOString()
+    for (const [i, id] of ids.slice(0, 30).entries()) History.save(chat(id, created(i)))
+    History.touch("c00")
+    History.save(chat("c30", created(30)))
+
+    const listed = History.list().map((c) => c.id)
+    assert.deepEqual(listed, [...ids.slice(2), "c00"])
+    assert.deepEqual(History.current()?.id, "c00")
+  })
+})
+
+test("History revives a background response's start time and finds the latest one", () => {
+  withTempState(() => {
+    const background = {
+      id: "resp_1",
+      status: "queued" as const,
+      startedAt: new Date("2026-01-03T00:00:00Z"),
+      provider: "openai" as const,
+      modelId: "gpt",
+    }
+    History.save({ ...chat("bg", "2026-01-01T00:00:00Z"), background })
+    History.save(chat("plain", "2026-01-02T00:00:00Z"))
+
+    const found = History.findLatestBackground()
+    assert.deepEqual(found?.id, "bg")
+    assert(found?.background?.startedAt instanceof Date, "startedAt should load as a Date")
+    assert.deepEqual(found?.background, background)
+  })
+})
+
 test("History.clear removes every chat", () => {
   withTempState(() => {
     History.save(chat("one", "2026-01-01T00:00:00Z"), { current: true })

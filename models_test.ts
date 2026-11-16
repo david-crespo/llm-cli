@@ -108,6 +108,19 @@ test("getCost - cache writes without write pricing use input price", () => {
   assert.deepEqual(getCost(model, tokens), 0.006)
 })
 
+test("getCost - adds the search cost per search", () => {
+  const model: Model = {
+    provider: "test",
+    key: "test-model",
+    id: "test",
+    input: 3,
+    output: 15,
+    search_cost: 0.01,
+  }
+  // 0.0105 for tokens, as above, plus 3 searches at $0.01
+  assertAlmostEqual(getCost(model, { input: 1000, output: 500 }, 3), 0.0405)
+})
+
 test("getCost - Haiku 5.5 prices every token type at 5x over 100k input", () => {
   const model: Model = {
     provider: "test",

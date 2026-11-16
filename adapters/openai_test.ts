@@ -1,15 +1,28 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { errorIncluding, testModel } from "../testing.ts"
 import { Buffer } from "node:buffer"
+import { type } from "arktype"
 
+import {
+  errorIncluding,
+  openaiResponse,
+  promptChat,
+  recordRequests,
+  testModel,
+} from "../testing.ts"
+import type { ThinkLevel } from "../types.ts"
+import { createMessage } from "./mod.ts"
 import { gptImageParams, openAIEffort, processGptImageResponse } from "./openai.ts"
 import type { ChatInput } from "./types.ts"
 
 test("OpenAI reasoning intent resolves to native effort", () => {
-  assert.deepEqual(openAIEffort(undefined), "medium")
-  assert.deepEqual(openAIEffort("high"), "high")
-  assert.deepEqual(openAIEffort("off"), "none")
+  const cases: Array<[ThinkLevel | undefined, string]> = [
+    [undefined, "medium"],
+    ["on", "medium"],
+    ["high", "high"],
+    ["off", "none"],
+  ]
+  for (const [think, effort] of cases) assert.deepEqual(openAIEffort(think), effort, think)
 })
 
 test("image response saves each image and counts tokens", () => {
@@ -64,4 +77,51 @@ test("image generation rejects history and input images before requesting", () =
       errorIncluding(Error, "fresh text-only prompt"),
     )
   }
+})
+
+test("OpenAI structured response unwraps the value and keeps the response ID", async () => {
+  const usage = {
+    input_tokens: 100,
+    input_tokens_details: { cached_tokens: 80 },
+    output_tokens: 20,
+    output_tokens_details: { reasoning_tokens: 5 },
+    total_tokens: 120,
+  }
+  const search = { type: "web_search_call", id: "ws", status: "completed" }
+  const {
+    result: response,
+    bodies: [body],
+  } = await recordRequests(
+    () => openaiResponse(`{"value":"yes"}`, { id: "resp_1", usage, toolCalls: [search] }),
+    () =>
+      createMessage({
+        chat: promptChat("Is it?"),
+        model: testModel("openai"),
+        apiKey: "test-key",
+        config: { search: true, think: undefined },
+        outputSchema: type("'yes' | 'no'"),
+      }),
+  )
+  assert.deepEqual(body.text, {
+    format: {
+      type: "json_schema",
+      name: "output",
+      strict: true,
+      schema: {
+        type: "object",
+        properties: { value: { enum: ["no", "yes"] } },
+        required: ["value"],
+        additionalProperties: false,
+      },
+    },
+  })
+  const { cost: _, ...rest } = response
+  assert.deepEqual(rest, {
+    content: "yes",
+    tokens: { input: 100, output: 20, input_cache_hit: 80 },
+    stop_reason: "completed",
+    searches: 1,
+    effort: "medium",
+    provider: { type: "openai", responseId: "resp_1" },
+  })
 })

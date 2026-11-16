@@ -1,6 +1,14 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { errorIncluding, testModel } from "../testing.ts"
+import {
+  claudeStream,
+  errorIncluding,
+  geminiResponse,
+  openaiResponse,
+  recordRequests,
+  testModel,
+  withFetch,
+} from "../testing.ts"
 import { ValidationError } from "../errors.ts"
 
 import type { Chat } from "../types.ts"
@@ -11,33 +19,10 @@ const firstImage = "data:image/png;base64,AQID"
 const secondImage = "data:image/jpeg;base64,BAUG"
 const imageUrl = "https://example.com/third.webp"
 
-// Claude requests stream, so the mock answers with server-sent events
-const claudeStream = (text: string) =>
-  new Response(
-    [
-      {
-        type: "message_start",
-        message: { content: [], usage: { input_tokens: 0, output_tokens: 0 } },
-      },
-      { type: "content_block_start", index: 0, content_block: { type: "text", text: "" } },
-      { type: "content_block_delta", index: 0, delta: { type: "text_delta", text } },
-      { type: "content_block_stop", index: 0 },
-      {
-        type: "message_delta",
-        delta: { stop_reason: "end_turn" },
-        usage: { output_tokens: 0 },
-      },
-      { type: "message_stop" },
-    ]
-      .map((event) => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`)
-      .join(""),
-    { headers: { "content-type": "text/event-stream" } },
-  )
-
 const cases = [
   {
     provider: "anthropic",
-    respond: () => claudeStream("ok"),
+    respond: () => claudeStream(),
     messages: [
       {
         role: "user",
@@ -62,7 +47,7 @@ const cases = [
   },
   {
     provider: "openai",
-    respond: () => Response.json({ id: "response", output: [], status: "completed" }),
+    respond: () => openaiResponse(),
     messages: [
       {
         role: "user",
@@ -81,8 +66,7 @@ const cases = [
   },
   {
     provider: "google",
-    respond: () =>
-      Response.json({ candidates: [{ content: { parts: [{ text: "ok" }] } }] }),
+    respond: () => geminiResponse(),
     messages: [
       {
         role: "user",
@@ -125,9 +109,8 @@ for (const testCase of cases) {
         { role: "user", content: "", createdAt: new Date(0), image_urls: [imageUrl] },
       ],
     }
-    const originalFetch = globalThis.fetch
     let requestBody: Record<string, unknown> | undefined
-    globalThis.fetch = async (input, init) => {
+    const mockFetch: typeof fetch = async (input, init) => {
       const request = new Request(input, init)
       if (request.url === imageUrl) {
         return new Response(new Uint8Array([7, 8, 9]), {
@@ -137,20 +120,18 @@ for (const testCase of cases) {
       requestBody = (await request.json()) as Record<string, unknown>
       return testCase.respond()
     }
-    try {
-      await createMessage({
+    await withFetch(mockFetch, () =>
+      createMessage({
         chat,
         model,
         apiKey: "test-key",
         config: { search: false, think: undefined },
-      })
-      assert.deepEqual(
-        requestBody?.messages ?? requestBody?.input ?? requestBody?.contents,
-        testCase.messages,
-      )
-    } finally {
-      globalThis.fetch = originalFetch
-    }
+      }),
+    )
+    assert.deepEqual(
+      requestBody?.messages ?? requestBody?.input ?? requestBody?.contents,
+      testCase.messages,
+    )
   })
 }
 
@@ -159,63 +140,59 @@ test("Claude's per-image base64 limit accepts the boundary", () => {
 })
 
 test("OpenAI background requests use high image detail and send only the chained turn", async () => {
-  const originalFetch = globalThis.fetch
-  let requestBody: Record<string, unknown> | undefined
-  globalThis.fetch = async (input, init) => {
-    requestBody = (await new Request(input, init).json()) as Record<string, unknown>
-    return Response.json({ id: "new-response", output: [], status: "queued" })
-  }
-  try {
-    await gptBg.initiate({
-      model: testModel("openai"),
-      apiKey: "test-key",
-      config: { search: false, think: undefined },
-      chat: {
-        id: "test",
-        createdAt: new Date(0),
-        systemPrompt: "test",
-        messages: [
-          {
-            role: "user",
-            content: "Earlier image",
-            image_urls: [firstImage],
-            createdAt: new Date(0),
-          },
-          {
-            role: "assistant",
-            content: "ok",
-            model: testModel("openai").id,
-            provider: { type: "openai", responseId: "previous-response" },
-            createdAt: new Date(0),
-            tokens: { input: 0, output: 0 },
-            stop_reason: "stop",
-            cost: 0,
-            timeMs: 0,
-          },
-          {
-            role: "user",
-            content: "",
-            image_urls: [secondImage, imageUrl],
-            createdAt: new Date(0),
-          },
-        ],
-      },
-    })
-    assert.deepEqual(requestBody?.input, [
-      {
-        role: "user",
-        content: [
-          { type: "input_image", image_url: secondImage, detail: "high" },
-          { type: "input_image", image_url: imageUrl, detail: "high" },
-        ],
-      },
-    ])
-    assert.deepEqual(requestBody?.previous_response_id, "previous-response")
-    assert.deepEqual(requestBody?.background, true)
-    assert.deepEqual(requestBody?.store, true)
-  } finally {
-    globalThis.fetch = originalFetch
-  }
+  const {
+    bodies: [requestBody],
+  } = await recordRequests(
+    () => Response.json({ id: "new-response", output: [], status: "queued" }),
+    () =>
+      gptBg.initiate({
+        model: testModel("openai"),
+        apiKey: "test-key",
+        config: { search: false, think: undefined },
+        chat: {
+          id: "test",
+          createdAt: new Date(0),
+          systemPrompt: "test",
+          messages: [
+            {
+              role: "user",
+              content: "Earlier image",
+              image_urls: [firstImage],
+              createdAt: new Date(0),
+            },
+            {
+              role: "assistant",
+              content: "ok",
+              model: testModel("openai").id,
+              provider: { type: "openai", responseId: "previous-response" },
+              createdAt: new Date(0),
+              tokens: { input: 0, output: 0 },
+              stop_reason: "stop",
+              cost: 0,
+              timeMs: 0,
+            },
+            {
+              role: "user",
+              content: "",
+              image_urls: [secondImage, imageUrl],
+              createdAt: new Date(0),
+            },
+          ],
+        },
+      }),
+  )
+  assert.deepEqual(requestBody.input, [
+    {
+      role: "user",
+      content: [
+        { type: "input_image", image_url: secondImage, detail: "high" },
+        { type: "input_image", image_url: imageUrl, detail: "high" },
+      ],
+    },
+  ])
+  assert.deepEqual(requestBody.previous_response_id, "previous-response")
+  assert.deepEqual(requestBody.background, true)
+  assert.deepEqual(requestBody.store, true)
 })
 
 for (const testCase of [
@@ -249,9 +226,8 @@ for (const testCase of [
   },
 ]) {
   test(`${testCase.provider} rejects oversized encoded images and requests before sending: ${testCase.error}`, async () => {
-    const originalFetch = globalThis.fetch
     let apiCalls = 0
-    globalThis.fetch = (input, init) => {
+    const mockFetch: typeof fetch = (input, init) => {
       const request = new Request(input, init)
       if (request.url === imageUrl) {
         return Promise.resolve(
@@ -263,8 +239,8 @@ for (const testCase of [
       apiCalls++
       return Promise.resolve(cases.find((c) => c.provider === testCase.provider)!.respond())
     }
-    try {
-      await assert.rejects(
+    await withFetch(mockFetch, () =>
+      assert.rejects(
         () =>
           createMessage({
             model: testModel(testCase.provider),
@@ -286,10 +262,8 @@ for (const testCase of [
             },
           }),
         errorIncluding(ValidationError, testCase.error),
-      )
-      assert.deepEqual(apiCalls, 0)
-    } finally {
-      globalThis.fetch = originalFetch
-    }
+      ),
+    )
+    assert.deepEqual(apiCalls, 0)
   })
 }

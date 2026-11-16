@@ -4,7 +4,10 @@ import { test } from "node:test"
 
 import { MediaModality, ThinkingLevel } from "@google/genai"
 
-import { testModel } from "../testing.ts"
+import { type } from "arktype"
+
+import { geminiResponse, promptChat, recordRequests, testModel } from "../testing.ts"
+import { createMessage } from "./mod.ts"
 import { geminiThinkParams, processGeminiImageResponse, withCitations } from "./gemini.ts"
 
 test("Gemini default sends MEDIUM, or MINIMAL on flash-lite", () => {
@@ -157,4 +160,46 @@ test("image response without an image reports the model's text", async () => {
     ),
     /No image in response \(STOP\): I can't make that/,
   )
+})
+
+test("Gemini structured response skips citations and counts thinking as output", async () => {
+  const parts = [{ text: "Checking", thought: true }, { text: '"yes"' }]
+  const groundingMetadata = {
+    groundingChunks: [chunk("a.com")],
+    groundingSupports: [{ segment: { endIndex: 5 }, groundingChunkIndices: [0] }],
+  }
+  const usageMetadata = {
+    promptTokenCount: 100,
+    cachedContentTokenCount: 40,
+    candidatesTokenCount: 10,
+    thoughtsTokenCount: 30,
+  }
+  const {
+    result: response,
+    bodies: [body],
+  } = await recordRequests(
+    () => geminiResponse(parts, { groundingMetadata, usageMetadata }),
+    () =>
+      createMessage({
+        chat: promptChat("Is it?"),
+        model: testModel("google"),
+        apiKey: "test-key",
+        config: { search: true, think: undefined },
+        outputSchema: type("'yes' | 'no'"),
+      }),
+  )
+  assert.deepEqual(body.generationConfig, {
+    responseMimeType: "application/json",
+    responseJsonSchema: { enum: ["no", "yes"] },
+    thinkingConfig: { includeThoughts: true, thinkingLevel: "MEDIUM" },
+  })
+  const { cost: _, ...rest } = response
+  assert.deepEqual(rest, {
+    content: "yes",
+    reasoning: "Checking",
+    tokens: { input: 100, output: 40, input_cache_hit: 40 },
+    stop_reason: "STOP",
+    searches: 1,
+    effort: "medium",
+  })
 })

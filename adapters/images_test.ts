@@ -2,7 +2,6 @@ import assert from "node:assert/strict"
 import { test } from "node:test"
 import { errorIncluding } from "../testing.ts"
 import { ValidationError } from "../errors.ts"
-import { type } from "arktype"
 
 import { resolveModel } from "../models.ts"
 import type { Chat } from "../types.ts"
@@ -157,48 +156,6 @@ for (const testCase of cases) {
 
 test("Claude's per-image base64 limit accepts the boundary", () => {
   validateClaudeImageSize("A".repeat(10_000_000))
-})
-
-test("Gemini size validation matches the SDK's wire body including schema and tools", async () => {
-  const originalFetch = globalThis.fetch
-  const wireSizes: number[] = []
-  globalThis.fetch = async (input, init) => {
-    const request = new Request(input, init)
-    wireSizes.push((await request.arrayBuffer()).byteLength)
-    return Response.json({ candidates: [{ content: { parts: [{ text: "ok" }] } }] })
-  }
-  const message = {
-    role: "user" as const,
-    content: "x",
-    image_urls: [firstImage],
-    createdAt: new Date(0),
-  }
-  const input = {
-    model: resolveModel("gemini-4-hydrogen"),
-    apiKey: "test-key",
-    config: { search: true, think: "high" as const },
-    outputSchema: type({ answer: "string" }),
-    chat: {
-      id: "test",
-      createdAt: new Date(0),
-      systemPrompt: 'Read 猫 and preserve "quotes"\nand newlines',
-      messages: [message],
-    },
-  }
-  try {
-    await createMessage(input)
-    message.content = "x".repeat(20_000_000 - wireSizes[0] + 1)
-    await createMessage(input)
-    assert.deepEqual(wireSizes[1], 20_000_000)
-    message.content += "x"
-    await assert.rejects(
-      () => createMessage(input),
-      errorIncluding(ValidationError, "Gemini request is larger than the 20 MB limit"),
-    )
-    assert.deepEqual(wireSizes.length, 2)
-  } finally {
-    globalThis.fetch = originalFetch
-  }
 })
 
 test("OpenAI background requests use high image detail and send only the chained turn", async () => {

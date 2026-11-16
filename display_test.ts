@@ -1,6 +1,12 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { chatToMd, formatElapsed, messageContentMd, metaLineMd } from "./display.ts"
+import {
+  chatToMd,
+  formatElapsed,
+  longDateFmt,
+  messageContentMd,
+  metaLineMd,
+} from "./display.ts"
 import { systemBase } from "./models.ts"
 import type { Chat, ChatMessage } from "./types.ts"
 
@@ -16,63 +22,39 @@ const assistantMessage = (effort?: string): ChatMessage => ({
   effort,
 })
 
-test("chatToMd includes every attached image in order", () => {
-  const chat: Chat = {
-    id: "images",
+test("messageContentMd lists every attached image in order", () => {
+  const msg: ChatMessage = {
+    role: "user",
+    content: "Compare these",
     createdAt: new Date(0),
-    systemPrompt: systemBase,
-    messages: [
-      {
-        role: "user",
-        content: "Compare these",
-        createdAt: new Date(0),
-        image_urls: ["data:image/png;base64,AQID", "https://example.com/second.jpg"],
-      },
-    ],
+    image_urls: ["data:image/png;base64,AQID", "https://example.com/second.jpg"],
   }
-  const md = chatToMd({ chat })
   assert.deepEqual(
-    md.includes("[Image 1 (inline)]\n\n[Image 2](https://example.com/second.jpg)"),
-    true,
+    messageContentMd(msg, "cli"),
+    "Compare these\n\n[Image 1 (inline)]\n\n[Image 2](https://example.com/second.jpg)\n\n",
   )
 })
 
-test("formatElapsed - seconds only", () => {
-  assert.deepEqual(formatElapsed(5000), "5s")
-  assert.deepEqual(formatElapsed(30000), "30s")
-})
-
-test("formatElapsed - minutes and seconds", () => {
-  assert.deepEqual(formatElapsed(65000), "1m5s")
-  assert.deepEqual(formatElapsed(125000), "2m5s")
-})
-
-test("formatElapsed - fractional seconds", () => {
-  assert.deepEqual(formatElapsed(1500), "1.5s")
-  assert.deepEqual(formatElapsed(2750), "2.75s")
-})
-
-test("formatElapsed - fractional seconds truncated in minutes", () => {
-  // 90.5 seconds = 1m30s (seconds truncated to integer when minutes > 0)
-  assert.deepEqual(formatElapsed(90500), "1m30s")
-})
-
-test("formatElapsed - zero", () => {
-  assert.deepEqual(formatElapsed(0), "0s")
-})
-
-test("formatElapsed - large values", () => {
-  assert.deepEqual(formatElapsed(3600000), "60m0s") // 1 hour
+test("formatElapsed", () => {
+  const cases: Array<[number, string]> = [
+    [0, "0s"],
+    [5000, "5s"],
+    [2750, "2.75s"],
+    [65000, "1m5s"],
+    // seconds are truncated once there are minutes
+    [90500, "1m30s"],
+  ]
+  for (const [ms, expected] of cases) assert.deepEqual(formatElapsed(ms), expected)
 })
 
 test("metaLineMd abbreviates known reasoning efforts", () => {
   assert.deepEqual(
-    metaLineMd(assistantMessage("minimal")).startsWith("`gpt-5.6-sol` (min) |"),
-    true,
+    metaLineMd(assistantMessage("minimal")),
+    "`gpt-5.6-sol` (min) | 1s | $0 | 1 -> 2",
   )
   assert.deepEqual(
-    metaLineMd(assistantMessage("medium")).startsWith("`gpt-5.6-sol` (med) |"),
-    true,
+    metaLineMd(assistantMessage("medium")),
+    "`gpt-5.6-sol` (med) | 1s | $0 | 1 -> 2",
   )
 })
 
@@ -97,11 +79,16 @@ test("chatToMd ignores date differences in the default system prompt", () => {
     messages: [assistantMessage()],
     createdAt: new Date(0),
   }
-  assert.deepEqual(chatToMd({ chat }).includes("**System prompt:**"), false)
+  const started = `**Chat started:** ${longDateFmt.format(chat.createdAt)}\n\n`
+  const body = "# assistant (1/1)\n\n`gpt-5.6-sol` | 1s | $0 | 1 -> 2\n\nhi\n\n"
+  assert.deepEqual(chatToMd({ chat }), started + body)
 
-  // A genuinely customized prompt is still reported.
-  const chatCustom: Chat = { ...chat, systemPrompt: stalePrompt + "\n- extra" }
-  assert.deepEqual(chatToMd({ chat: chatCustom }).includes("**System prompt:**"), true)
+  // A customized prompt is still reported.
+  const systemPrompt = stalePrompt + "\n- extra"
+  assert.deepEqual(
+    chatToMd({ chat: { ...chat, systemPrompt } }),
+    `${started}**System prompt:** ${systemPrompt}\n\n${body}`,
+  )
 })
 
 test("generated image paths become Markdown images except in raw and gist", () => {

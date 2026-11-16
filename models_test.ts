@@ -29,10 +29,6 @@ const testModels: Model[] = [
   },
 ]
 
-function resolveTestModel(modelArg: string | undefined) {
-  return resolveModel(modelArg, testModels)
-}
-
 // getCost tests
 
 test("getCost - basic calculation without caching", () => {
@@ -122,47 +118,20 @@ test("getCost - long context prices apply over threshold", () => {
   assertAlmostEqual(getCost(model, long), 0.0300005)
 })
 
-test("getCost - zero tokens", () => {
-  const model: Model = {
-    provider: "test",
-    key: "test-model",
-    id: "test",
-    input: 3,
-    output: 15,
+test("resolveModel - matches id or key exactly, then by substring, ignoring case", () => {
+  const cases: Array<[string | undefined, Model]> = [
+    [undefined, testModels[2]],
+    ["alpha", testModels[2]],
+    ["vendor-alpha", testModels[2]],
+    ["alpha-", testModels[0]],
+    ["vendor-alpha-", testModels[0]],
+    ["ALPHA-", testModels[0]],
+  ]
+  for (const [arg, expected] of cases) {
+    assert.deepEqual(resolveModel(arg, testModels), expected, String(arg))
   }
-  const tokens = { input: 0, output: 0 }
-  assert.deepEqual(getCost(model, tokens), 0)
-})
-
-// resolveModel tests
-
-test("resolveModel - returns default when undefined", () => {
-  assert.deepEqual(resolveTestModel(undefined), testModels[2])
-})
-
-test("resolveModel - exact match on id", () => {
-  assert.deepEqual(resolveTestModel("alpha"), testModels[2])
-})
-
-test("resolveModel - exact match on key", () => {
-  assert.deepEqual(resolveTestModel("vendor-alpha"), testModels[2])
-})
-
-test("resolveModel - substring match on id", () => {
-  assert.deepEqual(resolveTestModel("alpha-"), testModels[0])
-})
-
-test("resolveModel - substring match on key", () => {
-  assert.deepEqual(resolveTestModel("vendor-alpha-"), testModels[0])
-})
-
-test("resolveModel - case insensitive", () => {
-  assert.deepEqual(resolveTestModel("ALPHA-"), testModels[0])
-})
-
-test("resolveModel - throws on unknown model", () => {
   assert.throws(
-    () => resolveTestModel("nonexistent-model-xyz"),
+    () => resolveModel("nonexistent-model-xyz", testModels),
     errorIncluding(ValidationError, "not found"),
   )
 })

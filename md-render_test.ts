@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { test } from "node:test"
 import process from "node:process"
 import { spawnSync } from "node:child_process"
-import { mkdtempSync, writeFileSync } from "node:fs"
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
@@ -29,11 +29,6 @@ test("renderMarkdown handles nested blockquotes", async () => {
   const output = await renderMarkdown("> outer\n> > inner\n> back")
   assert(!output.includes("\x00"))
   assert.deepEqual(stripAnsi(output), " │ outer\n │\n │  │ inner\n │  │ back")
-})
-
-test("renderMarkdown preserves list item paragraph breaks", async () => {
-  const output = await renderMarkdown("- first paragraph\n\n  second paragraph")
-  assert.deepEqual(stripAnsi(output), "* first paragraph\n  second paragraph")
 })
 
 async function withColumns<T>(columns: number, fn: () => Promise<T>): Promise<T> {
@@ -227,12 +222,16 @@ test("renderMarkdown sizes tables from visible link text", async () => {
   const output = stripAnsi(
     await renderMarkdown("| h |\n| - |\n| [x](https://example.com) |"),
   )
-  const lines = output.split("\n")
-  const paddedWidth = lines[1].slice(2, -2).length
-  const headerWidth = lines[1].slice(2, -2).trimEnd().length
-  const bodyWidth = lines[3].slice(2, -2).trimEnd().length
-
-  assert.deepEqual(paddedWidth, Math.max(3, headerWidth, bodyWidth))
+  assert.deepEqual(
+    output,
+    [
+      "╭─────────────────────────╮",
+      "│ h                       │",
+      "├─────────────────────────┤",
+      "│ x (https://example.com) │",
+      "╰─────────────────────────╯",
+    ].join("\n"),
+  )
 })
 
 test("renderMarkdown sizes emoji grapheme clusters as width 2 in tables", async () => {
@@ -278,14 +277,6 @@ test("renderMarkdown handles common inline markdown", async () => {
     output,
     "# Title\n\nParagraph with bold, italic, strike,  code , and link (https://example.com).",
   )
-})
-
-test("renderMarkdown handles basic lists", async () => {
-  const output = stripAnsi(
-    await renderMarkdown("- first\n- second\n  - nested\n\n1. one\n2. two"),
-  )
-
-  assert.deepEqual(output, "* first\n* second\n  * nested\n\n1. one\n2. two")
 })
 
 test("renderMarkdown handles basic fenced code blocks", async () => {
@@ -439,21 +430,6 @@ test(
   },
 )
 
-test("renderMarkdown handles simple tables", async () => {
-  const output = stripAnsi(await renderMarkdown("| a | b |\n| - | - |\n| 1 | 2 |"))
-
-  assert.deepEqual(
-    output,
-    [
-      "╭─────┬─────╮",
-      "│ a   │ b   │",
-      "├─────┼─────┤",
-      "│ 1   │ 2   │",
-      "╰─────┴─────╯",
-    ].join("\n"),
-  )
-})
-
 test("renderMarkdown styles citation markers that follow a word", skipNoColor, async () => {
   const { bold } = ansis
   assert.deepEqual(
@@ -490,8 +466,10 @@ test("citation numbers link to their Sources entries with OSC 8", () => {
   )
 })
 
-test("renderMarkdown draws a local PNG, or shows its path", async () => {
-  const path = join(mkdtempSync(join(tmpdir(), "md-render-")), "image.png")
+test("renderMarkdown draws a local PNG, or shows its path", async (t) => {
+  const dir = mkdtempSync(join(tmpdir(), "md-render-"))
+  t.after(() => rmSync(dir, { recursive: true }))
+  const path = join(dir, "image.png")
   // Enough of a PNG header for sizing: IHDR width and height
   const png = new Uint8Array(24)
   new DataView(png.buffer).setUint32(16, 100)

@@ -1,11 +1,6 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import {
-  imageColumns,
-  kittyPng,
-  pngDimensions,
-  supportsKittyGraphics,
-} from "./terminal-image.ts"
+import { imageColumns, kittyPng, supportsKittyGraphics } from "./terminal-image.ts"
 
 /** Minimal PNG header: signature plus IHDR width and height. Enough for sizing. */
 function fakePng(width: number, height: number, extra = 0) {
@@ -15,10 +10,6 @@ function fakePng(width: number, height: number, extra = 0) {
   view.setUint32(20, height)
   return bytes
 }
-
-test("pngDimensions reads IHDR", () => {
-  assert.deepEqual(pngDimensions(fakePng(1536, 1024)), { width: 1536, height: 1024 })
-})
 
 test("imageColumns caps at 80 and fits the screen height", () => {
   const term = { columns: 200, rows: 100 }

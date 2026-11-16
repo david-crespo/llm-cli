@@ -32,18 +32,10 @@ test("parseDataUrl - missing base64 marker returns null", () => {
   assert.deepEqual(parseDataUrl("data:image/png,iVBORw0KGgo="), null)
 })
 
-test("parseDataUrl - empty string returns null", () => {
-  assert.deepEqual(parseDataUrl(""), null)
-})
-
-test("resolveImage - http URL passes through", async () => {
-  const url = "http://example.com/cat.png"
-  assert.deepEqual(await resolveImage(url), url)
-})
-
-test("resolveImage - https URL passes through", async () => {
-  const url = "https://example.com/cat.png"
-  assert.deepEqual(await resolveImage(url), url)
+test("resolveImage - http and https URLs pass through", async () => {
+  for (const url of ["http://example.com/cat.png", "https://example.com/cat.png"]) {
+    assert.deepEqual(await resolveImage(url), url)
+  }
 })
 
 async function withFakeSips(

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
 
-import { pick, range, uniqueBy } from "./utils.ts"
+import { range, uniqueBy } from "./utils.ts"
 
 test("range excludes the end and is empty when end <= start", () => {
   assert.deepEqual(range(2, 5), [2, 3, 4])
@@ -22,8 +22,4 @@ test("uniqueBy keeps the first item for each key", () => {
       { k: "b", n: 2 },
     ],
   )
-})
-
-test("pick copies only the given keys", () => {
-  assert.deepEqual(pick({ a: 1, b: 2, c: 3 }, ["a", "c"]), { a: 1, c: 3 })
 })

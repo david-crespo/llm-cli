@@ -1,9 +1,8 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { errorIncluding } from "../testing.ts"
+import { errorIncluding, testModel } from "../testing.ts"
 import { ValidationError } from "../errors.ts"
 
-import { resolveModel } from "../models.ts"
 import type { Chat } from "../types.ts"
 import { createMessage, gptBg } from "./mod.ts"
 import { validateClaudeImageSize } from "./request_size.ts"
@@ -37,7 +36,7 @@ const claudeStream = (text: string) =>
 
 const cases = [
   {
-    model: "sonnet",
+    provider: "anthropic",
     respond: () => claudeStream("ok"),
     messages: [
       {
@@ -62,7 +61,7 @@ const cases = [
     ],
   },
   {
-    model: "gpt-6.1-sol",
+    provider: "openai",
     respond: () => Response.json({ id: "response", output: [], status: "completed" }),
     messages: [
       {
@@ -81,7 +80,7 @@ const cases = [
     ],
   },
   {
-    model: "gemini-4-hydrogen",
+    provider: "google",
     respond: () =>
       Response.json({ candidates: [{ content: { parts: [{ text: "ok" }] } }] }),
     messages: [
@@ -100,7 +99,8 @@ const cases = [
 ]
 
 for (const testCase of cases) {
-  test(`${testCase.model} sends all images in order, including history and image-only turns`, async () => {
+  test(`${testCase.provider} sends all images in order, including history and image-only turns`, async () => {
+    const model = testModel(testCase.provider)
     const chat: Chat = {
       id: "test",
       createdAt: new Date(0),
@@ -115,7 +115,7 @@ for (const testCase of cases) {
         {
           role: "assistant",
           content: "ok",
-          model: testCase.model,
+          model: model.id,
           createdAt: new Date(0),
           tokens: { input: 0, output: 0 },
           stop_reason: "stop",
@@ -140,7 +140,7 @@ for (const testCase of cases) {
     try {
       await createMessage({
         chat,
-        model: resolveModel(testCase.model),
+        model,
         apiKey: "test-key",
         config: { search: false, think: undefined },
       })
@@ -167,7 +167,7 @@ test("OpenAI background requests use high image detail and send only the chained
   }
   try {
     await gptBg.initiate({
-      model: resolveModel("gpt-6.1-sol"),
+      model: testModel("openai"),
       apiKey: "test-key",
       config: { search: false, think: undefined },
       chat: {
@@ -184,7 +184,7 @@ test("OpenAI background requests use high image detail and send only the chained
           {
             role: "assistant",
             content: "ok",
-            model: "gpt-6.1-sol",
+            model: testModel("openai").id,
             provider: { type: "openai", responseId: "previous-response" },
             createdAt: new Date(0),
             tokens: { input: 0, output: 0 },
@@ -220,13 +220,13 @@ test("OpenAI background requests use high image detail and send only the chained
 
 for (const testCase of [
   {
-    model: "sonnet",
+    provider: "anthropic",
     images: ["data:image/png;base64," + "A".repeat(10_000_004)],
     prompt: "Describe this",
     error: "Claude image is larger than the 10 MB base64 limit",
   },
   {
-    model: "sonnet",
+    provider: "anthropic",
     images: Array.from(
       { length: 4 },
       () => "data:image/png;base64," + "A".repeat(8_000_000),
@@ -235,20 +235,20 @@ for (const testCase of [
     error: "Claude request is larger than the 32 MB limit",
   },
   {
-    model: "gemini-4-hydrogen",
+    provider: "google",
     images: ["data:image/png;base64," + "A".repeat(19_999_000)],
     // UTF-8 text and JSON overhead push an otherwise in-limit image over the limit.
     prompt: "猫".repeat(400),
     error: "Gemini request is larger than the 20 MB limit",
   },
   {
-    model: "gemini-4-hydrogen",
+    provider: "google",
     images: [imageUrl],
     prompt: "Describe this",
     error: "Gemini request is larger than the 20 MB limit",
   },
 ]) {
-  test(`${testCase.model} rejects oversized encoded images and requests before sending: ${testCase.error}`, async () => {
+  test(`${testCase.provider} rejects oversized encoded images and requests before sending: ${testCase.error}`, async () => {
     const originalFetch = globalThis.fetch
     let apiCalls = 0
     globalThis.fetch = (input, init) => {
@@ -261,13 +261,13 @@ for (const testCase of [
         )
       }
       apiCalls++
-      return Promise.resolve(cases.find((c) => c.model === testCase.model)!.respond())
+      return Promise.resolve(cases.find((c) => c.provider === testCase.provider)!.respond())
     }
     try {
       await assert.rejects(
         () =>
           createMessage({
-            model: resolveModel(testCase.model),
+            model: testModel(testCase.provider),
             apiKey: "test-key",
             config: { search: false, think: undefined },
             chat: {

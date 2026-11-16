@@ -1,9 +1,8 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { assertAlmostEqual, errorIncluding } from "../testing.ts"
+import { errorIncluding, testModel } from "../testing.ts"
 import { Buffer } from "node:buffer"
 
-import { resolveModel } from "../models.ts"
 import { gptImageParams, openAIEffort, processGptImageResponse } from "./openai.ts"
 import type { ChatInput } from "./types.ts"
 
@@ -13,8 +12,7 @@ test("OpenAI reasoning intent resolves to native effort", () => {
   assert.deepEqual(openAIEffort("off"), "none")
 })
 
-test("image response saves each image and prices usage", () => {
-  const model = resolveModel("flare")
+test("image response saves each image and counts tokens", () => {
   const saved: [number, number][] = []
   const response = processGptImageResponse(
     {
@@ -28,7 +26,7 @@ test("image response saves each image and prices usage", () => {
         total_tokens: 220,
       },
     },
-    model,
+    testModel("openai", "image"),
     (bytes, i) => {
       saved.push([bytes.length, i])
       return `/images/${i}.png`
@@ -38,15 +36,14 @@ test("image response saves each image and prices usage", () => {
   assert.deepEqual(response.images, ["/images/0.png"])
   assert.deepEqual(response.content, "/images/0.png")
   assert.deepEqual(response.effort, "low")
-  // (20 * 5 + 200 * 30) / 1_000_000
-  assertAlmostEqual(response.cost, 0.0061)
+  assert.deepEqual(response.tokens, { input: 20, output: 200 })
 })
 
 test("image generation rejects history and input images before requesting", () => {
   const user = { role: "user" as const, content: "a cat", createdAt: new Date() }
   const input: ChatInput = {
     chat: { id: "test", createdAt: new Date(), systemPrompt: "", messages: [user] },
-    model: resolveModel("flare"),
+    model: testModel("openai", "image"),
     apiKey: "test-key",
     config: { search: false, think: undefined },
   }

@@ -108,14 +108,36 @@ test("getCost - cache writes without write pricing use input price", () => {
   assert.deepEqual(getCost(model, tokens), 0.006)
 })
 
-test("getCost - long context prices apply over threshold", () => {
-  const model = resolveModel("haiku-5.5")
+test("getCost - Haiku 5.5 prices every token type at 5x over 100k input", () => {
+  const model: Model = {
+    provider: "test",
+    key: "claude-haiku-5-5",
+    id: "test",
+    input: 1,
+    input_cached: 0.1,
+    output: 5,
+  }
   const short = { input: 100_000, input_cache_hit: 50_000, output: 1000 }
-  // (0.01 * 50_000 + 0.10 * 50_000 + 0.50 * 1000) / 1_000_000
-  assertAlmostEqual(getCost(model, short), 0.006)
+  // (0.1 * 50_000 + 1 * 50_000 + 5 * 1000) / 1_000_000
+  assertAlmostEqual(getCost(model, short), 0.06)
   const long = { input: 100_001, input_cache_hit: 50_000, output: 1000 }
-  // (0.05 * 50_000 + 0.50 * 50_001 + 2.50 * 1000) / 1_000_000
-  assertAlmostEqual(getCost(model, long), 0.0300005)
+  // 5 * (0.1 * 50_000 + 1 * 50_001 + 5 * 1000) / 1_000_000
+  assertAlmostEqual(getCost(model, long), 0.300005)
+})
+
+test("getCost - image output tokens use the image price", () => {
+  const model: Model = {
+    provider: "test",
+    key: "test-image",
+    id: "test",
+    kind: "image",
+    input: 1,
+    output: 10,
+    output_image: 40,
+  }
+  const tokens = { input: 10, output: 2007, output_image: 1120 }
+  // (1 * 10 + 40 * 1120 + 10 * 887) / 1_000_000
+  assertAlmostEqual(getCost(model, tokens), 0.05368)
 })
 
 test("resolveModel - matches id or key exactly, then by substring, ignoring case", () => {

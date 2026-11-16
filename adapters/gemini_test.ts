@@ -4,8 +4,7 @@ import { test } from "node:test"
 
 import { MediaModality, ThinkingLevel } from "@google/genai"
 
-import { resolveModel } from "../models.ts"
-import { assertAlmostEqual } from "../testing.ts"
+import { testModel } from "../testing.ts"
 import { geminiThinkParams, processGeminiImageResponse, withCitations } from "./gemini.ts"
 
 test("Gemini default sends MEDIUM, or MINIMAL on flash-lite", () => {
@@ -109,7 +108,7 @@ test("withCitations lists every source when there are no supports", () => {
   assert.deepEqual(withCitations([{ text: "Answer." }], undefined), "Answer.")
 })
 
-test("image response saves final images and prices image tokens separately", async () => {
+test("image response saves final images and counts image tokens separately", async () => {
   const saved: [string, string, number][] = []
   const response = await processGeminiImageResponse(
     {
@@ -133,7 +132,7 @@ test("image response saves final images and prices image tokens separately", asy
         candidatesTokensDetails: [{ modality: MediaModality.IMAGE, tokenCount: 1120 }],
       },
     } as never,
-    resolveModel("banana"),
+    testModel("google", "image"),
     async (bytes, mimeType, i) => {
       saved.push([Buffer.from(bytes).toString("base64"), mimeType, i])
       return `/images/${i}.png`
@@ -143,8 +142,6 @@ test("image response saves final images and prices image tokens separately", asy
   assert.deepEqual(response.images, ["/images/0.png"])
   assert.deepEqual(response.content, "Here is your fox\n/images/0.png")
   assert.deepEqual(response.tokens, { input: 10, output: 2007, output_image: 1120 })
-  // (10 * 1.5 + 1120 * 30 + 887 * 7.5) / 1_000_000
-  assertAlmostEqual(response.cost, 0.0402675)
 })
 
 test("image response without an image reports the model's text", async () => {
@@ -155,7 +152,7 @@ test("image response without an image reports the model's text", async () => {
           { content: { parts: [{ text: "I can't make that" }] }, finishReason: "STOP" },
         ],
       } as never,
-      resolveModel("banana"),
+      testModel("google", "image"),
       async () => "",
     ),
     /No image in response \(STOP\): I can't make that/,

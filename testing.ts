@@ -1,5 +1,7 @@
 import assert from "node:assert/strict"
 
+import { type Model, models } from "./models.ts"
+
 /**
  * An `assert.throws`/`assert.rejects` validator for an instance of `type` whose
  * message includes `text`. Node's own third argument is the failure message,
@@ -18,4 +20,14 @@ export function assertAlmostEqual(actual: number, expected: number, tolerance = 
     Math.abs(actual - expected) < tolerance,
     `Expected ${actual} to be within ${tolerance} of ${expected}`,
   )
+}
+
+/**
+ * The first catalog model from `provider` of `kind` (text when omitted), so
+ * tests don't break when a model is renamed or replaced.
+ */
+export function testModel(provider: string, kind?: Model["kind"]): Model {
+  const model = models.find((m) => m.provider === provider && m.kind === kind)
+  assert(model, `No ${kind ?? "text"} model for ${provider}`)
+  return model
 }

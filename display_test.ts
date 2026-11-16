@@ -152,3 +152,11 @@ test("chatToMd selects messages and collapses reasoning and long input in gists"
     ].join(""),
   )
 })
+
+test("messageContentMd escapes every think tag", () => {
+  const msg = { ...assistantMessage(), content: "<think>a</think> then <think>b</think>" }
+  assert.deepEqual(
+    messageContentMd(msg, "verbose"),
+    "`gpt-5.6-sol` | 1s | $0 | 1 -> 2\n\n\\<think>a\\</think> then \\<think>b\\</think>\n\n",
+  )
+})

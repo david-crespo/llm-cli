@@ -77,7 +77,7 @@ export function formatElapsed(ms: number) {
 }
 
 const escapeThinkTags = (content: string) =>
-  content.replace("<think>", "\\<think>").replace("</think>", "\\</think>")
+  content.replaceAll("<think>", "\\<think>").replaceAll("</think>", "\\</think>")
 
 // TODO: add `verbose` mode and hide reasoning from `nice` mode
 

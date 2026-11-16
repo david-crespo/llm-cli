@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk"
+import type { BetaMessageStreamParams } from "@anthropic-ai/sdk/resources/beta/messages"
 import { match } from "ts-pattern"
 
 import { postprocessSchemaContent, prepareSchema } from "../schema.ts"
@@ -45,10 +46,15 @@ function renderClaudeContentBlock(msg: Anthropic.Beta.Messages.BetaContentBlock)
   }
 }
 
+// The max output of every current Claude model. Thinking counts against it,
+// so a lower cap let a long request spend it all on thinking and return no
+// text. The request streams because the SDK refuses non-streaming requests
+// whose max_tokens could take over 10 minutes to generate.
+const MAX_TOKENS = 128_000
+
 type ClaudeThinkParams = {
   thinking: Anthropic.Beta.BetaThinkingConfigParam
   output_config: Anthropic.Beta.BetaOutputConfig | undefined
-  max_tokens: number
   effort: string
 }
 
@@ -61,14 +67,9 @@ export function claudeThinkParams(think: ThinkLevel | undefined): ClaudeThinkPar
     display: "summarized",
   }
 
-  // SDK's non-streaming guard throws when max_tokens > ~21_333 (it assumes
-  // 128k tokens/hour and refuses requests estimated to take >10 min).
-  // Effort high and up needs the bigger cap.
-  const max_tokens = think === "off" ? 8_000 : 20_000
-
   // Leave effort at the API default, high
   if (think === undefined) {
-    return { thinking, output_config: undefined, max_tokens, effort: "high" }
+    return { thinking, output_config: undefined, effort: "high" }
   }
 
   const effort = match(think)
@@ -77,7 +78,7 @@ export function claudeThinkParams(think: ThinkLevel | undefined): ClaudeThinkPar
     .with("off", () => "low" as const)
     .exhaustive()
 
-  return { thinking, output_config: { effort }, max_tokens, effort }
+  return { thinking, output_config: { effort }, effort }
 }
 
 export async function claudeCreateMessage({
@@ -95,33 +96,29 @@ export async function claudeCreateMessage({
     toolsList.push({ type: "code_execution_20260120", name: "code_execution" })
   }
 
-  const { thinking, output_config, max_tokens, effort } = claudeThinkParams(config.think)
+  const { thinking, output_config, effort } = claudeThinkParams(config.think)
 
   const prep = outputSchema ? prepareSchema(outputSchema) : undefined
   const format: Anthropic.Beta.BetaJSONOutputFormat | undefined = prep
     ? { type: "json_schema", schema: prep.schema }
     : undefined
 
-  const params: Anthropic.Beta.MessageCreateParamsNonStreaming = {
+  const params: BetaMessageStreamParams = {
     model: model.key,
     cache_control: { type: "ephemeral" },
     system: chat.systemPrompt,
     messages: chat.messages.map((m) =>
       claudeMsg(m.role, m.content, m.role === "user" ? m.image_urls : undefined),
     ),
-    max_tokens,
+    max_tokens: MAX_TOKENS,
     thinking,
     output_config: format ? { ...output_config, format } : output_config,
     tools: toolsList.length > 0 ? toolsList : undefined,
   }
   validateRequestSize("Claude", params)
-  const response = await new Anthropic({ apiKey }).beta.messages.create(
-    {
-      ...params,
-      betas: ["code-execution-web-tools-2026-02-09"],
-    },
-    { signal },
-  )
+  const response = await new Anthropic({ apiKey }).beta.messages
+    .stream({ ...params, betas: ["code-execution-web-tools-2026-02-09"] }, { signal })
+    .finalMessage()
 
   const searches = response.usage.server_tool_use?.web_search_requests ?? 0
 
@@ -161,7 +158,7 @@ export async function claudeCreateMessage({
     reasoning,
     tokens,
     cost: getCost(model, tokens, searches),
-    stop_reason: response.stop_reason!, // always non-null in non-streaming mode
+    stop_reason: response.stop_reason!, // non-null once the stream completes
     searches: searches || undefined,
     effort,
   }

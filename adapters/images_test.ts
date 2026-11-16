@@ -13,14 +13,33 @@ const firstImage = "data:image/png;base64,AQID"
 const secondImage = "data:image/jpeg;base64,BAUG"
 const imageUrl = "https://example.com/third.webp"
 
+// Claude requests stream, so the mock answers with server-sent events
+const claudeStream = (text: string) =>
+  new Response(
+    [
+      {
+        type: "message_start",
+        message: { content: [], usage: { input_tokens: 0, output_tokens: 0 } },
+      },
+      { type: "content_block_start", index: 0, content_block: { type: "text", text: "" } },
+      { type: "content_block_delta", index: 0, delta: { type: "text_delta", text } },
+      { type: "content_block_stop", index: 0 },
+      {
+        type: "message_delta",
+        delta: { stop_reason: "end_turn" },
+        usage: { output_tokens: 0 },
+      },
+      { type: "message_stop" },
+    ]
+      .map((event) => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`)
+      .join(""),
+    { headers: { "content-type": "text/event-stream" } },
+  )
+
 const cases = [
   {
     model: "sonnet",
-    response: {
-      content: [{ type: "text", text: "ok" }],
-      usage: { input_tokens: 0, output_tokens: 0 },
-      stop_reason: "end_turn",
-    },
+    respond: () => claudeStream("ok"),
     messages: [
       {
         role: "user",
@@ -45,7 +64,7 @@ const cases = [
   },
   {
     model: "gpt-6.1-sol",
-    response: { id: "response", output: [], status: "completed" },
+    respond: () => Response.json({ id: "response", output: [], status: "completed" }),
     messages: [
       {
         role: "user",
@@ -64,7 +83,8 @@ const cases = [
   },
   {
     model: "gemini-4-hydrogen",
-    response: { candidates: [{ content: { parts: [{ text: "ok" }] } }] },
+    respond: () =>
+      Response.json({ candidates: [{ content: { parts: [{ text: "ok" }] } }] }),
     messages: [
       {
         role: "user",
@@ -116,7 +136,7 @@ for (const testCase of cases) {
         })
       }
       requestBody = (await request.json()) as Record<string, unknown>
-      return Response.json(testCase.response)
+      return testCase.respond()
     }
     try {
       await createMessage({
@@ -284,8 +304,7 @@ for (const testCase of [
         )
       }
       apiCalls++
-      const response = cases.find((c) => c.model === testCase.model)!.response
-      return Promise.resolve(Response.json(response))
+      return Promise.resolve(cases.find((c) => c.model === testCase.model)!.respond())
     }
     try {
       await assert.rejects(

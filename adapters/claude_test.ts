@@ -14,6 +14,4 @@ test("Claude leaves effort at the API default unless asked", () => {
   const params = claudeThinkParams(undefined)
   assert.deepEqual(params.thinking.type, "adaptive")
   assert.deepEqual(params.output_config, undefined)
-  assert.deepEqual(params.max_tokens, 20_000)
-  assert.deepEqual(claudeThinkParams("off").max_tokens, 8_000)
 })

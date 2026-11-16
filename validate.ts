@@ -19,10 +19,6 @@ export type RequestFlags = {
   aspect?: string
 }
 
-/** No need to pass --background for gpt-5.4-pro: it always needs it */
-export const usesBackground = (model: Model, background: boolean) =>
-  background || model.id === "gpt-5.4-pro"
-
 /** Everything about the request `model` can't do, empty if it's fine */
 export function requestProblems(model: Model, req: RequestFlags): string[] {
   const { provider } = model
@@ -76,7 +72,7 @@ export function requestProblems(model: Model, req: RequestFlags): string[] {
   if (req.background && provider !== "openai") {
     problems.push("Background mode only works with OpenAI models")
   }
-  if (req.outputSchema && usesBackground(model, req.background)) {
+  if (req.outputSchema && req.background) {
     problems.push("Structured output is not supported in background mode")
   }
 

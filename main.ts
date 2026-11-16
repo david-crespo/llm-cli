@@ -36,7 +36,7 @@ import {
 import { History } from "./storage.ts"
 import { ensureConfigFile, getApiKey, profilesReport, resolveProfile } from "./config.ts"
 import { genMissingSummaries } from "./summarize.ts"
-import { requestProblems, usesBackground } from "./validate.ts"
+import { requestProblems } from "./validate.ts"
 import {
   alignColumns,
   confirmed,
@@ -541,7 +541,7 @@ Examples:
       outputSchema: outputSchema?.expression,
     })
 
-    if (usesBackground(model, !!opts.background)) {
+    if (opts.background) {
       try {
         const { id, status, effort } = await gptBg.initiate(chatInput)
         chat.background = {

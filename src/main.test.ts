@@ -214,9 +214,22 @@ test("-r is refused while a background response is pending", (t) => {
   assert.deepEqual(requests(), [])
 })
 
-test("a failed request exits 1 and still saves the user message", (t) => {
+test("a failed request reports status and body on stderr, leaves stdout empty, and saves the user message", (t) => {
   const { ai, inState } = setup(t)
-  ai(["FAIL_REQUEST"], "x", 1)
+  for (const model of [
+    testModel("google").id,
+    testModel("anthropic").id,
+    testModel("openai").id,
+  ]) {
+    const failed = ai(["-m", model, "--raw", "FAIL_REQUEST"], "x", 1)
+    assert.deepEqual(failed.stdout, "", model)
+    assert.match(failed.stderr, /Request error: 500/, model)
+    assert.match(failed.stderr, /"Internal error"/, model)
+  }
+  const jsonFailed = ai(["--json", "-e", "FAIL_REQUEST"], "x", 1)
+  assert.deepEqual(jsonFailed.stdout, "")
+  assert.match(jsonFailed.stderr, /"Internal error"/)
+
   assert.deepEqual(
     inState(() => History.current()?.messages.map((m) => [m.role, m.content])),
     [["user", "x\n\nFAIL_REQUEST"]],

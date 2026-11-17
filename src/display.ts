@@ -13,6 +13,14 @@ export async function renderMd(md: string, raw = false) {
   }
 }
 
+export async function renderMdErr(md: string, raw = false) {
+  if (process.stderr.isTTY && !raw) {
+    console.error(await renderMarkdown(md))
+  } else {
+    console.error(md)
+  }
+}
+
 export const codeBlock = (contents: string, lang = "") =>
   `\`\`\`${lang}\n${contents}\n\`\`\`\n`
 export const jsonBlock = (obj: unknown) => codeBlock(JSON.stringify(obj, null, 2), "json")

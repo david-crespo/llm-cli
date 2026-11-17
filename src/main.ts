@@ -16,6 +16,7 @@ import {
   jsonBlock,
   modelsMd,
   renderMd,
+  renderMdErr,
   renderResponse,
   shortDateFmt,
 } from "./display.ts"
@@ -95,20 +96,35 @@ const createChat = (systemPrompt: string): Chat => ({
   messages: [],
 })
 
-// oxlint-disable-next-line typescript/no-explicit-any
-function renderError(e: any, opts: DisplayOpts = {}) {
+function apiErrorDetail(e: unknown): { status?: number; body?: unknown } {
+  if (!e || typeof e !== "object") return {}
+  const status = "status" in e && typeof e.status === "number" ? e.status : undefined
+  if ("error" in e && e.error !== undefined) return { status, body: e.error }
+  if (status !== undefined && e instanceof Error) {
+    try {
+      return { status, body: JSON.parse(e.message) }
+    } catch {
+      // Non-JSON message
+    }
+  }
+  return { status }
+}
+
+async function renderError(e: unknown, opts: DisplayOpts = {}) {
   process.exitCode = 1
-  // keep stdout clean for scripts: JSON mode reports errors on stderr only
+  const { status, body } = apiErrorDetail(e)
+  const message = e instanceof Error ? e.message : String(e)
   if (opts.json) {
-    const detail = e.response?.data ?? e.response?.error
-    console.error(e instanceof Error ? e.message : String(e))
-    if (detail) console.error(JSON.stringify(detail, null, 2))
+    console.error(message)
+    if (body !== undefined) console.error(JSON.stringify(body, null, 2))
     return
   }
-  if (e.response?.status) console.log("Request error:", e.response.status)
-  if (e.response?.data) renderMd(jsonBlock(e.response.data))
-  if (e.response?.error) renderMd(jsonBlock(e.response.error))
-  if (!("response" in e)) renderMd(codeBlock(e))
+  if (status !== undefined) console.error("Request error:", status)
+  if (body !== undefined) {
+    await renderMdErr(jsonBlock(body), opts.raw)
+  } else {
+    await renderMdErr(codeBlock(message), opts.raw)
+  }
 }
 
 async function pollBackgroundResponse(
@@ -185,7 +201,7 @@ async function genResponse(chatInput: ChatInput, displayOpts: DisplayOpts = {}) 
     chatInput.chat.messages.push(assistantMsg)
     await renderResponse(assistantMsg, displayOpts)
   } catch (e: unknown) {
-    renderError(e, displayOpts)
+    await renderError(e, displayOpts)
   } finally {
     process.off("SIGINT", sigintHandler)
     process.off("SIGTERM", sigtermHandler)
@@ -542,9 +558,8 @@ Examples:
         }
         if (!opts.ephemeral) History.save(chat, { current: true, touch: true })
         await pollBackgroundResponse(chat, model, displayOpts)
-        // oxlint-disable-next-line typescript/no-explicit-any
-      } catch (e: any) {
-        renderError(e, displayOpts)
+      } catch (e: unknown) {
+        await renderError(e, displayOpts)
       }
     } else {
       await genResponse(chatInput, displayOpts)
@@ -655,9 +670,9 @@ program
   // like show, -v goes to the root command
   .action(async (modelArg, _, cmd) => {
     if (modelArg) {
-      renderMd(await modelInfoMd(modelArg))
+      await renderMd(await modelInfoMd(modelArg))
     } else {
-      renderMd(modelsMd(cmd.optsWithGlobals().verbose))
+      await renderMd(modelsMd(cmd.optsWithGlobals().verbose))
     }
   })
 

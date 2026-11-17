@@ -171,7 +171,7 @@ test("SVG serialization escapes inequalities in MathJax attributes", async () =>
 
 test("the complete demo renders every valid equation", async () => {
   const text = await readFile(
-    new URL("./fixtures/terminal-math.md", import.meta.url),
+    new URL("../../test/fixtures/terminal-math.md", import.meta.url),
     "utf8",
   )
   const output = await renderMarkdown(text, { math: true })

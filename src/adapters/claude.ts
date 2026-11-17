@@ -8,7 +8,7 @@ import { parseDataUrl } from "../image-input.ts"
 import { uniqueBy } from "../utils.ts"
 import type { ThinkLevel } from "../types.ts"
 import type { ChatInput } from "./types.ts"
-import { validateClaudeImageSize, validateRequestSize } from "./request_size.ts"
+import { validateClaudeImageSize, validateRequestSize } from "./request-size.ts"
 
 function claudeMsg(
   role: "user" | "assistant",

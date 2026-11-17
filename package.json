@@ -2,7 +2,7 @@
   "name": "llm-cli",
   "private": true,
   "bin": {
-    "ai": "./main.ts"
+    "ai": "./src/main.ts"
   },
   "type": "module",
   "scripts": {
@@ -11,8 +11,8 @@
     "fmt:check": "oxfmt --check",
     "lint": "oxlint --deny-warnings",
     "check": "tsc",
-    "test": "node --test '**/*_test.ts'",
-    "math-demo": "node math-demo.ts"
+    "test": "node --test 'src/**/*.test.ts'",
+    "math-demo": "node scripts/math-demo.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "1.8.0",

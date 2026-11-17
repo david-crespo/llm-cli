@@ -12,8 +12,8 @@ import {
 import { ValidationError } from "../errors.ts"
 
 import type { Chat } from "../types.ts"
-import { createMessage, gptBg } from "./mod.ts"
-import { validateClaudeImageSize } from "./request_size.ts"
+import { createMessage, gptBg } from "./index.ts"
+import { validateClaudeImageSize } from "./request-size.ts"
 
 const firstImage = "data:image/png;base64,AQID"
 const secondImage = "data:image/jpeg;base64,BAUG"

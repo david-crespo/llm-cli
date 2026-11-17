@@ -3,7 +3,7 @@ import process from "node:process"
 
 import type { Chat, ChatMessage } from "./types.ts"
 import { models, systemBase } from "./models.ts"
-import { renderMarkdown } from "./md-render.ts"
+import { renderMarkdown } from "./render/md-render.ts"
 
 export async function renderMd(md: string, raw = false) {
   if (process.stdout.isTTY && !raw) {

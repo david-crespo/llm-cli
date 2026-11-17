@@ -9,7 +9,7 @@ import type { BackgroundStatus, ThinkLevel } from "../types.ts"
 import { getCost, type Model } from "../models.ts"
 import { saveImage } from "../storage.ts"
 import { type ChatInput, imagePrompt, type ModelResponse } from "./types.ts"
-import { validateRequestSize } from "./request_size.ts"
+import { validateRequestSize } from "./request-size.ts"
 
 function processGptResponse(
   response: OpenAI.Responses.Response,

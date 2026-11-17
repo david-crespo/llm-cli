@@ -18,7 +18,7 @@ import { parseDataUrl } from "../image-input.ts"
 import type { ThinkLevel } from "../types.ts"
 import { type ChatInput, imagePrompt, type ModelResponse } from "./types.ts"
 import { saveImage } from "../storage.ts"
-import { validateRequestSize } from "./request_size.ts"
+import { validateRequestSize } from "./request-size.ts"
 
 /** Gemini doesn't accept image URLs directly; inline as bytes either way. */
 async function imageToInlinePart(image_url: string): Promise<Part> {

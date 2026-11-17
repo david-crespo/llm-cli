@@ -4,7 +4,7 @@ import { test } from "node:test"
 import { claudeStream, promptChat, testModel, withFetch } from "../testing.ts"
 import type { ThinkLevel } from "../types.ts"
 import { claudeThinkParams } from "./claude.ts"
-import { createMessage } from "./mod.ts"
+import { createMessage } from "./index.ts"
 
 test("Claude thinks adaptively at an effort for each level", () => {
   const cases: Array<[ThinkLevel | undefined, string]> = [

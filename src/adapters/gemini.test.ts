@@ -7,7 +7,7 @@ import { MediaModality, ThinkingLevel } from "@google/genai"
 import { type } from "arktype"
 
 import { geminiResponse, promptChat, recordRequests, testModel } from "../testing.ts"
-import { createMessage } from "./mod.ts"
+import { createMessage } from "./index.ts"
 import { geminiThinkParams, processGeminiImageResponse, withCitations } from "./gemini.ts"
 
 test("Gemini default sends MEDIUM, or MINIMAL on flash-lite", () => {
@@ -72,7 +72,7 @@ test("withCitations marks cited spans by byte offset into the joined answer", ()
 test("withCitations places markers in a real grounded response", () => {
   const { candidates } = JSON.parse(
     readFileSync(
-      new URL("../fixtures/gemini-grounded-response.json", import.meta.url),
+      new URL("../../test/fixtures/gemini-grounded-response.json", import.meta.url),
       "utf8",
     ),
   )

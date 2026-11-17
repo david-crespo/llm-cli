@@ -3,5 +3,5 @@
   "printWidth": 92,
   "semi": false,
   "proseWrap": "always",
-  "ignorePatterns": ["fixtures/terminal-math.md", "package-lock.json", ".claude"]
+  "ignorePatterns": ["test/fixtures/terminal-math.md", "package-lock.json", ".claude"]
 }

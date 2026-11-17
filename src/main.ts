@@ -32,7 +32,7 @@ import {
   type ModelResponse,
   searchProviders,
   thinkEfforts,
-} from "./adapters/mod.ts"
+} from "./adapters/index.ts"
 import { History } from "./storage.ts"
 import { ensureConfigFile, getApiKey, profilesReport, resolveProfile } from "./config.ts"
 import { genMissingSummaries } from "./summarize.ts"

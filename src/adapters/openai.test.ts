@@ -11,7 +11,7 @@ import {
   testModel,
 } from "../testing.ts"
 import type { ThinkLevel } from "../types.ts"
-import { createMessage } from "./mod.ts"
+import { createMessage } from "./index.ts"
 import { gptImageParams, openAIEffort, processGptImageResponse } from "./openai.ts"
 import type { ChatInput } from "./types.ts"
 

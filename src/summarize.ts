@@ -1,6 +1,6 @@
 import $ from "dax"
 
-import { createMessage } from "./adapters/mod.ts"
+import { createMessage } from "./adapters/index.ts"
 import { type Chat } from "./types.ts"
 import { History } from "./storage.ts"
 import { resolveModel } from "./models.ts"

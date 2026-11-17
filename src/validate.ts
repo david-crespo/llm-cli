@@ -4,7 +4,7 @@ import {
   searchProviders,
   thinkProviders,
   type ToolConfig,
-} from "./adapters/mod.ts"
+} from "./adapters/index.ts"
 
 /** Request flags that some models can't take, resolved from the CLI options */
 export type RequestFlags = {

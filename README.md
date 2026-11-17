@@ -110,8 +110,8 @@ vars are all you need.
 
 I plan to publish this to npm so it can be installed with `npm install -g`. Until then,
 clone the repo, then run `npm install` and `npm link` in it. That puts `ai` on your PATH,
-running `main.ts` from the repo with `node` through its shebang line, so changes to the code
-take effect right away. You could also run it with `node path/to/main.ts`.
+running `src/main.ts` from the repo with `node` through its shebang line, so changes to the
+code take effect right away. You could also run it with `node path/to/src/main.ts`.
 
 ## Contributions
 

@@ -6,6 +6,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs"
+import { homedir } from "node:os"
 import { dirname, join } from "node:path"
 import process from "node:process"
 import { isErrno } from "./errors.ts"
@@ -20,7 +21,7 @@ export type StoredChat = Chat & {
 }
 
 function stateRoot(): string {
-  const stateHome = process.env.XDG_STATE_HOME || join(process.env.HOME!, ".local", "state")
+  const stateHome = process.env.XDG_STATE_HOME || join(homedir(), ".local", "state")
   return join(stateHome, "llm-cli")
 }
 

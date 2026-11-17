@@ -136,7 +136,7 @@ test("renderMarkdown renders task list checkboxes in place of the bullet", async
   )
 })
 
-test("renderMarkdown indents blockquotes, tables and headings inside list items", async () => {
+test("renderMarkdown indents blockquotes, tables, and headings inside list items", async () => {
   const src = [
     "- quote:",
     "",
@@ -292,10 +292,8 @@ test(
     skip: !codespan.open && "colors are disabled",
   },
   async () => {
-    // wrap-ansi will split a styled codespan if it contains breakable spaces,
-    // which either leaks bg color to end-of-line (BCE) or strands a lone styled
-    // space at the line edge. Codespans pad with NBSP and replace internal
-    // spaces with NBSP so wrap-ansi treats them as a single unbreakable word.
+    // code_inline uses NBSP so wrap-ansi never splits a styled codespan across
+    // lines (which would leak bg color to end-of-line or strand a styled space).
     const text =
       "The function takes any iterable of `T` (arrays, sets, generators, etc.) and a `keyFn` that derives a grouping key from each item.\n\n" +
       "The type parameter `K extends PropertyKey` constrains keys to `string | number | symbol` — the only types JavaScript allows as object keys. This lets the return type be a precise `Record<K, T[]>` rather than a loose `Record<string, T[]>`.\n\n" +

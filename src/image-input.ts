@@ -23,8 +23,7 @@ const EXT_MIME: Record<string, ImageMimeType> = {
   webp: "image/webp",
 }
 
-/** Parse a data URL into image media type and raw base64 payload, or null.
- * Returns null for non-data URLs or unsupported media types. */
+/** Parse an image data URL into its media type and base64 payload, or null. */
 export function parseDataUrl(
   url: string,
 ): { mediaType: ImageMimeType; data: string } | null {
@@ -82,7 +81,7 @@ const execSips: SipsRunner = (args) =>
     })
   })
 
-/** Convert a local HEIC/HEIF through macOS's optional image converter. */
+/** Convert a local HEIC/HEIF file to JPEG with macOS's `sips`. */
 async function convertHeicImage(value: string, runSips: SipsRunner): Promise<Uint8Array> {
   let sourcePath: string
   try {
@@ -149,10 +148,9 @@ async function convertHeicImage(value: string, runSips: SipsRunner): Promise<Uin
 }
 
 /**
- * Resolve `--image <value>` to a URL string. The sentinel `clipboard` pulls a
- * PNG from the macOS clipboard. `http(s)` URLs pass through. Any other value
- * is treated as a local file path, read, base64-encoded, and returned as a
- * `data:` URL. Local HEIC/HEIF files are converted to JPEG through `sips`.
+ * Resolve `--image <value>` to a URL string: `"clipboard"` reads a PNG from
+ * the macOS clipboard, `http(s)` URLs pass through, and local files are read
+ * as `data:` URLs (converting HEIC/HEIF to JPEG with `sips`).
  */
 export async function resolveImage(
   value: string,

@@ -78,13 +78,12 @@ export type Chat = {
   messages: ChatMessage[]
   createdAt: Date
   summary?: string
-  /** Last-used web search setting. Inherited by `-r` replies (unless overridden
-   * with -s/--no-search) so search stays on across a chat and prompt caching
-   * keeps hitting. All providers cache on a request prefix that includes the
-   * tool definitions, so toggling the search tool busts the cache — most
-   * severely on Anthropic, where tools sit at the front of the prefix
-   * (tools → system → messages) and re-sending the full history re-pays for
-   * everything after. */
+  /**
+   * Last-used web search setting, inherited by `-r` replies unless overridden
+   * with `-s` or `--no-search`. Every provider's prompt cache prefix includes
+   * tool definitions (before `system` and `messages` on Anthropic), so keeping
+   * the search tool stable across turns preserves cache hits.
+   */
   search?: boolean
   /** Last provider-neutral reasoning intent. Inherited by replies. */
   think?: ThinkLevel

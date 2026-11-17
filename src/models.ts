@@ -193,12 +193,9 @@ export function resolveModel(
 ) {
   if (modelArg === undefined) return availableModels.find((m) => m.default)!
 
-  // Find the first model containing the arg as a substring. See comment at
-  // allModels definition about ordering.
   const lower = modelArg.toLowerCase()
-  // First look for an exact match, then find the first model containing the arg
-  // as a substring. See comment at allModels definition about ordering. Without
-  // this logic, you could never match o1 if o1-mini is present.
+  // Try an exact match before substring match (see `models` ordering comment)
+  // so a prefix like `alpha` isn't shadowed by an earlier `alpha-pro`.
   const match =
     availableModels.find((m) => m.key === lower || m.id === lower) ||
     availableModels.find((m) => m.key.includes(lower) || m.id.includes(lower))

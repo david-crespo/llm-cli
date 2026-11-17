@@ -175,9 +175,8 @@ test("Must have exactly one default model", () => {
   assert.deepEqual(models.filter((m) => m.default).length, 1)
 })
 
-// Modules that resolve hard-coded aliases at module scope (like
-// resolveModel("flash") in summarize.ts) throw on import if catalog churn
-// makes the alias stop matching. Importing them here catches that.
+// summarize.ts resolves its model alias at module scope, so importing it here
+// fails if catalog changes break that alias.
 test("modules with hard-coded model aliases import cleanly", async () => {
   await import("./summarize.ts")
 })

@@ -3,24 +3,16 @@ import JSON5 from "json5"
 
 /** Parse a `--output-schema` argument with arktype. */
 export function parseType(input: string): Type {
-  // Object/tuple definitions are parsed as JSON5 (single quotes, unquoted keys,
-  // trailing commas) and passed to arktype as data. Everything else is passed to
-  // arktype's string DSL for primitives, unions, arrays, and refinements.
-  //
-  // The naive order here would be "if input starts with `{` or `[`, parse
-  // as JSON5, else pass to arktype's string DSL." We invert that: try JSON5
-  // first, and only commit to it if the result is an object/array. This is more
-  // robust to leading whitespace, comments, or any other JSON5-tolerated noise
-  // without a hand-rolled sniff test. It's safe because arktype's string DSL
-  // (`boolean`, `'a'|'b'`, `number > 0`) is never valid JSON5. We still sniff
-  // for `{`/`[` on the error path so malformed object input surfaces the JSON5
-  // error rather than a less helpful error from arktype.
+  // Parse object and tuple schemas as JSON5 (single quotes, unquoted keys,
+  // trailing commas) and pass everything else to arktype's string DSL. Trying
+  // JSON5 first tolerates leading whitespace and comments; this is safe because
+  // arktype's string DSL (`boolean`, `'a'|'b'`, `number > 0`) is never valid JSON5.
   let parsed: unknown
   try {
     parsed = JSON5.parse(input)
   } catch (e) {
-    // JSON5 failed. If the input clearly *meant* to be an object/tuple,
-    // surface the JSON5 error. Otherwise fall through to arktype's string DSL.
+    // Report the JSON5 syntax error for malformed `{...}` or `[...]` input
+    // rather than falling through to arktype.
     if (/^\s*[{[]/.test(input)) {
       const msg = e instanceof Error ? e.message : String(e)
       throw new Error(`Failed to parse output schema as JSON5: ${msg}`)

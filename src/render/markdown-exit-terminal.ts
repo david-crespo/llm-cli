@@ -60,7 +60,7 @@ export const citation = (nums: string[], sources?: Map<string, string>) =>
 // word directly. With a space before the bracket, it's ordinary text.
 const CITATION_RE = /(^|\S)\[(\d+(?:, \d+)*)\]/g
 
-/** `attached` says whether the token follows markup, like a closing `**` */
+/** `attached` is true when the token follows inline markup, like a closing `**` */
 const styleCitations = (text: string, attached: boolean, sources?: Map<string, string>) =>
   text.replace(CITATION_RE, (marker, before: string, nums: string, offset: number) =>
     offset === 0 && !before && !attached
@@ -345,10 +345,9 @@ function postProcessHeadings(text: string): string {
   )
 }
 
-// Paragraphs inside blockquotes arrive already wrapped to leave room for the
-// prefixes, so this only adds them. The marker carries the indent of a list
-// item the quote is in, and whether to leave the line break after it to the
-// item.
+// Paragraphs inside blockquotes are already wrapped to leave room for the
+// prefixes, so this only adds them. The marker includes any enclosing list
+// item's indent and whether the item handles the trailing line break.
 function postProcessBlockquotes(text: string): string {
   let maxDepth = 0
   for (const [, depth] of text.matchAll(/\x00BQ_OPEN:(\d+):/g)) {
@@ -384,8 +383,8 @@ function postProcessTables(text: string): string {
   const cellRe = /\x00CELL:(\w*)\x00([\s\S]*?)\x00\/CELL\x00/g
   const extractCells = (row: string) => [...row.matchAll(cellRe)].map((m) => m[2].trim())
 
-  // The marker carries the width, the indent of a list item the table is in,
-  // and whether to leave the line break after it to the item
+  // The marker includes the width, any enclosing list item's indent, and
+  // whether the item handles the trailing line break.
   const tableRe = /\x00TABLE:(\d+):(\d+):(\d)\x00([\s\S]*?)\x00\/TABLE\x00/g
   return text.replace(
     tableRe,
@@ -408,11 +407,11 @@ function postProcessTables(text: string): string {
 const cellOpen = (token: Token) =>
   `\x00CELL:${token.attrGet("style")?.match(/text-align:(\w+)/)?.[1] ?? ""}\x00`
 
-// Paragraphs carry their wrap width, hanging indent and style flags in the
-// marker, since all depend on list and blockquote nesting known only at render
-// time. Flags: d = dim (a done task), i = italic (in a blockquote, where only
-// paragraphs are italic, not code or tables). As with headings, applying the style as
-// an ansis call keeps it on across inline styles that close inside.
+// Paragraph markers include wrap width, hanging indent, and style flags,
+// which depend on list and blockquote nesting at render time. Flags: d = dim
+// (a done task), i = italic (in a blockquote, where code and tables are not
+// italic). As with headings, applying the style as an ansis call keeps it on
+// across inline styles that close inside.
 function postProcessParagraphs(text: string): string {
   return text.replace(
     /\x00P:(\d+):(\d+):(\w*)\x00([\s\S]*?)\x00\/P\x00/g,
@@ -429,7 +428,7 @@ function postProcessParagraphs(text: string): string {
 
 // --- Plugin ------------------------------------------------------------
 
-// C0 and C1 controls other than tab, newline and CR (which markdown-it turns
+// C0 and C1 controls other than tab, newline, and CR (which markdown-it turns
 // into newlines). Model output can echo untrusted text, and these would reach
 // the terminal as escape sequences (clearing the screen, rewriting earlier
 // lines, setting the title). NUL is also our marker delimiter.
@@ -612,7 +611,7 @@ export default function terminalPlugin(md: MarkdownExit): void {
       return isListClose(tokens[idx - 1]) ? "" : "\n"
     },
 
-    // Tables — markers assembled in post-processing
+    // Tables: markers assembled in post-processing
     table_open: (tokens, idx, _options, env) => {
       const s = getState(env)
       const inItem = inListItem(s)
@@ -632,7 +631,7 @@ export default function terminalPlugin(md: MarkdownExit): void {
     td_open: (tokens, idx) => cellOpen(tokens[idx]),
     td_close: () => "\x00/CELL\x00",
 
-    // Code blocks — async, handled by renderAsync
+    // Code blocks: async, handled by renderAsync
     fence: (tokens, idx, _options, env) => {
       const token = tokens[idx]
       const lang = token.info.trim().split(/\s+/)[0] || "text"

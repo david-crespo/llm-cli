@@ -153,8 +153,6 @@ export async function geminiCreateMessage({
     config: { ...generationConfig, systemInstruction, tools, abortSignal: signal },
   })
 
-  // console.log(JSON.stringify(result, null, 2))
-
   const parts = result.candidates?.[0].content?.parts ?? []
   const reasoning = parts
     .filter((p) => p.text && p.thought)

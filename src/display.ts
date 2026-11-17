@@ -79,8 +79,6 @@ export function formatElapsed(ms: number) {
 const escapeThinkTags = (content: string) =>
   content.replaceAll("<think>", "\\<think>").replaceAll("</think>", "\\</think>")
 
-// TODO: add `verbose` mode and hide reasoning from `nice` mode
-
 /**
  * - `cli` is the default show output, includes meta but not reasoning
  * - `verbose` is like `cli` + reasoning
@@ -208,7 +206,6 @@ const tag = (t: string, ...children: string[]) =>
 export function chatToMd({ chat, lastN = 0, indices, mode = "cli" }: ChatToMd): string {
   const msgCount = chat.messages.length
 
-  // Determine which messages to include
   let selectedIndices: number[]
   if (indices && indices.length > 0) {
     selectedIndices = indices

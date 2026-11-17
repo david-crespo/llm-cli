@@ -53,7 +53,7 @@ const getLastModelId = (chat: Chat) =>
 const truncate = (str: string, maxLength: number) =>
   str.length > maxLength ? str.slice(0, maxLength) + "..." : str
 
-/** Keep one width-aware selector option per chat so option indexes stay aligned. */
+/** One single-line picker option per chat, with columns aligned */
 function chatPickerOptions(chats: Chat[]) {
   return formatPickerOptions(
     chats.map((chat) => {
@@ -160,9 +160,6 @@ async function pollBackgroundResponse(
   }
 }
 
-/**
- * Generate a response for a chat with the given input and options
- */
 async function genResponse(chatInput: ChatInput, displayOpts: DisplayOpts = {}) {
   // don't want progress spinner when piping output
   const showProgress = process.stdout.isTTY && !displayOpts.raw && !displayOpts.json
@@ -462,14 +459,10 @@ Examples:
     const hasImages = imageInputs.length > 0
     const msg = message.join(" ")
     const piped = !process.stdin.isTTY
-    const stdin = piped
-      ? // read stdin to end
-        (await text(process.stdin)).trim()
-      : null
+    const stdin = piped ? (await text(process.stdin)).trim() : null
 
-    // Input was piped but arrived empty — the upstream command likely failed or
-    // produced nothing (e.g. `cb x | ai ...` where `cb` errors). Abort rather
-    // than calling the API with only the message.
+    // Empty piped input usually means the upstream command failed (e.g.,
+    // `cb x | ai ...` when `cb` errors). Fail rather than sending only `msg`.
     if (piped && !stdin && !hasImages) {
       throw new ValidationError("Piped input was empty (did an upstream command fail?)")
     }
@@ -495,11 +488,8 @@ Examples:
           : opts.thinkDefault
             ? "default"
             : undefined
-    // Search is sticky across replies: an explicit -s/--no-search wins, else a
-    // reply inherits the chat's last setting. Persisting it keeps the search
-    // tool stable across turns so prompt caching keeps hitting — every provider
-    // caches on a request prefix that includes the tool definitions, so toggling
-    // search busts the cache (see Chat.search in types.ts).
+    // Search is sticky across replies so tool definitions stay stable for
+    // prompt caching (see Chat.search in types.ts).
     chat.search = opts.search ?? chat.search ?? false
     chat.think = resolveThink(thinkOverride, chat.think)
     // An explicit --profile or LLM_CLI_PROFILE wins over the chat's, and sticks

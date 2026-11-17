@@ -54,20 +54,15 @@ function gptConfig(chatInput: ChatInput): {
   effort: string
 } {
   const { chat, model, config, outputSchema } = chatInput
-  // OpenAI strict mode has two quirks the other providers don't impose:
-  //   1. Root schema must be `object` — primitives, unions, and arrays at the
-  //      top level are rejected. `wrapPrimitives` wraps non-object roots as
-  //      `{ value: <schema> }`; the response is unwrapped in postprocess.
-  //   2. Every property must appear in `required` — optional fields are not
-  //      allowed. `allRequired` forces all keys into `required`.
-  // We keep strict mode on because it's what makes structured output reliable.
+  // OpenAI strict mode requires an object root and every property in `required`
+  // (see prepareSchema).
   const prep = outputSchema
     ? prepareSchema(outputSchema, { wrapPrimitives: true, allRequired: true })
     : undefined
 
-  // If the most recent assistant turn was an OpenAI Responses call we have its
-  // response.id — chain via previous_response_id so encrypted reasoning items
-  // carry over and we only need to send the new user message.
+  // When the last assistant turn came from the OpenAI Responses API, pass its
+  // response.id as previous_response_id so encrypted reasoning items carry over
+  // and only the new user message is sent.
   // https://developers.openai.com/api/docs/guides/conversation-state
   const lastAssistantMessage = chat.messages.filter((m) => m.role === "assistant").at(-1)
   const previous_response_id = match(lastAssistantMessage?.provider)
@@ -201,7 +196,7 @@ export function processGptImageResponse(
     tokens,
     cost: getCost(model, tokens),
     stop_reason: "completed",
-    // quality actually used, which tells you what `auto` picked
+    // Actual quality used (e.g., when quality was "auto")
     effort: response.quality,
   }
 }
@@ -227,10 +222,8 @@ const makeOpenAIFunc =
       ...systemMsg,
       ...chat.messages.map((m) => ({ role: m.role, content: m.content })),
     ]
-    // Same strict-mode shape as the OpenAI Responses path (see gptConfig):
-    // object-only roots and all-properties-required. Third-party compatible
-    // providers vary in how strictly they enforce this, but matching OpenAI's
-    // shape keeps behavior consistent without a per-provider matrix.
+    // Use the same strict-mode schema shape as gptConfig across OpenRouter
+    // providers.
     const prep = outputSchema
       ? prepareSchema(outputSchema, { wrapPrimitives: true, allRequired: true })
       : undefined

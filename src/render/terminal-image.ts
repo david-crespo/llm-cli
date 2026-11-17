@@ -14,8 +14,8 @@ export function supportsKittyGraphics(
 
 /**
  * Transmit a PNG with the Kitty graphics protocol, chunked as the spec requires.
- * `control` holds the keys for the first chunk (e.g. `a=T,f=100`); later
- * chunks carry only `m` and `q`. PNG transmission uses only direct data, so it
+ * `control` has the keys for the first chunk (e.g. `a=T,f=100`); later
+ * chunks have only `m` and `q`. PNG transmission uses only direct data, so it
  * also works over SSH.
  */
 export function kittyTransmit(png: Uint8Array, control: string): string {

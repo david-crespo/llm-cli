@@ -237,6 +237,12 @@ export function getCost(model: Model, tokens: TokenCounts, searches = 0) {
   return (multiplier * tokenCost) / M + (search_cost ?? 0) * searches
 }
 
+export function localDate(d = new Date()): string {
+  const m = String(d.getMonth() + 1).padStart(2, "0")
+  const day = String(d.getDate()).padStart(2, "0")
+  return `${d.getFullYear()}-${m}-${day}`
+}
+
 export const systemBase = $.dedent`
   - Answer the question precisely, without much elaboration
   - Write natural prose for a sophisticated reader, without unnecessary bullets or headings
@@ -256,5 +262,5 @@ export const systemBase = $.dedent`
   - Text editor: Helix
   - Shell: zsh
   - Programming languages: TypeScript and Rust
-  - Today's date is ${new Date().toISOString().slice(0, 10)}
+  - Today's date is ${localDate()}
 `

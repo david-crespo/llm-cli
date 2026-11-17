@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { test } from "node:test"
 import { assertAlmostEqual, errorIncluding } from "./testing.ts"
 import { ValidationError } from "./errors.ts"
-import { getCost, type Model, models, resolveModel } from "./models.ts"
+import { getCost, localDate, type Model, models, resolveModel } from "./models.ts"
 
 const testModels: Model[] = [
   {
@@ -187,4 +187,8 @@ test("image models resolve by nickname without shadowing text models", () => {
   assert.deepEqual(resolveModel("gpt").kind, undefined)
   assert.deepEqual(resolveModel("banana").key, "gemini-nano-banana-2.1")
   assert.deepEqual(resolveModel("gemini").kind, undefined)
+})
+
+test("localDate uses local calendar date rather than UTC", () => {
+  assert.deepEqual(localDate(new Date(2026, 0, 5, 23, 30)), "2026-01-05")
 })

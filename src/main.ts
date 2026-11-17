@@ -638,7 +638,6 @@ program
   .action(async (opts) => {
     const lastChat = History.current()
     if (!lastChat) throw new ValidationError("No chat in progress")
-    await genMissingSummaries([lastChat], profileFlag())
 
     if (!$.commandExistsSync("gh")) {
       throw new Error("Creating a gist requires the `gh` CLI (https://cli.github.com/)")
@@ -656,6 +655,7 @@ program
     if (opts.id) {
       await $`gh gist edit ${opts.id} -`.stdinText(md)
     } else {
+      if (!opts.title) await genMissingSummaries([lastChat], profileFlag())
       const title = opts.title || lastChat.summary
       const filename = title ? `LLM chat - ${title}.md` : "LLM chat.md"
       await $`gh gist create -f ${filename} --web`.stdinText(md)

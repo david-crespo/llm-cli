@@ -1,6 +1,13 @@
 import assert from "node:assert/strict"
 import { spawnSync } from "node:child_process"
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs"
+import {
+  chmodSync,
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import process from "node:process"
@@ -212,6 +219,32 @@ test("-r is refused while a background response is pending", (t) => {
   const { stderr } = ai(["-r", "hi"], "x", 1)
   assert(stderr.includes("pending background response"), stderr)
   assert.deepEqual(requests(), [])
+})
+
+test("ai gist only summarizes when creating an untitled gist without a saved summary", (t) => {
+  const binDir = mkdtempSync(join(tmpdir(), "llm-cli-gh-"))
+  t.after(() => rmSync(binDir, { recursive: true }))
+  const ghPath = join(binDir, "gh")
+  writeFileSync(ghPath, "#!/bin/sh\ncat >/dev/null\n")
+  chmodSync(ghPath, 0o755)
+  const oldPath = process.env.PATH
+  process.env.PATH = `${binDir}:${oldPath}`
+  t.after(() => {
+    process.env.PATH = oldPath
+  })
+
+  const { ai, requests } = setup(t)
+  ai(["hi"], "x")
+  assert.deepEqual(requests().length, 1)
+
+  ai(["gist", "-t", "Custom"])
+  ai(["gist", "--id", "abc123"])
+  assert.deepEqual(requests().length, 1)
+
+  ai(["gist"])
+  assert.deepEqual(requests().length, 2)
+  ai(["gist"])
+  assert.deepEqual(requests().length, 2)
 })
 
 test("a failed request reports status and body on stderr, leaves stdout empty, and saves the user message", (t) => {

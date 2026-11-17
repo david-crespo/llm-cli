@@ -56,14 +56,17 @@ export async function genMissingSummaries(
   history: Chat[],
   profileFlag: string | undefined,
 ) {
+  const missing = history.filter((chat) => !chat.summary)
+  if (missing.length === 0) return
   const pb = $.progress("Summarizing...")
-  await Promise.all(
-    history
-      .filter((chat) => !chat.summary)
-      .map(async (chat) => {
+  try {
+    await Promise.all(
+      missing.map(async (chat) => {
         chat.summary = await summarize(chat, profileFlag)
         History.save(chat)
       }),
-  )
-  pb.finish()
+    )
+  } finally {
+    pb.finish()
+  }
 }

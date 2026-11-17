@@ -48,10 +48,12 @@ test("withCitations marks cited spans by byte offset into the joined answer", ()
       chunk("b.com", "1"),
       chunk("uncited.com"),
     ],
-    // Like real responses: no partIndex though the answer starts at part 1
+    // Like real responses: no partIndex though the answer starts at part 1,
+    // and two supports can end at the same byte offset
     groundingSupports: [
-      { segment: { startIndex: 14, endIndex: 24 }, groundingChunkIndices: [2, 0, 1] },
+      { segment: { startIndex: 14, endIndex: 24 }, groundingChunkIndices: [2, 0] },
       { segment: { endIndex: 13 }, groundingChunkIndices: [3] },
+      { segment: { startIndex: 17, endIndex: 24 }, groundingChunkIndices: [1, 2] },
     ],
   }
   assert.deepEqual(

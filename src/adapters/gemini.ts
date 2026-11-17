@@ -83,16 +83,18 @@ export function withCitations(parts: Part[], grounding: GroundingMetadata | unde
       .map((p) => p.text!)
       .join(""),
   )
-  const spans = (grounding?.groundingSupports ?? [])
-    .filter((s) => s.segment?.endIndex)
-    .sort((a, b) => a.segment!.endIndex! - b.segment!.endIndex!)
+  const byEnd = new Map<number, number[]>()
+  for (const s of grounding?.groundingSupports ?? []) {
+    if (!s.segment?.endIndex) continue
+    const end = Math.min(s.segment.endIndex, bytes.length)
+    const indices = byEnd.get(end) ?? []
+    indices.push(...(s.groundingChunkIndices ?? []))
+    byEnd.set(end, indices)
+  }
   let content = ""
   let start = 0
-  for (const span of spans) {
-    const end = Math.min(span.segment!.endIndex!, bytes.length)
-    const cited = [...new Set((span.groundingChunkIndices ?? []).flatMap(cite))].sort(
-      (a, b) => a - b,
-    )
+  for (const [end, chunkIndices] of [...byEnd].sort(([a], [b]) => a - b)) {
+    const cited = [...new Set(chunkIndices.flatMap(cite))].sort((a, b) => a - b)
     if (cited.length === 0) continue
     content += bytes.subarray(start, end).toString() + `[${cited.join(", ")}]`
     start = end

@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import { test } from "node:test"
 import { Buffer } from "node:buffer"
 import { readFile } from "node:fs/promises"
+import process from "node:process"
 import { Resvg } from "@resvg/resvg-wasm"
 import { renderMarkdown } from "./md-render.ts"
 import { kittyImage } from "./terminal-math.ts"
@@ -167,6 +168,23 @@ test("SVG serialization escapes inequalities in MathJax attributes", async () =>
   const image = await renderMathImage(tex, true, 80, "#c8c8c8")
   assert(image.rows > 1)
   assert.deepEqual(imageCount(await renderMarkdown(`$$\n${tex}\n$$`, { math: true })), 1)
+})
+
+test("math renders when stdout.isTTY is true and stdout.columns is unset", async () => {
+  const { stdout } = process
+  const original = Object.getOwnPropertyDescriptors(stdout)
+  stdout.isTTY = true
+  ;(stdout as { columns?: number }).columns = undefined
+  try {
+    const out = await renderMarkdown("Before $x^2$ after", { math: true })
+    assert.deepEqual(imageCount(out), 1)
+    assert(!out.includes("NaN"), out)
+  } finally {
+    for (const key of ["isTTY", "columns"] as const) {
+      if (original[key]) Object.defineProperty(stdout, key, original[key])
+      else delete stdout[key]
+    }
+  }
 })
 
 test("the complete demo renders every valid equation", async () => {

@@ -133,7 +133,7 @@ export default function mathPlugin(md: MarkdownExit): void {
     if (!env.math) return token.markup + suffix
     try {
       const { renderMathImage } = await import("./math-image.ts")
-      const width = process.stdout.isTTY ? Math.min(process.stdout.columns, 100) : 80
+      const width = Math.min(process.stdout.columns ?? 80, 100)
       const image = await renderMathImage(
         token.content,
         block,

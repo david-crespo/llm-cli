@@ -189,43 +189,38 @@ function renderTable(
 
 // --- State for block-level tracking ------------------------------------
 
+type ListItem = {
+  kind: "item"
+  width: number
+  /** Spaces that line a later block or nested list up under the item's text */
+  prefix: string
+  /** Blocks rendered so far directly inside the item */
+  blocks: number
+  /** A checked task */
+  done: boolean
+}
+
 // The list items and blockquotes around the current block, innermost last,
 // with the columns each takes from the width
-type Container = { kind: "item" | "quote"; width: number }
+type Container = ListItem | { kind: "quote"; width: number }
 
-type RenderState = {
-  containers: Container[]
-  listDepth: number
-  listOrdered: boolean[]
-  listCounters: number[]
-  listNumberWidths: number[]
-  listItemBlocks: number[]
-  listItemPrefixes: string[]
-  listItemDone: boolean[]
-  blockquoteDepth: number
-}
+type List = { ordered: false } | { ordered: true; counter: number; numberWidth: number }
 
-function freshState(): RenderState {
-  return {
-    containers: [],
-    listDepth: 0,
-    listOrdered: [],
-    listCounters: [],
-    listNumberWidths: [],
-    listItemBlocks: [],
-    listItemPrefixes: [],
-    listItemDone: [],
-    blockquoteDepth: 0,
-  }
-}
+type RenderState = { containers: Container[]; lists: List[] }
 
 // oxlint-disable-next-line typescript/no-explicit-any
 function getState(env: any): RenderState {
-  if (!env._termState) env._termState = freshState()
+  if (!env._termState) env._termState = { containers: [], lists: [] }
   return env._termState
 }
 
-const inListItem = (s: RenderState) => s.containers.at(-1)?.kind === "item"
+/** The list item the current block is directly inside, if any */
+function currentItem(s: RenderState): ListItem | undefined {
+  const c = s.containers.at(-1)
+  return c?.kind === "item" ? c : undefined
+}
+
+const quoteDepth = (s: RenderState) => s.containers.filter((c) => c.kind === "quote").length
 
 /** Columns left for a block after the prefixes of the containers around it. */
 const availableWidth = (s: RenderState) =>
@@ -242,20 +237,30 @@ const isListClose = (token: Token | undefined) =>
  * list already ends its line, so a block after one gets no extra break.
  */
 function startListBlock(
-  s: RenderState,
+  item: ListItem,
   tokens: Token[],
   idx: number,
   ownLines: boolean,
 ): string {
-  const i = s.listItemBlocks.length - 1
-  const first = s.listItemBlocks[i] === 0
-  s.listItemBlocks[i]++
-  const indent = ownLines ? "" : (s.listItemPrefixes.at(-1) ?? "")
+  const first = item.blocks++ === 0
+  const indent = ownLines ? "" : item.prefix
   if (isListClose(tokens[idx - 1])) return indent
   return first && !ownLines ? "" : "\n" + indent
 }
 
 // --- Lists -------------------------------------------------------------
+
+function openList(s: RenderState, list: List, tokens: Token[], idx: number): string {
+  s.lists.push(list)
+  const item = currentItem(s)
+  return item ? startListBlock(item, tokens, idx, true) : ""
+}
+
+const closeList: RenderRule = (_tokens, _idx, _options, env) => {
+  const s = getState(env)
+  s.lists.pop()
+  return currentItem(s) ? "" : "\n"
+}
 
 /** Count the items of the list that opens at `idx`, not counting nested ones. */
 function countItems(tokens: Token[], idx: number): number {
@@ -318,13 +323,12 @@ function renderCodeBlock(
   // oxlint-disable-next-line typescript/no-explicit-any
   env: any,
 ): Promise<string> {
-  const s = getState(env)
-  if (!inListItem(s)) {
+  const item = currentItem(getState(env))
+  if (!item) {
     return highlightCode(code, lang, "  ", env.codeTheme).then((c) => c + "\n\n")
   }
-  const start = startListBlock(s, tokens, idx, true)
-  const indent = (s.listItemPrefixes.at(-1) ?? "") + "  "
-  return highlightCode(code, lang, indent, env.codeTheme).then((c) => start + c)
+  const start = startListBlock(item, tokens, idx, true)
+  return highlightCode(code, lang, item.prefix + "  ", env.codeTheme).then((c) => start + c)
 }
 
 // --- Post-processing ---------------------------------------------------
@@ -504,120 +508,91 @@ export default function terminalPlugin(md: MarkdownExit): void {
 
     // Block
     heading_open: (tokens, idx, _options, env) => {
-      const s = getState(env)
-      const start = inListItem(s) ? startListBlock(s, tokens, idx, false) : ""
+      const item = currentItem(getState(env))
+      const start = item ? startListBlock(item, tokens, idx, false) : ""
       const level = parseInt(tokens[idx].tag.slice(1))
       return `${start}\x00H:${level}\x00${"#".repeat(level)} `
     },
     heading_close: (_tokens, _idx, _options, env) =>
-      "\x00/H\x00" + (inListItem(getState(env)) ? "" : "\n\n"),
+      "\x00/H\x00" + (currentItem(getState(env)) ? "" : "\n\n"),
     paragraph_open: (tokens, idx, _options, env) => {
       const s = getState(env)
-      const inItem = inListItem(s)
-      const start = inItem ? startListBlock(s, tokens, idx, false) : ""
-      const indent = inItem ? (s.listItemPrefixes.at(-1) ?? "").length : 0
-      const flags = (s.listItemDone.at(-1) ? "d" : "") + (s.blockquoteDepth > 0 ? "i" : "")
+      const item = currentItem(s)
+      const start = item ? startListBlock(item, tokens, idx, false) : ""
+      const done = s.containers.findLast((c) => c.kind === "item")?.done
+      const flags = (done ? "d" : "") + (quoteDepth(s) > 0 ? "i" : "")
+      const indent = item?.prefix.length ?? 0
       return `${start}\x00P:${availableWidth(s)}:${indent}:${flags}\x00`
     },
     paragraph_close: (_tokens, _idx, _options, env) => {
       const s = getState(env)
-      if (inListItem(s)) return "\x00/P\x00"
+      if (currentItem(s)) return "\x00/P\x00"
       if (s.containers.at(-1)?.kind === "quote") return "\x00/P\x00\x00BQ_PARA\x00"
       return "\x00/P\x00\n\n"
     },
     hr: (tokens, idx, _options, env) => {
       const s = getState(env)
+      const item = currentItem(s)
       const rule = gray("─".repeat(availableWidth(s)))
-      return inListItem(s) ? startListBlock(s, tokens, idx, false) + rule : rule + "\n\n"
+      return item ? startListBlock(item, tokens, idx, false) + rule : rule + "\n\n"
     },
     blockquote_open: (tokens, idx, _options, env) => {
       const s = getState(env)
-      const inItem = inListItem(s)
-      const start = inItem ? startListBlock(s, tokens, idx, true) : ""
-      const indent = inItem ? (s.listItemPrefixes.at(-1) ?? "").length : 0
-      s.blockquoteDepth++
+      const item = currentItem(s)
+      const start = item ? startListBlock(item, tokens, idx, true) : ""
+      const indent = item?.prefix.length ?? 0
       s.containers.push({ kind: "quote", width: 3 })
-      return `${start}\x00BQ_OPEN:${s.blockquoteDepth}:${indent}:${inItem ? 1 : 0}\x00`
+      return `${start}\x00BQ_OPEN:${quoteDepth(s)}:${indent}:${item ? 1 : 0}\x00`
     },
     blockquote_close: (_tokens, _idx, _options, env) => {
       const s = getState(env)
-      const marker = `\x00BQ_CLOSE:${s.blockquoteDepth}\x00`
-      s.blockquoteDepth--
+      const marker = `\x00BQ_CLOSE:${quoteDepth(s)}\x00`
       s.containers.pop()
       return marker
     },
 
     // Lists
-    bullet_list_open: (tokens, idx, _options, env) => {
-      const s = getState(env)
-      s.listDepth++
-      s.listOrdered.push(false)
-      s.listCounters.push(0)
-      s.listNumberWidths.push(0)
-      return inListItem(s) ? startListBlock(s, tokens, idx, true) : ""
-    },
-    bullet_list_close: (_tokens, _idx, _options, env) => {
-      const s = getState(env)
-      s.listDepth--
-      s.listOrdered.pop()
-      s.listCounters.pop()
-      s.listNumberWidths.pop()
-      return inListItem(s) ? "" : "\n"
-    },
+    bullet_list_open: (tokens, idx, _options, env) =>
+      openList(getState(env), { ordered: false }, tokens, idx),
+    bullet_list_close: closeList,
     ordered_list_open: (tokens, idx, _options, env) => {
-      const s = getState(env)
-      s.listDepth++
-      s.listOrdered.push(true)
       const start = parseInt(tokens[idx].attrGet("start") ?? "1")
-      s.listCounters.push(start - 1)
-      s.listNumberWidths.push(String(start + countItems(tokens, idx) - 1).length)
-      return inListItem(s) ? startListBlock(s, tokens, idx, true) : ""
+      const numberWidth = String(start + countItems(tokens, idx) - 1).length
+      const list = { ordered: true, counter: start - 1, numberWidth } as const
+      return openList(getState(env), list, tokens, idx)
     },
-    ordered_list_close: (_tokens, _idx, _options, env) => {
-      const s = getState(env)
-      s.listDepth--
-      s.listOrdered.pop()
-      s.listCounters.pop()
-      s.listNumberWidths.pop()
-      return inListItem(s) ? "" : "\n"
-    },
+    ordered_list_close: closeList,
     list_item_open: (tokens, idx, _options, env) => {
       const s = getState(env)
       // Nested lists line up under their parent item's text
-      const indent = inListItem(s) ? (s.listItemPrefixes.at(-1) ?? "") : ""
-      const isOrdered = s.listOrdered[s.listOrdered.length - 1]
-      const checked = isOrdered ? undefined : takeTaskMarker(tokens, idx)
+      const indent = currentItem(s)?.prefix ?? ""
+      const list = s.lists.at(-1)
+      const checked = list?.ordered ? undefined : takeTaskMarker(tokens, idx)
       let marker: string
-      if (isOrdered) {
-        const counter = ++s.listCounters[s.listCounters.length - 1]
-        marker = `${String(counter).padStart(s.listNumberWidths.at(-1) ?? 0)}.`
+      if (list?.ordered) {
+        marker = `${String(++list.counter).padStart(list.numberWidth)}.`
       } else if (checked !== undefined) {
         marker = checked ? green("[x]") : dim("[") + " " + dim("]")
       } else {
         marker = "*"
       }
-      s.listItemBlocks.push(0)
-      s.listItemPrefixes.push(" ".repeat(indent.length + stringWidth(marker) + 1))
-      s.listItemDone.push(checked === true)
-      s.containers.push({ kind: "item", width: stringWidth(marker) + 1 })
+      const width = stringWidth(marker) + 1
+      const prefix = " ".repeat(indent.length + width)
+      s.containers.push({ kind: "item", width, prefix, blocks: 0, done: checked === true })
       return `${indent}${marker} `
     },
     list_item_close: (tokens, idx, _options, env) => {
-      const s = getState(env)
-      s.listItemBlocks.pop()
-      s.listItemPrefixes.pop()
-      s.listItemDone.pop()
-      s.containers.pop()
+      getState(env).containers.pop()
       return isListClose(tokens[idx - 1]) ? "" : "\n"
     },
 
     // Tables: markers assembled in post-processing
     table_open: (tokens, idx, _options, env) => {
       const s = getState(env)
-      const inItem = inListItem(s)
-      const start = inItem ? startListBlock(s, tokens, idx, true) : ""
-      const indent = inItem ? (s.listItemPrefixes.at(-1) ?? "").length : 0
-      return `${start}\x00TABLE:${availableWidth(s) - indent}:${indent}:${inItem ? 1 : 0}\x00`
+      const item = currentItem(s)
+      const start = item ? startListBlock(item, tokens, idx, true) : ""
+      const indent = item?.prefix.length ?? 0
+      return `${start}\x00TABLE:${availableWidth(s) - indent}:${indent}:${item ? 1 : 0}\x00`
     },
     table_close: () => "\x00/TABLE\x00",
     thead_open: () => "\x00THEAD\x00",

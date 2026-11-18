@@ -11,7 +11,7 @@ import { createMessage } from "./index.ts"
 import { geminiThinkParams, processGeminiImageResponse, withCitations } from "./gemini.ts"
 
 test("Gemini default sends MEDIUM, or MINIMAL on flash-lite", () => {
-  assert.deepEqual(geminiThinkParams("gemini-4-argon", undefined), {
+  assert.deepEqual(geminiThinkParams("gemini-4-neon", undefined), {
     thinkingLevel: ThinkingLevel.MEDIUM,
     effort: "medium",
   })

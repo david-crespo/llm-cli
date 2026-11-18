@@ -135,10 +135,7 @@ test("ai models <id> shows the efforts the adapter sends for each thinking flag"
       ],
     ],
     ["gpt-6-luna", ["think: medium by default, --think-hard for high, --quick for none"]],
-    [
-      "gemini-4-argon",
-      ["think: medium by default, --think-hard for high, --quick for low"],
-    ],
+    ["gemini-4-neon", ["think: medium by default, --think-hard for high, --quick for low"]],
     [
       "gemini-3.5-flash-lite",
       ["think: minimal by default, --think for medium, --think-hard for high"],

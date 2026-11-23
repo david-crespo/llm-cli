@@ -5,7 +5,7 @@ import { join } from "node:path"
 import process from "node:process"
 import { test } from "node:test"
 
-import { MediaModality, ThinkingLevel } from "@google/genai"
+import { ThinkingLevel } from "@google/genai"
 
 import { type } from "arktype"
 
@@ -128,26 +128,29 @@ test("image response saves final images and counts image tokens separately", asy
   const saved: [string, string, number][] = []
   const response = await processGeminiImageResponse(
     {
-      candidates: [
+      id: "int_1",
+      status: "completed",
+      steps: [
         {
-          content: {
-            parts: [
-              { thought: true, inlineData: { mimeType: "image/jpeg", data: "AAAA" } },
-              { text: "Here is your fox" },
-              { inlineData: { mimeType: "image/jpeg", data: "AQID" } },
-            ],
-          },
-          finishReason: "STOP",
+          type: "thought",
+          signature: "sig",
+          summary: [{ type: "image", mime_type: "image/jpeg", data: "AAAA" }],
+        },
+        {
+          type: "model_output",
+          content: [
+            { type: "text", text: "Here is your fox" },
+            { type: "image", mime_type: "image/jpeg", data: "AQID" },
+          ],
         },
       ],
-      // Real shape: text output isn't broken out in candidatesTokensDetails
-      usageMetadata: {
-        promptTokenCount: 10,
-        candidatesTokenCount: 1411,
-        thoughtsTokenCount: 596,
-        candidatesTokensDetails: [{ modality: MediaModality.IMAGE, tokenCount: 1120 }],
+      usage: {
+        total_input_tokens: 10,
+        total_output_tokens: 1411,
+        total_thought_tokens: 596,
+        output_tokens_by_modality: [{ modality: "image", tokens: 1120 }],
       },
-    } as never,
+    },
     testModel("google", "image"),
     async (bytes, mimeType, i) => {
       saved.push([Buffer.from(bytes).toString("base64"), mimeType, i])
@@ -158,20 +161,26 @@ test("image response saves final images and counts image tokens separately", asy
   assert.deepEqual(response.images, ["/images/0.png"])
   assert.deepEqual(response.content, "Here is your fox\n/images/0.png")
   assert.deepEqual(response.tokens, { input: 10, output: 2007, output_image: 1120 })
+  assert.deepEqual(response.provider, { type: "google", interactionId: "int_1" })
 })
 
 test("image response without an image reports the model's text", async () => {
   await assert.rejects(
     processGeminiImageResponse(
       {
-        candidates: [
-          { content: { parts: [{ text: "I can't make that" }] }, finishReason: "STOP" },
+        id: "int_2",
+        status: "completed",
+        steps: [
+          {
+            type: "model_output",
+            content: [{ type: "text", text: "I can't make that" }],
+          },
         ],
-      } as never,
+      },
       testModel("google", "image"),
       async () => "",
     ),
-    /No image in response \(STOP\): I can't make that/,
+    /No image in response \(completed\): I can't make that/,
   )
 })
 
@@ -228,6 +237,7 @@ test("Gemini image editing sends inline input images with the prompt", async (t)
   })
 
   const imageUrl = "https://example.com/ref.webp"
+  let requestUrl: string | undefined
   let requestBody: Record<string, unknown> | undefined
   const mockFetch: typeof fetch = async (input, init) => {
     const request = new Request(input, init)
@@ -236,8 +246,18 @@ test("Gemini image editing sends inline input images with the prompt", async (t)
         headers: { "content-type": "image/webp" },
       })
     }
+    requestUrl = request.url
     requestBody = (await request.json()) as Record<string, unknown>
-    return geminiResponse([{ inlineData: { mimeType: "image/png", data: "AQID" } }])
+    return Response.json({
+      id: "int_edit",
+      status: "completed",
+      steps: [
+        {
+          type: "model_output",
+          content: [{ type: "image", mime_type: "image/png", data: "AQID" }],
+        },
+      ],
+    })
   }
 
   const chat = promptChat("Make it sunset")
@@ -258,21 +278,25 @@ test("Gemini image editing sends inline input images with the prompt", async (t)
     }),
   )
 
-  assert.deepEqual(requestBody?.contents, [
+  assert.match(requestUrl ?? "", /\/interactions$/)
+  assert.deepEqual(requestBody?.input, [
     {
-      role: "user",
-      parts: [
-        { inlineData: { mimeType: "image/png", data: "AQID" } },
-        { inlineData: { mimeType: "image/webp", data: "BAUG" } },
-        { text: "Make it sunset" },
+      type: "user_input",
+      content: [
+        { type: "image", mime_type: "image/png", data: "AQID" },
+        { type: "image", mime_type: "image/webp", data: "BAUG" },
+        { type: "text", text: "Make it sunset" },
       ],
     },
   ])
-  assert.deepEqual(requestBody?.generationConfig, {
-    thinkingConfig: { thinkingLevel: "MINIMAL" },
-    imageConfig: { imageSize: "1K", aspectRatio: "16:9" },
+  assert.deepEqual(requestBody?.generation_config, { thinking_level: "minimal" })
+  assert.deepEqual(requestBody?.response_format, {
+    type: "image",
+    image_size: "1K",
+    aspect_ratio: "16:9",
   })
   assert.deepEqual(response.effort, "minimal")
+  assert.deepEqual(response.provider, { type: "google", interactionId: "int_edit" })
   assert.deepEqual(response.images?.length, 1)
   assert.deepEqual(readFileSync(response.images![0]), Buffer.from([1, 2, 3]))
 })

@@ -1,8 +1,7 @@
 import {
-  type GenerateContentResponse,
   GoogleGenAI,
   type GroundingMetadata,
-  MediaModality,
+  type Interactions,
   type Part,
   ThinkingLevel,
 } from "@google/genai"
@@ -20,17 +19,25 @@ import { type ChatInput, imagePrompt, type ModelResponse } from "./types.ts"
 import { saveImage } from "../storage.ts"
 import { validateRequestSize } from "./request-size.ts"
 
-/** Gemini doesn't accept image URLs directly; inline as bytes either way. */
-async function imageToInlinePart(image_url: string, signal?: AbortSignal): Promise<Part> {
+/** Decode a `data:` URL or download an HTTP(S) image into base64 + MIME type. */
+async function imageToBase64(
+  image_url: string,
+  signal?: AbortSignal,
+): Promise<{ mimeType: string; data: string }> {
   const parsed = parseDataUrl(image_url)
   if (parsed) {
-    return { inlineData: { mimeType: parsed.mediaType, data: parsed.data } }
+    return { mimeType: parsed.mediaType, data: parsed.data }
   }
   const res = await fetch(image_url, { signal })
   if (!res.ok) throw new Error(`Failed to fetch image: ${res.status}`)
   const buf = new Uint8Array(await res.arrayBuffer())
   const mimeType = res.headers.get("content-type")?.split(";")[0] || "image/png"
-  return { inlineData: { mimeType, data: Buffer.from(buf).toString("base64") } }
+  return { mimeType, data: Buffer.from(buf).toString("base64") }
+}
+
+/** Gemini doesn't accept image URLs directly; inline as bytes either way. */
+async function imageToInlinePart(image_url: string, signal?: AbortSignal): Promise<Part> {
+  return { inlineData: await imageToBase64(image_url, signal) }
 }
 
 export function geminiThinkParams(key: string, think: ThinkLevel | undefined) {
@@ -218,26 +225,37 @@ export async function geminiImageCreateMessage({
   imageOptions,
 }: ChatInput): Promise<ModelResponse> {
   const { prompt, imageUrls } = imagePrompt(chat)
-  const { thinkingLevel, effort } = geminiThinkParams(model.key, config.think)
-  const parts: Part[] = [
-    ...(await Promise.all(imageUrls.map((url) => imageToInlinePart(url, signal)))),
-    { text: prompt },
-  ]
-  const contents = [{ role: "user", parts }]
-  const generationConfig = {
-    thinkingConfig: { thinkingLevel },
-    // Google's default is 1K
-    imageConfig: {
-      imageSize: imageOptions?.size ?? "2K",
-      aspectRatio: imageOptions?.aspect,
-    },
-  }
-  validateRequestSize("Gemini", { contents, generationConfig })
-  const result = await new GoogleGenAI({ apiKey }).models.generateContent({
+  const { effort } = geminiThinkParams(model.key, config.think)
+  const input: Interactions.CreateModelInteractionParamsNonStreaming["input"] =
+    imageUrls.length > 0
+      ? [
+          {
+            type: "user_input",
+            content: [
+              ...(await Promise.all(
+                imageUrls.map(async (url): Promise<Interactions.ImageContent> => {
+                  const { mimeType, data } = await imageToBase64(url, signal)
+                  return { type: "image", mime_type: mimeType, data }
+                }),
+              )),
+              { type: "text", text: prompt },
+            ],
+          },
+        ]
+      : prompt
+  const request = {
     model: model.key,
-    contents,
-    config: { ...generationConfig, abortSignal: signal },
-  })
+    input,
+    generation_config: { thinking_level: effort },
+    // Google's default is 1K
+    response_format: {
+      type: "image" as const,
+      image_size: imageOptions?.size ?? "2K",
+      ...(imageOptions?.aspect ? { aspect_ratio: imageOptions.aspect } : {}),
+    },
+  } satisfies Interactions.InteractionCreateParams.CreateModelInteractionParamsNonStreaming
+  validateRequestSize("Gemini", request)
+  const result = await new GoogleGenAI({ apiKey }).interactions.create(request, { signal })
   const response = await processGeminiImageResponse(
     result,
     model,
@@ -247,40 +265,49 @@ export async function geminiImageCreateMessage({
 }
 
 export async function processGeminiImageResponse(
-  result: GenerateContentResponse,
+  result: Interactions.Interaction,
   model: Model,
   save: (bytes: Uint8Array, mimeType: string, index: number) => Promise<string>,
 ): Promise<ModelResponse> {
-  const parts = result.candidates?.[0].content?.parts ?? []
-  // Thought parts can include draft images; keep only the final ones
-  const answer = parts.filter((p) => !p.thought)
+  // Thought steps can include draft images; keep only model_output content
+  const content = (result.steps ?? []).flatMap((step) =>
+    step.type === "model_output" ? (step.content ?? []) : [],
+  )
   const images = await Promise.all(
-    answer
-      .filter((p) => p.inlineData?.data)
-      .map(({ inlineData }, i) =>
-        save(Buffer.from(inlineData!.data!, "base64"), inlineData!.mimeType ?? "", i),
-      ),
+    content
+      .filter((c): c is Interactions.ImageContent & { data: string } =>
+        Boolean(c.type === "image" && c.data),
+      )
+      .map((c, i) => save(Buffer.from(c.data, "base64"), c.mime_type ?? "", i)),
   )
   // A refusal or safety block comes back as text with no image
-  const text = answer.flatMap((p) => (p.text ? [p.text] : [])).join("\n\n")
+  const text = content
+    .filter((c): c is Interactions.TextContent => c.type === "text" && Boolean(c.text))
+    .map((c) => c.text)
+    .join("\n\n")
   if (images.length === 0) {
-    const reason = result.candidates?.[0].finishReason ?? result.promptFeedback?.blockReason
-    throw new Error(`No image in response (${reason})${text ? `: ${text}` : ""}`)
+    const errorMsg = result.errors
+      ?.map((e) => e.message)
+      .filter(Boolean)
+      .join("; ")
+    const detail = [text, errorMsg].filter(Boolean).join(": ")
+    throw new Error(`No image in response (${result.status})${detail ? `: ${detail}` : ""}`)
   }
 
-  const usage = result.usageMetadata
+  const usage = result.usage
   const tokens = {
-    input: usage?.promptTokenCount ?? 0,
-    output: (usage?.candidatesTokenCount ?? 0) + (usage?.thoughtsTokenCount ?? 0),
-    output_image: (usage?.candidatesTokensDetails ?? [])
-      .filter((d) => d.modality === MediaModality.IMAGE)
-      .reduce((sum, d) => sum + (d.tokenCount ?? 0), 0),
+    input: usage?.total_input_tokens ?? 0,
+    output: (usage?.total_output_tokens ?? 0) + (usage?.total_thought_tokens ?? 0),
+    output_image: (usage?.output_tokens_by_modality ?? [])
+      .filter((d) => d.modality === "image")
+      .reduce((sum, d) => sum + (d.tokens ?? 0), 0),
   }
   return {
     content: [text, ...images].filter(Boolean).join("\n"),
     images,
     tokens,
     cost: getCost(model, tokens),
-    stop_reason: result.candidates?.[0].finishReason ?? "",
+    stop_reason: result.status,
+    provider: { type: "google", interactionId: result.id },
   }
 }

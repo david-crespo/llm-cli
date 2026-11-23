@@ -69,7 +69,7 @@ function gptConfig(chatInput: ChatInput): {
   const lastAssistantMessage = chat.messages.filter((m) => m.role === "assistant").at(-1)
   const previous_response_id = match(lastAssistantMessage?.provider)
     .with({ type: "openai" }, (p) => p.responseId)
-    .with(P.nullish, () => undefined)
+    .with({ type: "google" }, P.nullish, () => undefined)
     .exhaustive()
   const inputMessages = previous_response_id ? chat.messages.slice(-1) : chat.messages
 

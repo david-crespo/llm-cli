@@ -36,12 +36,19 @@ type UserMessage = {
 
 /** Provider-specific assistant-message data. Discriminated on `type` so we
  * can add fields for other providers without widening every consumer. */
-export type ProviderData = {
-  type: "openai"
-  /** Responses API response.id, used as previous_response_id on the next turn
-   * so reasoning items carry over and prompt caching hits. */
-  responseId: string
-}
+export type ProviderData =
+  | {
+      type: "openai"
+      /** Responses API response.id, used as previous_response_id on the next turn
+       * so reasoning items carry over and prompt caching hits. */
+      responseId: string
+    }
+  | {
+      type: "google"
+      /** Interactions API interaction.id, used as previous_interaction_id on
+       * the next turn so multi-turn image state carries over. */
+      interactionId: string
+    }
 
 type AssistantMessage = {
   role: "assistant"

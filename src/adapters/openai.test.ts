@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { Buffer } from "node:buffer"
-import { mkdtempSync, readFileSync, rmSync } from "node:fs"
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import process from "node:process"
@@ -58,7 +58,7 @@ test("image response saves each image and counts tokens", () => {
   assert.deepEqual(response.tokens, { input: 20, output: 200 })
 })
 
-test("image generation rejects history and empty text before requesting", () => {
+test("image generation rejects text-only history and empty text before requesting", () => {
   const user = { role: "user" as const, content: "a cat", createdAt: new Date() }
   const input: ChatInput = {
     chat: { id: "test", createdAt: new Date(), systemPrompt: "", messages: [user] },
@@ -71,7 +71,6 @@ test("image generation rejects history and empty text before requesting", () => 
   assert.deepEqual(gptImageParams(input).prompt, "a cat")
 
   for (const messages of [
-    [user, { ...user, content: "make it blue" }],
     [{ ...user, content: "", image_urls: ["data:image/png;base64,AQID"] }],
     [{ ...user, content: "   " }],
     [],
@@ -79,9 +78,88 @@ test("image generation rejects history and empty text before requesting", () => 
     input.chat.messages = messages
     assert.throws(
       () => gptImageParams(input),
-      errorIncluding(ValidationError, "fresh prompt with text"),
+      errorIncluding(ValidationError, "prompt with text"),
     )
   }
+
+  input.chat.messages = [user, { ...user, content: "make it blue" }]
+  assert.throws(
+    () => gptImageParams(input),
+    errorIncluding(ValidationError, "no previous image"),
+  )
+})
+
+test("OpenAI image reply prepends the previous generated image before new -i images", async (t) => {
+  const oldStateHome = process.env.XDG_STATE_HOME
+  const stateHome = mkdtempSync(join(tmpdir(), "llm-openai-reply-"))
+  process.env.XDG_STATE_HOME = stateHome
+  t.after(() => {
+    if (oldStateHome === undefined) delete process.env.XDG_STATE_HOME
+    else process.env.XDG_STATE_HOME = oldStateHome
+    rmSync(stateHome, { recursive: true })
+  })
+
+  const prevPath = join(stateHome, "prev.png")
+  writeFileSync(prevPath, new Uint8Array([9, 8, 7]))
+
+  const calls: Array<{ url: string; form: FormData }> = []
+  const mockFetch: typeof fetch = async (input, init) => {
+    const request = new Request(input, init)
+    if (request.url === "data:,") return new Response()
+    calls.push({ url: request.url, form: await request.formData() })
+    return Response.json({
+      created: 0,
+      quality: "auto",
+      data: [{ b64_json: Buffer.from([1, 2, 3]).toString("base64") }],
+    })
+  }
+
+  const model = testModel("openai", "image")
+  await withFetch(mockFetch, () =>
+    createMessage({
+      model,
+      apiKey: "test-key",
+      config: { search: false, think: undefined },
+      chat: {
+        id: "test",
+        createdAt: new Date(0),
+        systemPrompt: "",
+        messages: [
+          { role: "user", content: "a cat", createdAt: new Date(0) },
+          {
+            role: "assistant",
+            model: model.id,
+            content: prevPath,
+            images: [prevPath],
+            tokens: { input: 10, output: 100 },
+            stop_reason: "completed",
+            cost: 0,
+            timeMs: 100,
+            createdAt: new Date(0),
+          },
+          {
+            role: "user",
+            content: "give it this hat",
+            image_urls: ["data:image/jpeg;base64,AQID"],
+            createdAt: new Date(0),
+          },
+        ],
+      },
+    }),
+  )
+
+  assert.deepEqual(calls[0].url, "https://api.openai.com/v1/images/edits")
+  assert.deepEqual(calls[0].form.get("prompt"), "give it this hat")
+  const files = calls[0].form.getAll("image[]") as File[]
+  assert.deepEqual(
+    files.map((f) => [f.name, f.type]),
+    [
+      ["image-0.png", "image/png"],
+      ["image-1.jpg", "image/jpeg"],
+    ],
+  )
+  assert.deepEqual(new Uint8Array(await files[0].arrayBuffer()), new Uint8Array([9, 8, 7]))
+  assert.deepEqual(new Uint8Array(await files[1].arrayBuffer()), new Uint8Array([1, 2, 3]))
 })
 
 test("OpenAI image editing sends multipart images to /images/edits", async (t) => {

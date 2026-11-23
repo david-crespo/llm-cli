@@ -5,7 +5,7 @@ import { Buffer } from "node:buffer"
 import { match, P } from "ts-pattern"
 
 import { ValidationError } from "../errors.ts"
-import { parseDataUrl } from "../image-input.ts"
+import { parseDataUrl, resolveImage } from "../image-input.ts"
 import { postprocessSchemaContent, prepareSchema } from "../schema.ts"
 import type { BackgroundStatus, ThinkLevel } from "../types.ts"
 import { getCost, type Model } from "../models.ts"
@@ -199,8 +199,10 @@ async function imageToUploadable(imageUrl: string, index: number, signal?: Abort
   return toFile(bytes, `image-${index}.${ext}`, { type: mediaType })
 }
 
-export function gptImageParams({ chat, model, imageOptions }: ChatInput) {
-  const { prompt } = imagePrompt(chat)
+export function gptImageParams(
+  { chat, model, imageOptions }: ChatInput,
+  prompt = imagePrompt(chat).prompt,
+) {
   return {
     model: model.key,
     prompt,
@@ -239,18 +241,22 @@ export function processGptImageResponse(
 }
 
 export async function gptImageCreateMessage(chatInput: ChatInput): Promise<ModelResponse> {
-  const { prompt, imageUrls } = imagePrompt(chatInput.chat)
-  const params = gptImageParams(chatInput)
+  const { prompt, imageUrls, previousImages } = imagePrompt(chatInput.chat)
+  const params = gptImageParams(chatInput, prompt)
+  const allImages = [
+    ...(await Promise.all(previousImages.map((path) => resolveImage(path)))),
+    ...imageUrls,
+  ]
   const client = new OpenAI({ apiKey: chatInput.apiKey })
   let response: OpenAI.ImagesResponse
-  if (imageUrls.length > 0) {
-    if (imageUrls.length > OPENAI_EDIT_MAX_IMAGES) {
+  if (allImages.length > 0) {
+    if (allImages.length > OPENAI_EDIT_MAX_IMAGES) {
       throw new ValidationError(
-        `OpenAI image editing accepts at most ${OPENAI_EDIT_MAX_IMAGES} images (got ${imageUrls.length})`,
+        `OpenAI image editing accepts at most ${OPENAI_EDIT_MAX_IMAGES} images (got ${allImages.length})`,
       )
     }
     const files = await Promise.all(
-      imageUrls.map((url, i) => imageToUploadable(url, i, chatInput.signal)),
+      allImages.map((url, i) => imageToUploadable(url, i, chatInput.signal)),
     )
     response = await client.images.edit(
       { ...params, image: files.length === 1 ? files[0] : files },

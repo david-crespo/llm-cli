@@ -13,7 +13,7 @@ import { join } from "node:path"
 
 import { postprocessSchemaContent, prepareSchema } from "../schema.ts"
 import { getCost, type Model } from "../models.ts"
-import { parseDataUrl } from "../image-input.ts"
+import { parseDataUrl, resolveImage } from "../image-input.ts"
 import type { ThinkLevel } from "../types.ts"
 import { type ChatInput, imagePrompt, type ModelResponse } from "./types.ts"
 import { saveImage } from "../storage.ts"
@@ -216,6 +216,14 @@ async function toPng(bytes: Uint8Array, mimeType: string): Promise<Uint8Array> {
   }
 }
 
+function isStaleInteractionError(e: unknown): boolean {
+  if (!e || typeof e !== "object") return false
+  const status =
+    ("status" in e && typeof e.status === "number" ? e.status : undefined) ??
+    ("statusCode" in e && typeof e.statusCode === "number" ? e.statusCode : undefined)
+  return status === 404 || status === 403
+}
+
 export async function geminiImageCreateMessage({
   chat,
   model,
@@ -224,38 +232,68 @@ export async function geminiImageCreateMessage({
   signal,
   imageOptions,
 }: ChatInput): Promise<ModelResponse> {
-  const { prompt, imageUrls } = imagePrompt(chat)
+  const { prompt, imageUrls, previousImages } = imagePrompt(chat)
   const { effort } = geminiThinkParams(model.key, config.think)
-  const input: Interactions.CreateModelInteractionParamsNonStreaming["input"] =
-    imageUrls.length > 0
-      ? [
-          {
-            type: "user_input",
-            content: [
-              ...(await Promise.all(
-                imageUrls.map(async (url): Promise<Interactions.ImageContent> => {
-                  const { mimeType, data } = await imageToBase64(url, signal)
-                  return { type: "image", mime_type: mimeType, data }
-                }),
-              )),
-              { type: "text", text: prompt },
-            ],
-          },
-        ]
-      : prompt
-  const request = {
-    model: model.key,
-    input,
-    generation_config: { thinking_level: effort },
-    // Google's default is 1K
-    response_format: {
-      type: "image" as const,
-      image_size: imageOptions?.size ?? "2K",
-      ...(imageOptions?.aspect ? { aspect_ratio: imageOptions.aspect } : {}),
-    },
-  } satisfies Interactions.InteractionCreateParams.CreateModelInteractionParamsNonStreaming
-  validateRequestSize("Gemini", request)
-  const result = await new GoogleGenAI({ apiKey }).interactions.create(request, { signal })
+  const client = new GoogleGenAI({ apiKey })
+
+  const lastAssistant = chat.messages.slice(0, -1).findLast((m) => m.role === "assistant")
+  const previousInteractionId =
+    lastAssistant?.role === "assistant" && lastAssistant.provider?.type === "google"
+      ? lastAssistant.provider.interactionId
+      : undefined
+
+  const send = async (urls: string[], prevId?: string) => {
+    const input: Interactions.CreateModelInteractionParamsNonStreaming["input"] =
+      urls.length > 0
+        ? [
+            {
+              type: "user_input",
+              content: [
+                ...(await Promise.all(
+                  urls.map(async (url): Promise<Interactions.ImageContent> => {
+                    const { mimeType, data } = await imageToBase64(url, signal)
+                    return { type: "image", mime_type: mimeType, data }
+                  }),
+                )),
+                { type: "text", text: prompt },
+              ],
+            },
+          ]
+        : prompt
+    const request = {
+      model: model.key,
+      input,
+      ...(prevId ? { previous_interaction_id: prevId } : {}),
+      generation_config: { thinking_level: effort },
+      // Google's default is 1K
+      response_format: {
+        type: "image" as const,
+        image_size: imageOptions?.size ?? "2K",
+        ...(imageOptions?.aspect ? { aspect_ratio: imageOptions.aspect } : {}),
+      },
+    } satisfies Interactions.InteractionCreateParams.CreateModelInteractionParamsNonStreaming
+    validateRequestSize("Gemini", request)
+    return client.interactions.create(request, { signal })
+  }
+
+  const sendWithPriorImages = async () => {
+    const priorUrls = await Promise.all(previousImages.map((path) => resolveImage(path)))
+    return send([...priorUrls, ...imageUrls])
+  }
+
+  let result: Interactions.Interaction
+  if (previousInteractionId) {
+    try {
+      result = await send(imageUrls, previousInteractionId)
+    } catch (e) {
+      // Fall back to editing the last saved PNG when the stored interaction
+      // expired or belongs to another API key profile.
+      if (!isStaleInteractionError(e)) throw e
+      result = await sendWithPriorImages()
+    }
+  } else {
+    result = await sendWithPriorImages()
+  }
   const response = await processGeminiImageResponse(
     result,
     model,

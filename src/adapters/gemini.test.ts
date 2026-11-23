@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { mkdtempSync, readFileSync, rmSync } from "node:fs"
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import process from "node:process"
@@ -333,4 +333,134 @@ test("Gemini image editing rejects oversized requests before sending", async () 
       ),
   )
   assert.deepEqual(apiCalls, 0)
+})
+
+test("Gemini image replies chain previous_interaction_id and fall back to saved PNG on 404 or cross-model", async (t) => {
+  const oldStateHome = process.env.XDG_STATE_HOME
+  const stateHome = mkdtempSync(join(tmpdir(), "llm-gemini-reply-"))
+  process.env.XDG_STATE_HOME = stateHome
+  t.after(() => {
+    if (oldStateHome === undefined) delete process.env.XDG_STATE_HOME
+    else process.env.XDG_STATE_HOME = oldStateHome
+    rmSync(stateHome, { recursive: true })
+  })
+
+  const prevPath = join(stateHome, "prev.png")
+  writeFileSync(prevPath, new Uint8Array([9, 8, 7]))
+  const model = testModel("google", "image")
+
+  const okInteraction = (id: string) =>
+    Response.json({
+      id,
+      status: "completed",
+      steps: [
+        {
+          type: "model_output",
+          content: [{ type: "image", mime_type: "image/png", data: "AQID" }],
+        },
+      ],
+    })
+
+  const makeChat = (provider?: { type: "google"; interactionId: string }) => ({
+    id: "test",
+    createdAt: new Date(0),
+    systemPrompt: "",
+    messages: [
+      { role: "user" as const, content: "a fox", createdAt: new Date(0) },
+      {
+        role: "assistant" as const,
+        model: provider ? model.id : testModel("openai", "image").id,
+        content: prevPath,
+        images: [prevPath],
+        provider,
+        tokens: { input: 10, output: 100 },
+        stop_reason: "completed",
+        cost: 0,
+        timeMs: 100,
+        createdAt: new Date(0),
+      },
+      { role: "user" as const, content: "make it blue", createdAt: new Date(0) },
+    ],
+  })
+
+  // 1. Direct Gemini reply chains previous_interaction_id without re-sending the image
+  const { bodies: chainedBodies, result: chained } = await recordRequests(
+    () => okInteraction("int_2"),
+    () =>
+      createMessage({
+        chat: makeChat({ type: "google", interactionId: "int_1" }),
+        model,
+        apiKey: "test-key",
+        config: { search: false, think: undefined },
+      }),
+  )
+  assert.deepEqual(chainedBodies.length, 1)
+  assert.deepEqual(chainedBodies[0].previous_interaction_id, "int_1")
+  assert.deepEqual(chainedBodies[0].input, "make it blue")
+  assert.deepEqual(chained.provider, { type: "google", interactionId: "int_2" })
+
+  // 2. Expired interaction (404) retries once with the saved PNG and no previous_interaction_id
+  const retryBodies: Record<string, unknown>[] = []
+  await withFetch(
+    async (input, init) => {
+      retryBodies.push((await new Request(input, init).json()) as Record<string, unknown>)
+      if (retryBodies.length === 1) {
+        return Response.json(
+          { error: { code: 404, message: "Interaction not found" } },
+          { status: 404 },
+        )
+      }
+      return okInteraction("int_3")
+    },
+    () =>
+      createMessage({
+        chat: makeChat({ type: "google", interactionId: "int_expired" }),
+        model,
+        apiKey: "test-key",
+        config: { search: false, think: undefined },
+      }),
+  )
+  assert.deepEqual(retryBodies.length, 2)
+  assert.deepEqual(retryBodies[0].previous_interaction_id, "int_expired")
+  assert.deepEqual(retryBodies[1].previous_interaction_id, undefined)
+  assert.deepEqual(retryBodies[1].input, [
+    {
+      type: "user_input",
+      content: [
+        {
+          type: "image",
+          mime_type: "image/png",
+          data: Buffer.from([9, 8, 7]).toString("base64"),
+        },
+        { type: "text", text: "make it blue" },
+      ],
+    },
+  ])
+
+  // 3. Cross-model reply (previous turn from OpenAI, no interactionId) edits the saved PNG directly
+  const { bodies: crossBodies } = await recordRequests(
+    () => okInteraction("int_4"),
+    () =>
+      createMessage({
+        chat: makeChat(undefined),
+        model,
+        apiKey: "test-key",
+        config: { search: false, think: undefined },
+      }),
+  )
+  assert.deepEqual(crossBodies.length, 1)
+  assert.deepEqual(crossBodies[0].previous_interaction_id, undefined)
+  assert.deepEqual(crossBodies[0].input, [
+    {
+      type: "user_input",
+      content: [
+        {
+          type: "image",
+          mime_type: "image/png",
+          data: Buffer.from([9, 8, 7]).toString("base64"),
+        },
+        { type: "text", text: "make it blue" },
+      ],
+    },
+  ])
 })

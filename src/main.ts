@@ -525,6 +525,9 @@ Examples:
 
     const problems = requestProblems(model, {
       reply: !!opts.reply,
+      hasPreviousImage: chat.messages.some(
+        (m) => m.role === "assistant" && Boolean(m.images?.length),
+      ),
       system: opts.system !== undefined,
       images: hasImages,
       prompt: input.trim().length > 0,

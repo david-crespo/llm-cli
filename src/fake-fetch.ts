@@ -13,6 +13,8 @@ import { claudeStream, geminiResponse, openaiResponse } from "./testing.ts"
 const log = process.env.FAKE_FETCH_LOG
 if (!log) throw new Error("fake-fetch: FAKE_FETCH_LOG is not set")
 
+let interactionCount = 0
+
 const replies: Array<[RegExp, () => Response]> = [
   [
     /^https:\/\/api\.anthropic\.com\/v1\/messages\b/,
@@ -26,6 +28,20 @@ const replies: Array<[RegExp, () => Response]> = [
   [
     /^https:\/\/generativelanguage\.googleapis\.com\/v1\w*\/models\/[^/]+:generateContent$/,
     () => geminiResponse(),
+  ],
+  [
+    /^https:\/\/generativelanguage\.googleapis\.com\/v1\w*\/interactions$/,
+    () =>
+      Response.json({
+        id: `int_${++interactionCount}`,
+        status: "completed",
+        steps: [
+          {
+            type: "model_output",
+            content: [{ type: "image", mime_type: "image/png", data: "AQID" }],
+          },
+        ],
+      }),
   ],
 ]
 

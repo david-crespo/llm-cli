@@ -43,8 +43,9 @@ ai -r -i third.webp 'How does this compare?'
 
 Local files support PNG, JPEG, GIF, and WebP on all platforms. On macOS, `-i clipboard`
 reads an image from the clipboard. Image input works with OpenAI, Anthropic, and Gemini chat
-models, as well as OpenAI and Gemini image models for single-turn image editing (OpenAI
-edits accept PNG, JPEG, and WebP, up to 16 images and 50 MB each).
+models, as well as OpenAI and Gemini image models for image editing (OpenAI edits accept
+PNG, JPEG, and WebP, up to 16 images and 50 MB each). Use `-r` to iterate on a generated
+image.
 
 Local HEIC/HEIF files are automatically converted to JPEG using macOS's `sips`, preserving
 the original file. If `sips` is unavailable, convert the image to JPEG or PNG first. Images

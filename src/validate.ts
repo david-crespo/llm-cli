@@ -9,6 +9,8 @@ import {
 /** Request flags that some models can't take, resolved from the CLI options */
 export type RequestFlags = {
   reply: boolean
+  /** True when the chat being replied to already has a generated image */
+  hasPreviousImage?: boolean
   system: boolean
   images: boolean
   /** False when the request has no text (e.g., `-i` with no message or stdin) */
@@ -34,9 +36,7 @@ export function requestProblems(model: Model, req: RequestFlags): string[] {
   }
 
   if (model.kind === "image") {
-    // Image models only take a fresh single-turn prompt (with optional input images)
     const unsupported = [
-      req.reply && "-r (use -m to pick a text model)",
       req.system && "--system",
       req.config.search && "--search",
       // Gemini image models take a thinking level
@@ -46,6 +46,9 @@ export function requestProblems(model: Model, req: RequestFlags): string[] {
     ].filter(Boolean)
     if (unsupported.length > 0) {
       problems.push(`Not supported for image models: ${unsupported.join(", ")}`)
+    }
+    if (req.reply && !req.hasPreviousImage) {
+      problems.push("Can't reply with an image model: chat has no previous image")
     }
     if (req.prompt === false) {
       problems.push("Image models require a text prompt")

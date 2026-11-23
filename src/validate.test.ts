@@ -42,10 +42,19 @@ test("image models accept --image and list every unsupported flag in one problem
   ])
 })
 
-test("image models take only a fresh prompt", () => {
+test("image models allow replies only when the chat has a previous image", () => {
+  assert.deepEqual(
+    requestProblems(gptImage, flags({ reply: true, hasPreviousImage: true })),
+    [],
+  )
+  assert.deepEqual(
+    requestProblems(geminiImage, flags({ reply: true, hasPreviousImage: true })),
+    [],
+  )
   const req = flags({ reply: true, system: true, outputSchema: true, background: true })
   assert.deepEqual(requestProblems(gptImage, req), [
-    "Not supported for image models: -r (use -m to pick a text model), --system, --output-schema, --background",
+    "Not supported for image models: --system, --output-schema, --background",
+    "Can't reply with an image model: chat has no previous image",
     "Structured output is not supported in background mode",
   ])
 })

@@ -21,12 +21,12 @@ import { saveImage } from "../storage.ts"
 import { validateRequestSize } from "./request-size.ts"
 
 /** Gemini doesn't accept image URLs directly; inline as bytes either way. */
-async function imageToInlinePart(image_url: string): Promise<Part> {
+async function imageToInlinePart(image_url: string, signal?: AbortSignal): Promise<Part> {
   const parsed = parseDataUrl(image_url)
   if (parsed) {
     return { inlineData: { mimeType: parsed.mediaType, data: parsed.data } }
   }
-  const res = await fetch(image_url)
+  const res = await fetch(image_url, { signal })
   if (!res.ok) throw new Error(`Failed to fetch image: ${res.status}`)
   const buf = new Uint8Array(await res.arrayBuffer())
   const mimeType = res.headers.get("content-type")?.split(";")[0] || "image/png"
@@ -137,7 +137,11 @@ export async function geminiCreateMessage({
     chat.messages.map(async (msg) => {
       const parts: Part[] = msg.content ? [{ text: msg.content }] : []
       if (msg.role === "user" && msg.image_urls?.length) {
-        parts.unshift(...(await Promise.all(msg.image_urls.map(imageToInlinePart))))
+        parts.unshift(
+          ...(await Promise.all(
+            msg.image_urls.map((url) => imageToInlinePart(url, signal)),
+          )),
+        )
       }
       return {
         // gemini uses model instead of assistant
@@ -213,20 +217,26 @@ export async function geminiImageCreateMessage({
   signal,
   imageOptions,
 }: ChatInput): Promise<ModelResponse> {
-  const prompt = imagePrompt(chat)
+  const { prompt, imageUrls } = imagePrompt(chat)
   const { thinkingLevel, effort } = geminiThinkParams(model.key, config.think)
+  const parts: Part[] = [
+    ...(await Promise.all(imageUrls.map((url) => imageToInlinePart(url, signal)))),
+    { text: prompt },
+  ]
+  const contents = [{ role: "user", parts }]
+  const generationConfig = {
+    thinkingConfig: { thinkingLevel },
+    // Google's default is 1K
+    imageConfig: {
+      imageSize: imageOptions?.size ?? "2K",
+      aspectRatio: imageOptions?.aspect,
+    },
+  }
+  validateRequestSize("Gemini", { contents, generationConfig })
   const result = await new GoogleGenAI({ apiKey }).models.generateContent({
     model: model.key,
-    contents: prompt,
-    config: {
-      thinkingConfig: { thinkingLevel },
-      // Google's default is 1K
-      imageConfig: {
-        imageSize: imageOptions?.size ?? "2K",
-        aspectRatio: imageOptions?.aspect,
-      },
-      abortSignal: signal,
-    },
+    contents,
+    config: { ...generationConfig, abortSignal: signal },
   })
   const response = await processGeminiImageResponse(
     result,

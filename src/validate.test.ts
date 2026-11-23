@@ -26,13 +26,19 @@ test("plain prompt is fine for every model", () => {
   }
 })
 
-test("image models list every unsupported flag in one problem", () => {
+test("image models accept --image and list every unsupported flag in one problem", () => {
+  assert.deepEqual(requestProblems(gptImage, flags({ images: true })), [])
+  assert.deepEqual(requestProblems(geminiImage, flags({ images: true })), [])
+  assert.deepEqual(requestProblems(gptImage, flags({ images: true, prompt: false })), [
+    "Image models require a text prompt",
+  ])
+
   const req = flags({ config: { search: true, think: "high" }, images: true })
   assert.deepEqual(requestProblems(gptImage, req), [
-    "Not supported for image models: --image, --search, thinking flags",
+    "Not supported for image models: --search, thinking flags",
   ])
   assert.deepEqual(requestProblems(geminiImage, req), [
-    "Not supported for image models: --image, --search",
+    "Not supported for image models: --search",
   ])
 })
 

@@ -1,12 +1,23 @@
 import assert from "node:assert/strict"
-import { readFileSync } from "node:fs"
+import { mkdtempSync, readFileSync, rmSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+import process from "node:process"
 import { test } from "node:test"
 
 import { MediaModality, ThinkingLevel } from "@google/genai"
 
 import { type } from "arktype"
 
-import { geminiResponse, promptChat, recordRequests, testModel } from "../testing.ts"
+import { ValidationError } from "../errors.ts"
+import {
+  errorIncluding,
+  geminiResponse,
+  promptChat,
+  recordRequests,
+  testModel,
+  withFetch,
+} from "../testing.ts"
 import { createMessage } from "./index.ts"
 import { geminiThinkParams, processGeminiImageResponse, withCitations } from "./gemini.ts"
 
@@ -204,4 +215,98 @@ test("Gemini structured response skips citations and counts thinking as output",
     searches: 1,
     effort: "medium",
   })
+})
+
+test("Gemini image editing sends inline input images with the prompt", async (t) => {
+  const oldStateHome = process.env.XDG_STATE_HOME
+  const stateHome = mkdtempSync(join(tmpdir(), "llm-gemini-img-"))
+  process.env.XDG_STATE_HOME = stateHome
+  t.after(() => {
+    if (oldStateHome === undefined) delete process.env.XDG_STATE_HOME
+    else process.env.XDG_STATE_HOME = oldStateHome
+    rmSync(stateHome, { recursive: true })
+  })
+
+  const imageUrl = "https://example.com/ref.webp"
+  let requestBody: Record<string, unknown> | undefined
+  const mockFetch: typeof fetch = async (input, init) => {
+    const request = new Request(input, init)
+    if (request.url === imageUrl) {
+      return new Response(new Uint8Array([4, 5, 6]), {
+        headers: { "content-type": "image/webp" },
+      })
+    }
+    requestBody = (await request.json()) as Record<string, unknown>
+    return geminiResponse([{ inlineData: { mimeType: "image/png", data: "AQID" } }])
+  }
+
+  const chat = promptChat("Make it sunset")
+  chat.messages[0] = {
+    role: "user",
+    content: "Make it sunset",
+    createdAt: new Date(0),
+    image_urls: ["data:image/png;base64,AQID", imageUrl],
+  }
+
+  const response = await withFetch(mockFetch, () =>
+    createMessage({
+      chat,
+      model: testModel("google", "image"),
+      apiKey: "test-key",
+      config: { search: false, think: "off" },
+      imageOptions: { size: "1K", aspect: "16:9" },
+    }),
+  )
+
+  assert.deepEqual(requestBody?.contents, [
+    {
+      role: "user",
+      parts: [
+        { inlineData: { mimeType: "image/png", data: "AQID" } },
+        { inlineData: { mimeType: "image/webp", data: "BAUG" } },
+        { text: "Make it sunset" },
+      ],
+    },
+  ])
+  assert.deepEqual(requestBody?.generationConfig, {
+    thinkingConfig: { thinkingLevel: "MINIMAL" },
+    imageConfig: { imageSize: "1K", aspectRatio: "16:9" },
+  })
+  assert.deepEqual(response.effort, "minimal")
+  assert.deepEqual(response.images?.length, 1)
+  assert.deepEqual(readFileSync(response.images![0]), Buffer.from([1, 2, 3]))
+})
+
+test("Gemini image editing rejects oversized requests before sending", async () => {
+  let apiCalls = 0
+  await withFetch(
+    () => {
+      apiCalls++
+      return Promise.resolve(geminiResponse())
+    },
+    () =>
+      assert.rejects(
+        () =>
+          createMessage({
+            model: testModel("google", "image"),
+            apiKey: "test-key",
+            config: { search: false, think: undefined },
+            chat: {
+              id: "test",
+              createdAt: new Date(0),
+              systemPrompt: "test",
+              messages: [
+                {
+                  role: "user",
+                  content: "Edit this",
+                  image_urls: ["data:image/png;base64," + "A".repeat(20_000_000)],
+                  createdAt: new Date(0),
+                },
+              ],
+            },
+          }),
+        errorIncluding(ValidationError, "Gemini request is larger than the 20 MB limit"),
+      ),
+  )
+  assert.deepEqual(apiCalls, 0)
 })

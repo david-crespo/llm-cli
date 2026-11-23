@@ -42,15 +42,11 @@ export type ImageOptions = {
   aspect?: string
 }
 
-/** Image generation currently accepts only a fresh text prompt. */
-export function imagePrompt(chat: Chat): string {
+/** Single-turn user prompt and optional input images for image models. */
+export function imagePrompt(chat: Chat): { prompt: string; imageUrls: string[] } {
   const [message] = chat.messages
-  if (
-    chat.messages.length !== 1 ||
-    message?.role !== "user" ||
-    message.image_urls?.length
-  ) {
-    throw new ValidationError("Image generation requires a fresh text-only prompt")
+  if (chat.messages.length !== 1 || message?.role !== "user" || !message.content.trim()) {
+    throw new ValidationError("Image models require a fresh prompt with text")
   }
-  return message.content
+  return { prompt: message.content, imageUrls: message.image_urls ?? [] }
 }

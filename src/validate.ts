@@ -11,6 +11,8 @@ export type RequestFlags = {
   reply: boolean
   system: boolean
   images: boolean
+  /** False when the request has no text (e.g., `-i` with no message or stdin) */
+  prompt?: boolean
   config: ToolConfig
   outputSchema: boolean
   background: boolean
@@ -32,11 +34,10 @@ export function requestProblems(model: Model, req: RequestFlags): string[] {
   }
 
   if (model.kind === "image") {
-    // Image models only take a fresh text prompt for now
+    // Image models only take a fresh single-turn prompt (with optional input images)
     const unsupported = [
       req.reply && "-r (use -m to pick a text model)",
       req.system && "--system",
-      req.images && "--image",
       req.config.search && "--search",
       // Gemini image models take a thinking level
       provider !== "google" && req.config.think !== undefined && "thinking flags",
@@ -45,6 +46,9 @@ export function requestProblems(model: Model, req: RequestFlags): string[] {
     ].filter(Boolean)
     if (unsupported.length > 0) {
       problems.push(`Not supported for image models: ${unsupported.join(", ")}`)
+    }
+    if (req.prompt === false) {
+      problems.push("Image models require a text prompt")
     }
     if (provider === "google") {
       if (req.quality) problems.push("--quality only applies to OpenAI image models")

@@ -344,10 +344,12 @@ async function modelInfoMd(modelArg: string) {
 
   if (model.kind === "image") {
     if (provider === "openai") {
-      lines.push(`image generation: --quality ${imageQualities.join("|")}, --size WxH|auto`)
+      lines.push(
+        `image generation/editing: -i/--image, --quality ${imageQualities.join("|")}, --size WxH|auto`,
+      )
     } else {
       lines.push(
-        "image generation: --size 1K|2K|4K (default 2K), --aspect W:H",
+        "image generation/editing: -i/--image, --size 1K|2K|4K (default 2K), --aspect W:H",
         "aspect ratios include 1:1, 3:2, 2:3, 4:3, 3:4, 5:4, 16:9, 9:16, 21:9, 4:1, 1:4, 8:1, 1:8",
         "without --aspect, the model chooses the ratio",
       )
@@ -456,6 +458,7 @@ Examples:
   ai gist -t 'Generic types'
   ai -m flare --quality low 'a lighthouse at dusk'
   ai -m banana --size 2K --aspect 16:9 'a lighthouse at dusk'
+  ai -m banana -i photo.png 'make it sunset'
   ai -i first.png -i second.jpg 'Compare these images'`,
   )
   .action(async (message, opts) => {
@@ -524,6 +527,7 @@ Examples:
       reply: !!opts.reply,
       system: opts.system !== undefined,
       images: hasImages,
+      prompt: input.trim().length > 0,
       config: chatInput.config,
       outputSchema: !!outputSchema,
       background: !!opts.background,

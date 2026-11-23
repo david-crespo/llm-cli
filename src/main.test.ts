@@ -218,6 +218,42 @@ test("-r is refused while a background response is pending", (t) => {
   assert.deepEqual(requests(), [])
 })
 
+test("image models refuse replies and image-only prompts before any request", (t) => {
+  const { ai, requests, inState } = setup(t)
+  const imageModel = testModel("openai", "image")
+  inState(() =>
+    History.save(
+      {
+        id: "img",
+        createdAt: new Date(),
+        systemPrompt: "test",
+        messages: [
+          { role: "user", content: "a fox", createdAt: new Date() },
+          {
+            role: "assistant",
+            model: imageModel.id,
+            content: "/tmp/fox.png",
+            images: ["/tmp/fox.png"],
+            tokens: { input: 10, output: 100 },
+            stop_reason: "completed",
+            cost: 0,
+            timeMs: 100,
+            createdAt: new Date(),
+          },
+        ],
+      },
+      { current: true },
+    ),
+  )
+
+  const reply = ai(["-r", "make it blue"], "x", 1)
+  assert(reply.stderr.includes("-r (use -m to pick a text model)"), reply.stderr)
+
+  const noText = ai(["-m", imageModel.id, "-i", "https://example.com/a.png"], "", 1)
+  assert(noText.stderr.includes("Image models require a text prompt"), noText.stderr)
+  assert.deepEqual(requests(), [])
+})
+
 test("ai gist only summarizes when creating an untitled gist without a saved summary", (t) => {
   const binDir = mkdtempSync(join(tmpdir(), "llm-cli-gh-"))
   t.after(() => rmSync(binDir, { recursive: true }))

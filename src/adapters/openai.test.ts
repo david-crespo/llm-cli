@@ -1,14 +1,20 @@
 import assert from "node:assert/strict"
-import { test } from "node:test"
 import { Buffer } from "node:buffer"
+import { mkdtempSync, readFileSync, rmSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+import process from "node:process"
+import { test } from "node:test"
 import { type } from "arktype"
 
+import { ValidationError } from "../errors.ts"
 import {
   errorIncluding,
   openaiResponse,
   promptChat,
   recordRequests,
   testModel,
+  withFetch,
 } from "../testing.ts"
 import type { ThinkLevel } from "../types.ts"
 import { createMessage } from "./index.ts"
@@ -52,7 +58,7 @@ test("image response saves each image and counts tokens", () => {
   assert.deepEqual(response.tokens, { input: 20, output: 200 })
 })
 
-test("image generation rejects history and input images before requesting", () => {
+test("image generation rejects history and empty text before requesting", () => {
   const user = { role: "user" as const, content: "a cat", createdAt: new Date() }
   const input: ChatInput = {
     chat: { id: "test", createdAt: new Date(), systemPrompt: "", messages: [user] },
@@ -61,22 +67,135 @@ test("image generation rejects history and input images before requesting", () =
     config: { search: false, think: undefined },
   }
   assert.deepEqual(gptImageParams(input).prompt, "a cat")
+  input.chat.messages = [{ ...user, image_urls: ["data:image/png;base64,AQID"] }]
+  assert.deepEqual(gptImageParams(input).prompt, "a cat")
+
   for (const messages of [
     [user, { ...user, content: "make it blue" }],
-    [
-      {
-        ...user,
-        image_urls: ["data:image/png;base64,AQID", "https://example.com/image.jpg"],
-      },
-    ],
+    [{ ...user, content: "", image_urls: ["data:image/png;base64,AQID"] }],
+    [{ ...user, content: "   " }],
     [],
   ]) {
     input.chat.messages = messages
     assert.throws(
       () => gptImageParams(input),
-      errorIncluding(Error, "fresh text-only prompt"),
+      errorIncluding(ValidationError, "fresh prompt with text"),
     )
   }
+})
+
+test("OpenAI image editing sends multipart images to /images/edits", async (t) => {
+  const oldStateHome = process.env.XDG_STATE_HOME
+  const stateHome = mkdtempSync(join(tmpdir(), "llm-openai-img-"))
+  process.env.XDG_STATE_HOME = stateHome
+  t.after(() => {
+    if (oldStateHome === undefined) delete process.env.XDG_STATE_HOME
+    else process.env.XDG_STATE_HOME = oldStateHome
+    rmSync(stateHome, { recursive: true })
+  })
+
+  const remoteUrl = "https://example.com/second.webp"
+  const calls: Array<{ url: string; form: FormData }> = []
+  const mockFetch: typeof fetch = async (input, init) => {
+    const request = new Request(input, init)
+    if (request.url === "data:,") return new Response()
+    if (request.url === remoteUrl) {
+      return new Response(new Uint8Array([4, 5, 6]), {
+        headers: { "content-type": "image/webp; charset=binary" },
+      })
+    }
+    calls.push({ url: request.url, form: await request.formData() })
+    return Response.json({
+      created: 0,
+      quality: "high",
+      data: [{ b64_json: Buffer.from([7, 8, 9]).toString("base64") }],
+      usage: {
+        input_tokens: 100,
+        input_tokens_details: { text_tokens: 20, image_tokens: 80 },
+        output_tokens: 200,
+        total_tokens: 300,
+      },
+    })
+  }
+
+  const model = testModel("openai", "image")
+  const run = (image_urls: string[]) =>
+    withFetch(mockFetch, () =>
+      createMessage({
+        model,
+        apiKey: "test-key",
+        config: { search: false, think: undefined },
+        imageOptions: { quality: "high", size: "1024x1024" },
+        chat: {
+          id: "test",
+          createdAt: new Date(0),
+          systemPrompt: "",
+          messages: [
+            { role: "user", content: "Add a hat", image_urls, createdAt: new Date(0) },
+          ],
+        },
+      }),
+    )
+
+  // Single image sends `image`
+  const single = await run(["data:image/png;base64,AQID"])
+  assert.deepEqual(calls[0].url, "https://api.openai.com/v1/images/edits")
+  assert.deepEqual(calls[0].form.get("model"), model.key)
+  assert.deepEqual(calls[0].form.get("prompt"), "Add a hat")
+  assert.deepEqual(calls[0].form.get("quality"), "high")
+  assert.deepEqual(calls[0].form.get("size"), "1024x1024")
+  assert.deepEqual(calls[0].form.get("output_format"), "png")
+  const file0 = calls[0].form.get("image") as File
+  assert.deepEqual([file0.name, file0.type], ["image-0.png", "image/png"])
+  assert.deepEqual(new Uint8Array(await file0.arrayBuffer()), new Uint8Array([1, 2, 3]))
+  assert.deepEqual(readFileSync(single.images![0]), Buffer.from([7, 8, 9]))
+
+  // Multiple images send `image[]` in order
+  await run(["data:image/jpeg;base64,AQID", remoteUrl])
+  assert.deepEqual(calls[1].url, "https://api.openai.com/v1/images/edits")
+  const files = calls[1].form.getAll("image[]") as File[]
+  assert.deepEqual(
+    files.map((f) => [f.name, f.type]),
+    [
+      ["image-0.jpg", "image/jpeg"],
+      ["image-1.webp", "image/webp"],
+    ],
+  )
+  assert.deepEqual(new Uint8Array(await files[1].arrayBuffer()), new Uint8Array([4, 5, 6]))
+})
+
+test("OpenAI image editing rejects GIFs and >16 images before uploading", async () => {
+  let apiCalls = 0
+  const mockFetch: typeof fetch = () => {
+    apiCalls++
+    return Promise.resolve(Response.json({ created: 0, data: [] }))
+  }
+  const makeInput = (image_urls: string[]): ChatInput => ({
+    model: testModel("openai", "image"),
+    apiKey: "test-key",
+    config: { search: false, think: undefined },
+    chat: {
+      id: "test",
+      createdAt: new Date(0),
+      systemPrompt: "",
+      messages: [{ role: "user", content: "Edit", image_urls, createdAt: new Date(0) }],
+    },
+  })
+
+  await withFetch(mockFetch, async () => {
+    await assert.rejects(
+      () => createMessage(makeInput(["data:image/gif;base64,AQID"])),
+      errorIncluding(ValidationError, "only supports PNG, JPEG, and WebP"),
+    )
+    await assert.rejects(
+      () =>
+        createMessage(
+          makeInput(Array.from({ length: 17 }, () => "data:image/png;base64,AQID")),
+        ),
+      errorIncluding(ValidationError, "at most 16 images"),
+    )
+  })
+  assert.deepEqual(apiCalls, 0)
 })
 
 test("OpenAI structured response unwraps the value and keeps the response ID", async () => {
